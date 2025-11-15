@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>CorgPhish — Настройки</title>
+    <link rel="stylesheet" href="pages.css" />
+</head>
+<body>
+<div class="page">
+    <header class="page__header">
+        <div class="brand">
+            <div class="brand__logo">CP</div>
+            <div>
+                <p class="brand__title">Настройки</p>
+                <p class="brand__subtitle">Управляйте поведением расширения</p>
+            </div>
+        </div>
+        <div class="actions">
+            <button class="button" id="backBtn" type="button">Вернуться в CorgPhish</button>
+        </div>
+    </header>
+
+    <section class="card">
+        <h2 class="section__title">Опции защиты</h2>
+        <div class="settings-list">
+            <label class="setting-item">
+                <div class="setting-item__info">
+                    <h4>Автопроверка при открытии</h4>
+                    <p>Автоматически запускать анализ при открытии попапа.</p>
+                </div>
+                <div class="switch">
+                    <input type="checkbox" id="autoCheckInput" />
+                    <span class="slider"></span>
+                </div>
+            </label>
+
+            <label class="setting-item">
+                <div class="setting-item__info">
+                    <h4>Уведомления о рисках</h4>
+                    <p>Показывать уведомление при обнаружении подозрительного сайта.</p>
+                </div>
+                <div class="switch">
+                    <input type="checkbox" id="alertInput" />
+                    <span class="slider"></span>
+                </div>
+            </label>
+
+            <label class="setting-item">
+                <div class="setting-item__info">
+                    <h4>Порог списка</h4>
+                    <p>Хранить максимум 50 записей истории.</p>
+                </div>
+                <span class="chip chip--warning">фиксировано</span>
+            </label>
+        </div>
+    </section>
+
+    <p class="note" id="statusMessage">Состояние настроек сохранится автоматически.</p>
+</div>
+<script src="settings.js"></script>
+</body>
+</html>

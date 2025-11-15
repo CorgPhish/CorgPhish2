@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>CorgPhish — История проверок</title>
+    <link rel="stylesheet" href="pages.css" />
+</head>
+<body>
+<div class="page">
+    <header class="page__header">
+        <div class="brand">
+            <div class="brand__logo">CP</div>
+            <div>
+                <p class="brand__title">История проверок</p>
+                <p class="brand__subtitle">Последние результаты анализа сайтов</p>
+            </div>
+        </div>
+        <div class="actions">
+            <button class="button--ghost button" id="clearHistoryBtn" type="button">Очистить</button>
+            <button class="button" id="backToPopupBtn" type="button">Вернуться к проверке</button>
+        </div>
+    </header>
+
+    <section class="card">
+        <h2 class="section__title">Последние проверки</h2>
+        <ul class="history-list" id="historyList"></ul>
+        <div class="empty-state" id="historyEmpty" hidden>
+            Пока нет данных. Используйте расширение для проверки сайтов, и здесь появится список.
+        </div>
+    </section>
+
+    <p class="note">
+        Сохраняются последние 50 проверок. Данные хранятся локально и не покидают устройство.
+    </p>
+</div>
+<script src="history.js"></script>
+</body>
+</html>

@@ -93,6 +93,13 @@ body {
     transform: translateY(1px);
 }
 
+.button--ghost {
+    background: transparent;
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: none;
+}
+
 .status-card__badge {
     display: inline-flex;
     align-items: center;
@@ -185,6 +192,17 @@ body {
     margin: 4px 0 0;
     font-size: 13px;
     color: #cbd5f5;
+}
+
+.quick-actions__buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quick-actions__buttons .button {
+    width: 100%;
+    text-align: center;
 }
 
 .link-button {

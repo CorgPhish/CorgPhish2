@@ -1,0 +1,242 @@
+:root {
+    color-scheme: dark;
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #020617;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, rgba(59, 130, 246, 0.2), transparent 55%), #020617;
+    color: #f8fafc;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+}
+
+.page {
+    width: min(760px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.page__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand__logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #fbbf24, #f97316);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+    box-shadow: 0 12px 24px rgba(249, 115, 22, 0.5);
+}
+
+.brand__title {
+    margin: 0;
+    font-size: 22px;
+}
+
+.brand__subtitle {
+    margin: 2px 0 0;
+    color: #94a3b8;
+}
+
+.button {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(120deg, #34d399, #059669);
+    color: #052e16;
+    box-shadow: 0 6px 20px rgba(52, 211, 153, 0.35);
+}
+
+.button--ghost {
+    background: transparent;
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    box-shadow: none;
+}
+
+.card {
+    background: rgba(15, 23, 42, 0.95);
+    border-radius: 20px;
+    padding: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 20px 40px rgba(2, 6, 23, 0.65);
+}
+
+.section__title {
+    margin: 0 0 12px;
+    font-size: 18px;
+}
+
+.history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.history-item {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(148, 163, 184, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.history-item__info h4 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.history-item__info p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.chip--trusted {
+    background: rgba(16, 185, 129, 0.18);
+    color: #6ee7b7;
+}
+
+.chip--untrusted {
+    background: rgba(248, 113, 113, 0.2);
+    color: #fecdd3;
+}
+
+.chip--warning {
+    background: rgba(251, 191, 36, 0.18);
+    color: #fde68a;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+}
+
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.setting-item:last-child {
+    border-bottom: none;
+}
+
+.setting-item__info h4 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.setting-item__info p {
+    margin: 6px 0 0;
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 26px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(148, 163, 184, 0.4);
+    transition: 0.3s;
+    border-radius: 999px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #34d399;
+}
+
+input:checked + .slider:before {
+    transform: translateX(18px);
+}
+
+.note {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 16px;
+}
+
+.actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}

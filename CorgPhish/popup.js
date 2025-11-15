@@ -8,8 +8,17 @@ const dom = {
     recommendationsList: document.getElementById("recommendationsList"),
     riskLevel: document.getElementById("riskLevel"),
     refreshBtn: document.getElementById("refreshBtn"),
-    viewListBtn: document.getElementById("viewListBtn")
+    viewListBtn: document.getElementById("viewListBtn"),
+    openHistoryBtn: document.getElementById("openHistoryBtn"),
+    openSettingsBtn: document.getElementById("openSettingsBtn")
 };
+
+const DEFAULT_SETTINGS = {
+    autoCheckOnOpen: true,
+    warnOnUntrusted: true
+};
+
+const HISTORY_LIMIT = 50;
 
 const VIEW_STATES = {
     pending: {
@@ -71,6 +80,7 @@ const VIEW_STATES = {
 };
 
 let trustedCache = null;
+let currentSettings = { ...DEFAULT_SETTINGS };
 
 const normalizeHost = (hostname = "") =>
     hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
@@ -127,6 +137,13 @@ const loadTrustedList = async () => {
     return trustedCache;
 };
 
+const loadSettings = () =>
+    new Promise((resolve) => {
+        chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
+            resolve({ ...DEFAULT_SETTINGS, ...settings });
+        });
+    });
+
 const isTrustedDomain = (hostname, trustedList) => {
     const cleanHost = normalizeHost(hostname);
     return trustedList.some((domain) => cleanHost === domain || cleanHost.endsWith(`.${domain}`));
@@ -143,6 +160,23 @@ const getActiveTab = () =>
             resolve((tabs || [])[0]);
         });
     });
+
+const recordHistory = (entry) =>
+    new Promise((resolve) => {
+        chrome.storage.local.get({ scanHistory: [] }, (result) => {
+            const history = Array.isArray(result.scanHistory) ? result.scanHistory : [];
+            const next = [entry, ...history].slice(0, HISTORY_LIMIT);
+            chrome.storage.local.set({ scanHistory: next }, resolve);
+        });
+    });
+
+const warnAboutUntrusted = (domain) => {
+    if (!currentSettings.warnOnUntrusted) {
+        return;
+    }
+
+    alert(`CorgPhish предупреждает: сайт ${domain} не найден в списке доверенных.`);
+};
 
 const checkActiveTab = async () => {
     applyState("pending");
@@ -166,6 +200,11 @@ const checkActiveTab = async () => {
         const verdict = isTrustedDomain(hostname, trustedList) ? "trusted" : "untrusted";
 
         applyState(verdict, { domain: cleanDomain, checkedAt: new Date() });
+        await recordHistory({ domain: cleanDomain, verdict, checkedAt: Date.now() });
+
+        if (verdict === "untrusted") {
+            warnAboutUntrusted(cleanDomain);
+        }
     } catch (error) {
         console.error("Ошибка во время проверки", error);
         applyState("error", { error: error?.message });
@@ -183,6 +222,10 @@ const openTrustedCatalog = () => {
     });
 };
 
+const openPage = (relativePath) => {
+    chrome.tabs.create({ url: chrome.runtime.getURL(relativePath) });
+};
+
 dom.refreshBtn.addEventListener("click", () => {
     checkActiveTab();
 });
@@ -191,4 +234,17 @@ dom.viewListBtn.addEventListener("click", () => {
     openTrustedCatalog();
 });
 
-checkActiveTab();
+dom.openHistoryBtn?.addEventListener("click", () => openPage("history.html"));
+dom.openSettingsBtn?.addEventListener("click", () => openPage("settings.html"));
+
+const init = async () => {
+    currentSettings = await loadSettings();
+
+    if (currentSettings.autoCheckOnOpen) {
+        checkActiveTab();
+    } else {
+        applyState("pending");
+    }
+};
+
+init();
