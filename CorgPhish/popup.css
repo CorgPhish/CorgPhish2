@@ -1,0 +1,259 @@
+:root {
+    color-scheme: dark;
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #010409;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    width: 360px;
+    min-height: 520px;
+    background: #020617;
+    color: #f8fafc;
+}
+
+.app {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.card {
+    background: #0f172a;
+    border-radius: 20px;
+    padding: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.45);
+}
+
+.app__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.brand__logo {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #fbbf24, #f97316);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 18px;
+    box-shadow: 0 12px 24px rgba(249, 115, 22, 0.5);
+}
+
+.brand__title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.brand__subtitle {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.button {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(120deg, #34d399, #059669);
+    color: #052e16;
+    box-shadow: 0 6px 20px rgba(52, 211, 153, 0.35);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.button:not(:disabled):active {
+    transform: translateY(1px);
+}
+
+.status-card__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.2);
+}
+
+.status-card__title {
+    margin: 12px 0 6px;
+    font-size: 22px;
+}
+
+.status-card__hint {
+    margin: 0;
+    font-size: 14px;
+    color: #cbd5f5;
+}
+
+.status-card__meta {
+    margin: 18px 0 12px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.status-card__meta dt {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+
+.status-card__meta dd {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.status-card__timestamp {
+    margin: 0;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.card__header h3,
+.card__header h4 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.tag {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(148, 163, 184, 0.2);
+}
+
+.recommendations__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 14px;
+    color: #e2e8f0;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.info-card p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #cbd5f5;
+}
+
+.link-button {
+    margin-top: 10px;
+    background: none;
+    border: none;
+    color: #38bdf8;
+    padding: 0;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.link-button:hover {
+    color: #7dd3fc;
+}
+
+code {
+    background: rgba(148, 163, 184, 0.2);
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.footer-note {
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: center;
+    margin: 0;
+}
+
+[data-state="trusted"] .status-card__badge {
+    background: rgba(16, 185, 129, 0.18);
+    color: #6ee7b7;
+}
+
+[data-state="trusted"] .tag {
+    background: rgba(16, 185, 129, 0.18);
+    color: #6ee7b7;
+}
+
+[data-state="untrusted"] .status-card__badge,
+[data-state="warning"] .status-card__badge {
+    background: rgba(248, 113, 113, 0.18);
+    color: #f87171;
+}
+
+[data-state="untrusted"] .tag,
+[data-state="warning"] .tag {
+    background: rgba(248, 113, 113, 0.18);
+    color: #fecdd3;
+}
+
+[data-state="error"] .status-card__badge {
+    background: rgba(251, 191, 36, 0.18);
+    color: #fcd34d;
+}
+
+[data-state="error"] .tag {
+    background: rgba(251, 191, 36, 0.18);
+    color: #fde68a;
+}
+
+[data-state="pending"] .status-card__badge {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+}
+
+[data-state="pending"] .tag {
+    background: rgba(59, 130, 246, 0.2);
+    color: #bfdbfe;
+}

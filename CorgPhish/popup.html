@@ -1,19 +1,75 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>Trusted Checker</title>
-    <style>
-        body { font-family: Arial; width: 200px; padding: 10px; }
-        .status { font-size: 18px; margin-top: 10px; }
-        .trusted { color: green; }
-        .untrusted { color: red; }
-        .error { color: #b45309; }
-    </style>
+    <meta charset="UTF-8" />
+    <title>CorgPhish — защита от фишинга</title>
+    <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-<h3>Проверка сайта</h3>
-<div id="status" class="status">Проверяю...</div>
+<div class="app" id="app" data-state="pending">
+    <header class="app__header">
+        <div class="brand">
+            <div class="brand__logo">CP</div>
+            <div>
+                <p class="brand__title">CorgPhish</p>
+                <p class="brand__subtitle">Главная панель защиты</p>
+            </div>
+        </div>
+        <button class="button" id="refreshBtn" type="button">
+            Перепроверить
+        </button>
+    </header>
+
+    <section class="card status-card">
+        <div class="status-card__badge" id="statusBadge">Проверяем...</div>
+        <h2 class="status-card__title" id="statusTitle">Анализируем активную вкладку</h2>
+        <p class="status-card__hint" id="statusHint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
+
+        <dl class="status-card__meta">
+            <div>
+                <dt>Домен</dt>
+                <dd id="domainValue">—</dd>
+            </div>
+            <div>
+                <dt>Источник проверки</dt>
+                <dd>trusted.json</dd>
+            </div>
+        </dl>
+        <p class="status-card__timestamp">
+            Последняя проверка: <span id="checkedAt">—</span>
+        </p>
+    </section>
+
+    <section class="card recommendations">
+        <div class="card__header">
+            <h3>Рекомендации</h3>
+            <span class="tag" id="riskLevel">—</span>
+        </div>
+        <ul class="recommendations__list" id="recommendationsList">
+            <li>Держите вкладку открытой, чтобы мы могли её проанализировать.</li>
+        </ul>
+    </section>
+
+    <section class="grid">
+        <article class="card info-card">
+            <div class="card__header">
+                <h4>Каталог доверия</h4>
+            </div>
+            <p>Включает популярные мировые сайты и официальные домены госорганов РФ.</p>
+            <button class="link-button" id="viewListBtn" type="button">Открыть список</button>
+        </article>
+        <article class="card info-card">
+            <div class="card__header">
+                <h4>Обновление</h4>
+            </div>
+            <p>Добавьте новый домен, просто изменив файл <code>trusted.json</code> в расширении.</p>
+        </article>
+    </section>
+
+    <p class="footer-note">
+        CorgPhish проверяет только сайты по протоколам HTTP/HTTPS и работает локально.
+    </p>
+</div>
 <script src="popup.js"></script>
 </body>
 </html>
