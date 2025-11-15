@@ -2,11 +2,18 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>CorgPhish</title>
+    <title>Trusted Checker</title>
+    <style>
+        body { font-family: Arial; width: 200px; padding: 10px; }
+        .status { font-size: 18px; margin-top: 10px; }
+        .trusted { color: green; }
+        .untrusted { color: red; }
+        .error { color: #b45309; }
+    </style>
 </head>
 <body>
-<h1>Hello!</h1>
-<button id="btn">Click me</button>
+<h3>Проверка сайта</h3>
+<div id="status" class="status">Проверяю...</div>
 <script src="popup.js"></script>
 </body>
 </html>
