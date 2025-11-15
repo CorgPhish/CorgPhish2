@@ -6,79 +6,133 @@
     <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-<div class="app" id="app" data-state="pending">
-    <header class="app__header">
-        <div class="brand">
-            <div class="brand__logo">CP</div>
-            <div>
-                <p class="brand__title">CorgPhish</p>
-                <p class="brand__subtitle">Главная панель защиты</p>
-            </div>
-        </div>
-        <button class="button" id="refreshBtn" type="button">
-            Перепроверить
-        </button>
-    </header>
+<div class="app" id="app" data-state="pending" data-view="main">
+    <div class="view-container">
+        <section class="view view--main" id="viewMain">
+            <header class="app__header">
+                <div class="brand">
+                    <div class="brand__logo">CP</div>
+                    <div>
+                        <p class="brand__title">CorgPhish</p>
+                        <p class="brand__subtitle">Главная панель защиты</p>
+                    </div>
+                </div>
+                <button class="button" id="refreshBtn" type="button">
+                    Перепроверить
+                </button>
+            </header>
 
-    <section class="card status-card">
-        <div class="status-card__badge" id="statusBadge">Проверяем...</div>
-        <h2 class="status-card__title" id="statusTitle">Анализируем активную вкладку</h2>
-        <p class="status-card__hint" id="statusHint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
+            <section class="card status-card">
+                <div class="status-card__badge" id="statusBadge">Проверяем...</div>
+                <h2 class="status-card__title" id="statusTitle">Анализируем активную вкладку</h2>
+                <p class="status-card__hint" id="statusHint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
 
-        <dl class="status-card__meta">
-            <div>
-                <dt>Домен</dt>
-                <dd id="domainValue">—</dd>
-            </div>
-            <div>
-                <dt>Источник проверки</dt>
-                <dd>trusted.json</dd>
-            </div>
-        </dl>
-        <p class="status-card__timestamp">
-            Последняя проверка: <span id="checkedAt">—</span>
-        </p>
-    </section>
+                <dl class="status-card__meta">
+                    <div>
+                        <dt>Домен</dt>
+                        <dd id="domainValue">—</dd>
+                    </div>
+                    <div>
+                        <dt>Источник проверки</dt>
+                        <dd>trusted.json</dd>
+                    </div>
+                </dl>
+                <p class="status-card__timestamp">
+                    Последняя проверка: <span id="checkedAt">—</span>
+                </p>
+            </section>
 
-    <section class="card recommendations">
-        <div class="card__header">
-            <h3>Рекомендации</h3>
-            <span class="tag" id="riskLevel">—</span>
-        </div>
-        <ul class="recommendations__list" id="recommendationsList">
-            <li>Держите вкладку открытой, чтобы мы могли её проанализировать.</li>
-        </ul>
-    </section>
+            <section class="card recommendations">
+                <div class="card__header">
+                    <h3>Рекомендации</h3>
+                    <span class="tag" id="riskLevel">—</span>
+                </div>
+                <ul class="recommendations__list" id="recommendationsList">
+                    <li>Держите вкладку открытой, чтобы мы могли её проанализировать.</li>
+                </ul>
+            </section>
 
-    <section class="grid">
-        <article class="card info-card">
-            <div class="card__header">
-                <h4>Каталог доверия</h4>
-            </div>
-            <p>Включает популярные мировые сайты и официальные домены госорганов РФ.</p>
-            <button class="link-button" id="viewListBtn" type="button">Открыть список</button>
-        </article>
-        <article class="card info-card">
-            <div class="card__header">
-                <h4>Обновление</h4>
-            </div>
-            <p>Добавьте новый домен, просто изменив файл <code>trusted.json</code> в расширении.</p>
-        </article>
-    </section>
+            <section class="card quick-actions">
+                <div class="card__header">
+                    <h4>Дополнительно</h4>
+                </div>
+                <div class="quick-actions__buttons">
+                    <button class="button button--ghost" id="openHistoryBtn" type="button">История проверок</button>
+                    <button class="button button--ghost" id="openSettingsBtn" type="button">Настройки</button>
+                    <button class="link-button" id="viewListBtn" type="button">Открыть trusted.json</button>
+                </div>
+            </section>
 
-    <section class="card quick-actions">
-        <div class="card__header">
-            <h4>Дополнительно</h4>
-        </div>
-        <div class="quick-actions__buttons">
-            <button class="button button--ghost" id="openHistoryBtn" type="button">История проверок</button>
-            <button class="button button--ghost" id="openSettingsBtn" type="button">Настройки</button>
-        </div>
-    </section>
+            <p class="footer-note">
+                CorgPhish проверяет только сайты по протоколам HTTP/HTTPS и работает локально.
+            </p>
+        </section>
 
-    <p class="footer-note">
-        CorgPhish проверяет только сайты по протоколам HTTP/HTTPS и работает локально.
-    </p>
+        <section class="view view--history" id="viewHistory">
+            <header class="subpage__header">
+                <button class="button button--ghost subpage__back" id="closeHistoryBtn" type="button">Назад</button>
+                <div>
+                    <p class="brand__title">История проверок</p>
+                    <p class="brand__subtitle">Последние результаты анализа</p>
+                </div>
+                <button class="button" id="clearHistoryBtn" type="button">Очистить</button>
+            </header>
+
+            <section class="card history-card">
+                <h3 class="section__title">Последние проверки</h3>
+                <ul class="history-list" id="historyList"></ul>
+                <div class="empty-state" id="historyEmpty">Пока нет данных. Проверьте сайт.</div>
+            </section>
+
+            <p class="footer-note">
+                Хранится не более 50 последних проверок. Данные локальны.
+            </p>
+        </section>
+
+        <section class="view view--settings" id="viewSettings">
+            <header class="subpage__header">
+                <button class="button button--ghost subpage__back" id="closeSettingsBtn" type="button">Назад</button>
+                <div>
+                    <p class="brand__title">Настройки</p>
+                    <p class="brand__subtitle">Управляйте поведением CorgPhish</p>
+                </div>
+            </header>
+
+            <section class="card settings-card">
+                <h3 class="section__title">Опции защиты</h3>
+                <div class="settings-list">
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4>Автопроверка при открытии</h4>
+                            <p>Автоматически запускать анализ при появлении попапа.</p>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="autoCheckInput" />
+                            <span class="slider"></span>
+                        </div>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4>Уведомления о рисках</h4>
+                            <p>Показывать предупреждение при подозрительном сайте.</p>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="alertInput" />
+                            <span class="slider"></span>
+                        </div>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4>Порог истории</h4>
+                            <p>Храним максимум 50 записей.</p>
+                        </div>
+                        <span class="chip chip--warning">фиксировано</span>
+                    </label>
+                </div>
+                <p class="note" id="settingsStatus">Изменения сохраняются автоматически.</p>
+            </section>
+        </section>
+    </div>
 </div>
 <script src="popup.js"></script>
 </body>

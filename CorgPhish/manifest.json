@@ -3,7 +3,6 @@
   "description": "Ai powered phishing detection extension",
   "version": "1.0",
   "manifest_version": 3,
-  "options_page": "settings.html",
   "action": {
     "default_popup": "popup.html"
   },
