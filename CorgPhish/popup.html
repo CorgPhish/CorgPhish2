@@ -5,7 +5,7 @@
     <title>CorgPhish — защита от фишинга</title>
     <link rel="stylesheet" href="popup.css" />
 </head>
-<body>
+<body data-theme="dark">
 <div class="app" id="app" data-state="pending" data-view="main">
     <div class="view-container">
         <section class="view view--main" id="viewMain">
@@ -63,6 +63,19 @@
                 </div>
             </section>
 
+            <section class="card ml-card">
+                <div class="card__header">
+                    <h4>ML-анализ</h4>
+                    <span class="tag tag--beta">beta</span>
+                </div>
+                <p>
+                    В ближайшем обновлении CorgPhish подключит модель машинного обучения для дополнительной проверки
+                    поведенческих признаков фишинга. Уже сейчас можно протестировать имитацию работы движка.
+                </p>
+                <button class="button button--ghost" id="mlCheckBtn" type="button">Смоделировать анализ</button>
+                <p class="note" id="mlStatus">ML-модуль пока недоступен. Используем локальный список доверенных доменов.</p>
+            </section>
+
             <p class="footer-note">
                 CorgPhish проверяет только сайты по протоколам HTTP/HTTPS и работает локально.
             </p>
@@ -103,6 +116,16 @@
                 <div class="settings-list">
                     <label class="setting-item">
                         <div class="setting-item__info">
+                            <h4>Тема интерфейса</h4>
+                            <p>Переключайте светлый и тёмный режимы.</p>
+                        </div>
+                        <div class="switch switch--double">
+                            <input type="checkbox" id="themeToggle" />
+                            <span class="slider"></span>
+                        </div>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
                             <h4>Автопроверка при открытии</h4>
                             <p>Автоматически запускать анализ при появлении попапа.</p>
                         </div>
@@ -130,6 +153,16 @@
                     </label>
                 </div>
                 <p class="note" id="settingsStatus">Изменения сохраняются автоматически.</p>
+            </section>
+
+            <section class="card whitelist-card">
+                <h3 class="section__title">Ваш белый список</h3>
+                <form class="whitelist-form" id="whitelistForm">
+                    <input type="text" id="whitelistInput" placeholder="example.com" autocomplete="off" />
+                    <button class="button" type="submit">Добавить</button>
+                </form>
+                <ul class="whitelist-list" id="whitelistList"></ul>
+                <p class="note">Добавленные домены проверяются вместе с локальным списком trusted.json.</p>
             </section>
         </section>
     </div>

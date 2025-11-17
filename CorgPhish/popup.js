@@ -21,15 +21,23 @@ const dom = {
     clearHistoryBtn: document.getElementById("clearHistoryBtn"),
     autoCheckInput: document.getElementById("autoCheckInput"),
     alertInput: document.getElementById("alertInput"),
-    settingsStatus: document.getElementById("settingsStatus")
+    themeToggle: document.getElementById("themeToggle"),
+    settingsStatus: document.getElementById("settingsStatus"),
+    whitelistForm: document.getElementById("whitelistForm"),
+    whitelistInput: document.getElementById("whitelistInput"),
+    whitelistList: document.getElementById("whitelistList"),
+    mlCheckBtn: document.getElementById("mlCheckBtn"),
+    mlStatus: document.getElementById("mlStatus")
 };
 
 const DEFAULT_SETTINGS = {
     autoCheckOnOpen: true,
-    warnOnUntrusted: true
+    warnOnUntrusted: true,
+    theme: "dark"
 };
 
 const HISTORY_LIMIT = 50;
+const CUSTOM_WHITELIST_KEY = "customTrustedDomains";
 
 const VIEW_STATES = {
     pending: {
@@ -92,6 +100,12 @@ const VIEW_STATES = {
 
 let trustedCache = null;
 let currentSettings = { ...DEFAULT_SETTINGS };
+let customWhitelist = [];
+
+const applyTheme = (theme) => {
+    const resolved = theme === "light" ? "light" : "dark";
+    document.body.dataset.theme = resolved;
+};
 
 const normalizeHost = (hostname = "") =>
     hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
@@ -186,6 +200,18 @@ const saveSettings = (settings) =>
         chrome.storage.sync.set(settings, () => resolve(settings));
     });
 
+const loadWhitelist = () =>
+    new Promise((resolve) => {
+        chrome.storage.local.get({ [CUSTOM_WHITELIST_KEY]: [] }, (result) => {
+            resolve(Array.isArray(result[CUSTOM_WHITELIST_KEY]) ? result[CUSTOM_WHITELIST_KEY] : []);
+        });
+    });
+
+const saveWhitelist = (domains) =>
+    new Promise((resolve) => {
+        chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
+    });
+
 const showSettingsStatus = (text) => {
     if (!dom.settingsStatus) return;
     dom.settingsStatus.textContent = text;
@@ -277,12 +303,100 @@ const clearHistory = () =>
         chrome.storage.local.set({ scanHistory: [] }, resolve);
     });
 
+const renderWhitelist = (domains = []) => {
+    if (!dom.whitelistList) {
+        return;
+    }
+
+    dom.whitelistList.innerHTML = "";
+
+    if (!domains.length) {
+        const empty = document.createElement("li");
+        empty.className = "empty-state";
+        empty.textContent = "Белый список пуст.";
+        dom.whitelistList.appendChild(empty);
+        return;
+    }
+
+    domains.forEach((domain) => {
+        const li = document.createElement("li");
+        li.className = "whitelist-item";
+        li.dataset.domain = domain;
+        li.innerHTML = `<span>${domain}</span>`;
+
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "whitelist-remove";
+        removeBtn.type = "button";
+        removeBtn.dataset.domain = domain;
+        removeBtn.textContent = "Удалить";
+
+        li.appendChild(removeBtn);
+        dom.whitelistList.appendChild(li);
+    });
+};
+
+const refreshWhitelist = async () => {
+    const stored = await loadWhitelist();
+    customWhitelist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
+    renderWhitelist(customWhitelist);
+};
+
+const updateWhitelistStorage = async (domains) => {
+    customWhitelist = domains.map((domain) => normalizeHost(domain)).filter(Boolean);
+    await saveWhitelist(customWhitelist);
+    renderWhitelist(customWhitelist);
+};
+
+const addDomainToWhitelist = async (rawDomain) => {
+    const clean = normalizeHost(rawDomain);
+    if (!clean) {
+        showSettingsStatus("Введите корректный домен");
+        return;
+    }
+    if (customWhitelist.includes(clean)) {
+        showSettingsStatus("Домен уже в белом списке");
+        return;
+    }
+    await updateWhitelistStorage([...customWhitelist, clean]);
+    showSettingsStatus(`Добавлен ${clean}`);
+};
+
+const removeDomainFromWhitelist = async (domain) => {
+    const clean = normalizeHost(domain);
+    await updateWhitelistStorage(customWhitelist.filter((entry) => entry !== clean));
+    showSettingsStatus(`Удалён ${clean || domain}`);
+};
+
 const warnAboutUntrusted = (domain) => {
     if (!currentSettings.warnOnUntrusted) {
         return;
     }
 
     alert(`CorgPhish предупреждает: сайт ${domain} не найден в списке доверенных.`);
+};
+
+const getTrustedDomains = async () => {
+    const base = await loadTrustedList();
+    return [...new Set([...base, ...customWhitelist])];
+};
+
+const simulateMlCheck = async () => {
+    if (!dom.mlStatus || !dom.mlCheckBtn) {
+        return;
+    }
+
+    dom.mlCheckBtn.disabled = true;
+    dom.mlStatus.textContent = "Запрашиваем результаты у ML-модуля...";
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    const verdict = Math.random() > 0.5 ? "safe" : "alert";
+    dom.mlStatus.textContent =
+        verdict === "safe"
+            ? "ML-модуль (эмуляция) не нашёл подозрительных признаков."
+            : "ML-модуль (эмуляция) рекомендует проявить дополнительную осторожность.";
+
+    dom.mlCheckBtn.disabled = false;
 };
 
 const checkActiveTab = async () => {
@@ -302,7 +416,7 @@ const checkActiveTab = async () => {
 
         const url = new URL(activeTab.url);
         const hostname = url.hostname;
-        const trustedList = await loadTrustedList();
+        const trustedList = await getTrustedDomains();
         const cleanDomain = normalizeHost(hostname);
         const verdict = isTrustedDomain(hostname, trustedList) ? "trusted" : "untrusted";
 
@@ -334,15 +448,37 @@ const updateSettingsControls = () => {
     }
     dom.autoCheckInput.checked = currentSettings.autoCheckOnOpen;
     dom.alertInput.checked = currentSettings.warnOnUntrusted;
+    if (dom.themeToggle) {
+        dom.themeToggle.checked = currentSettings.theme === "light";
+    }
 };
 
 const handleSettingsChange = async () => {
     const nextSettings = {
         autoCheckOnOpen: dom.autoCheckInput?.checked ?? DEFAULT_SETTINGS.autoCheckOnOpen,
-        warnOnUntrusted: dom.alertInput?.checked ?? DEFAULT_SETTINGS.warnOnUntrusted
+        warnOnUntrusted: dom.alertInput?.checked ?? DEFAULT_SETTINGS.warnOnUntrusted,
+        theme: dom.themeToggle?.checked ? "light" : "dark"
     };
     currentSettings = await saveSettings(nextSettings);
+    applyTheme(currentSettings.theme);
     showSettingsStatus("Настройки сохранены");
+};
+
+const handleWhitelistSubmit = async (event) => {
+    event.preventDefault();
+    if (!dom.whitelistInput) {
+        return;
+    }
+    await addDomainToWhitelist(dom.whitelistInput.value);
+    dom.whitelistInput.value = "";
+};
+
+const handleWhitelistListClick = async (event) => {
+    const target = event.target.closest(".whitelist-remove");
+    if (!target || !target.dataset.domain) {
+        return;
+    }
+    await removeDomainFromWhitelist(target.dataset.domain);
 };
 
 safeAddEvent(dom.refreshBtn, "click", () => {
@@ -365,10 +501,16 @@ safeAddEvent(dom.clearHistoryBtn, "click", async () => {
 
 safeAddEvent(dom.autoCheckInput, "change", handleSettingsChange);
 safeAddEvent(dom.alertInput, "change", handleSettingsChange);
+safeAddEvent(dom.themeToggle, "change", handleSettingsChange);
+safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
+safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
+safeAddEvent(dom.mlCheckBtn, "click", simulateMlCheck);
 
 const init = async () => {
     currentSettings = await loadSettings();
+    applyTheme(currentSettings.theme);
     updateSettingsControls();
+    await refreshWhitelist();
 
     if (currentSettings.autoCheckOnOpen) {
         checkActiveTab();
