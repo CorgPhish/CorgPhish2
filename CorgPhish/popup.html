@@ -14,110 +14,119 @@
                     <div class="brand__logo">CP</div>
                     <div>
                         <p class="brand__title">CorgPhish</p>
-                        <p class="brand__subtitle">Главная панель защиты</p>
+                        <p class="brand__subtitle" data-i18n="main.subtitle">Главная панель защиты</p>
                     </div>
                 </div>
-                <button class="button" id="refreshBtn" type="button">
+                <button class="button" id="refreshBtn" type="button" data-i18n="actions.refresh">
                     Перепроверить
                 </button>
             </header>
 
             <section class="card status-card">
-                <div class="status-card__badge" id="statusBadge">Проверяем...</div>
-                <h2 class="status-card__title" id="statusTitle">Анализируем активную вкладку</h2>
-                <p class="status-card__hint" id="statusHint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
+                <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
+                <h2 class="status-card__title" id="statusTitle" data-i18n="status.pending.title">Анализируем активную вкладку</h2>
+                <p class="status-card__hint" id="statusHint" data-i18n="status.pending.hint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
 
                 <dl class="status-card__meta">
                     <div>
-                        <dt>Домен</dt>
+                        <dt data-i18n="status.domainLabel">Домен</dt>
                         <dd id="domainValue">—</dd>
                     </div>
                     <div>
-                        <dt>Источник проверки</dt>
+                        <dt data-i18n="status.sourceLabel">Источник проверки</dt>
                         <dd>trusted.json</dd>
                     </div>
                 </dl>
                 <p class="status-card__timestamp">
-                    Последняя проверка: <span id="checkedAt">—</span>
+                    <span data-i18n="status.lastCheck">Последняя проверка:</span> <span id="checkedAt">—</span>
                 </p>
             </section>
 
             <section class="card recommendations">
                 <div class="card__header">
-                    <h3>Рекомендации</h3>
+                    <h3 data-i18n="recommendations.title">Рекомендации</h3>
                     <span class="tag" id="riskLevel">—</span>
                 </div>
                 <ul class="recommendations__list" id="recommendationsList">
-                    <li>Держите вкладку открытой, чтобы мы могли её проанализировать.</li>
+                    <li data-i18n="recommendations.initial">Держите вкладку открытой, чтобы мы могли её проанализировать.</li>
                 </ul>
             </section>
 
             <section class="card quick-actions">
                 <div class="card__header">
-                    <h4>Дополнительно</h4>
+                    <h4 data-i18n="quickActions.title">Дополнительно</h4>
                 </div>
                 <div class="quick-actions__buttons">
-                    <button class="button button--ghost" id="openHistoryBtn" type="button">История проверок</button>
-                    <button class="button button--ghost" id="openSettingsBtn" type="button">Настройки</button>
-                    <button class="link-button" id="viewListBtn" type="button">Открыть trusted.json</button>
+                    <button class="button button--ghost" id="openHistoryBtn" type="button" data-i18n="actions.history">История проверок</button>
+                    <button class="button button--ghost" id="openSettingsBtn" type="button" data-i18n="actions.settings">Настройки</button>
                 </div>
             </section>
 
             <section class="card ml-card">
                 <div class="card__header">
-                    <h4>ML-анализ</h4>
+                    <h4 data-i18n="ml.title">ML-анализ</h4>
                     <span class="tag tag--beta">beta</span>
                 </div>
-                <p>
+                <p data-i18n="ml.description">
                     В ближайшем обновлении CorgPhish подключит модель машинного обучения для дополнительной проверки
                     поведенческих признаков фишинга. Уже сейчас можно протестировать имитацию работы движка.
                 </p>
-                <button class="button button--ghost" id="mlCheckBtn" type="button">Смоделировать анализ</button>
-                <p class="note" id="mlStatus">ML-модуль пока недоступен. Используем локальный список доверенных доменов.</p>
+                <button class="button button--ghost" id="mlCheckBtn" type="button" data-i18n="ml.button">Смоделировать анализ</button>
+                <p class="note" id="mlStatus" data-i18n="ml.note">ML-модуль пока недоступен. Используем локальный список доверенных доменов.</p>
             </section>
 
-            <p class="footer-note">
+            <p class="footer-note" data-i18n="footer.note">
                 CorgPhish проверяет только сайты по протоколам HTTP/HTTPS и работает локально.
             </p>
         </section>
 
         <section class="view view--history" id="viewHistory">
             <header class="subpage__header">
-                <button class="button button--ghost subpage__back" id="closeHistoryBtn" type="button">Назад</button>
+                <button class="button button--ghost subpage__back" id="closeHistoryBtn" type="button" data-i18n="actions.back">Назад</button>
                 <div>
-                    <p class="brand__title">История проверок</p>
-                    <p class="brand__subtitle">Последние результаты анализа</p>
+                    <p class="brand__title" data-i18n="history.title">История проверок</p>
+                    <p class="brand__subtitle" data-i18n="history.subtitle">Последние результаты анализа</p>
                 </div>
-                <button class="button" id="clearHistoryBtn" type="button">Очистить</button>
+                <button class="button" id="clearHistoryBtn" type="button" data-i18n="history.clear">Очистить</button>
             </header>
 
             <section class="card history-card">
-                <h3 class="section__title">Последние проверки</h3>
+                <h3 class="section__title" data-i18n="history.sectionTitle">Последние проверки</h3>
                 <ul class="history-list" id="historyList"></ul>
-                <div class="empty-state" id="historyEmpty">Пока нет данных. Проверьте сайт.</div>
+                <div class="empty-state" id="historyEmpty" data-i18n="history.empty">Пока нет данных. Проверьте сайт.</div>
             </section>
 
-            <p class="footer-note">
+            <p class="footer-note" data-i18n="history.note">
                 Хранится не более 50 последних проверок. Данные локальны.
             </p>
         </section>
 
         <section class="view view--settings" id="viewSettings">
             <header class="subpage__header">
-                <button class="button button--ghost subpage__back" id="closeSettingsBtn" type="button">Назад</button>
+                <button class="button button--ghost subpage__back" id="closeSettingsBtn" type="button" data-i18n="actions.back">Назад</button>
                 <div>
-                    <p class="brand__title">Настройки</p>
-                    <p class="brand__subtitle">Управляйте поведением CorgPhish</p>
+                    <p class="brand__title" data-i18n="settings.title">Настройки</p>
+                    <p class="brand__subtitle" data-i18n="settings.subtitle">Управляйте поведением CorgPhish</p>
                 </div>
             </header>
 
             <section class="card settings-card">
-                <h3 class="section__title">Опции защиты</h3>
+                <h3 class="section__title" data-i18n="settings.options">Опции защиты</h3>
                 <div class="settings-list">
                     <label class="setting-item">
                         <div class="setting-item__info">
-                            <h4>Тема интерфейса</h4>
-                            <p>Переключайте светлый и тёмный режимы.</p>
+                            <h4 data-i18n="settings.language.title">Язык интерфейса</h4>
+                            <p data-i18n="settings.language.desc">Переключайте русский и английский языки.</p>
+                        </div>
+                        <select id="languageSelect">
+                            <option value="ru">Русский</option>
+                            <option value="en">English</option>
+                        </select>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="settings.theme.title">Тема интерфейса</h4>
+                            <p data-i18n="settings.theme.desc">Переключайте светлый и тёмный режимы.</p>
                         </div>
                         <div class="switch switch--double">
                             <input type="checkbox" id="themeToggle" />
@@ -126,8 +135,8 @@
                     </label>
                     <label class="setting-item">
                         <div class="setting-item__info">
-                            <h4>Автопроверка при открытии</h4>
-                            <p>Автоматически запускать анализ при появлении попапа.</p>
+                            <h4 data-i18n="settings.autoCheck.title">Автопроверка при открытии</h4>
+                            <p data-i18n="settings.autoCheck.desc">Автоматически запускать анализ при появлении попапа.</p>
                         </div>
                         <div class="switch">
                             <input type="checkbox" id="autoCheckInput" />
@@ -136,33 +145,26 @@
                     </label>
                     <label class="setting-item">
                         <div class="setting-item__info">
-                            <h4>Уведомления о рисках</h4>
-                            <p>Показывать предупреждение при подозрительном сайте.</p>
+                            <h4 data-i18n="settings.alerts.title">Уведомления о рисках</h4>
+                            <p data-i18n="settings.alerts.desc">Показывать предупреждение при подозрительном сайте.</p>
                         </div>
                         <div class="switch">
                             <input type="checkbox" id="alertInput" />
                             <span class="slider"></span>
                         </div>
                     </label>
-                    <label class="setting-item">
-                        <div class="setting-item__info">
-                            <h4>Порог истории</h4>
-                            <p>Храним максимум 50 записей.</p>
-                        </div>
-                        <span class="chip chip--warning">фиксировано</span>
-                    </label>
                 </div>
-                <p class="note" id="settingsStatus">Изменения сохраняются автоматически.</p>
+                <p class="note" id="settingsStatus" data-i18n="settings.status.default">Изменения сохраняются автоматически.</p>
             </section>
 
             <section class="card whitelist-card">
-                <h3 class="section__title">Ваш белый список</h3>
+                <h3 class="section__title" data-i18n="whitelist.title">Ваш белый список</h3>
                 <form class="whitelist-form" id="whitelistForm">
                     <input type="text" id="whitelistInput" placeholder="example.com" autocomplete="off" />
-                    <button class="button" type="submit">Добавить</button>
+                    <button class="button" type="submit" data-i18n="whitelist.add">Добавить</button>
                 </form>
                 <ul class="whitelist-list" id="whitelistList"></ul>
-                <p class="note">Добавленные домены проверяются вместе с локальным списком trusted.json.</p>
+                <p class="note" data-i18n="whitelist.note">Добавленные домены проверяются вместе с локальным списком trusted.json.</p>
             </section>
         </section>
     </div>
