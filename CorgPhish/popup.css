@@ -37,7 +37,7 @@ body {
     margin: 0;
     width: 360px;
     min-height: 520px;
-    background: var(--color-bg);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-bg) 90%, #0f172a), var(--color-bg));
     color: var(--color-text);
 }
 
@@ -84,10 +84,10 @@ body {
 
 .card {
     background: var(--color-card);
-    border-radius: 20px;
+    border-radius: 18px;
     padding: 16px;
     border: 1px solid var(--color-card-border);
-    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.15);
+    box-shadow: 0 20px 35px rgba(15, 23, 42, 0.12);
 }
 
 .app__header {
@@ -106,7 +106,7 @@ body {
     width: 46px;
     height: 46px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #fbbf24, #f97316);
+    background: conic-gradient(from 120deg, #f97316, #fbbf24, #f97316);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -123,27 +123,28 @@ body {
 }
 
 .brand__subtitle {
-    margin: 2px 0 0;
+    margin: 4px 0 0;
     font-size: 13px;
     color: var(--color-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 .button {
     border: none;
-    border-radius: 999px;
-    padding: 10px 18px;
+    border-radius: 14px;
+    padding: 11px 18px;
     font-weight: 600;
     cursor: pointer;
-    background: linear-gradient(120deg, #34d399, #059669);
-    color: #052e16;
-    box-shadow: 0 6px 20px rgba(52, 211, 153, 0.35);
-    transition: transform 0.2s ease, opacity 0.2s ease;
+    background: linear-gradient(120deg, #2563eb, #38bdf8);
+    color: #f8fafc;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-    box-shadow: none;
 }
 
 .button:not(:disabled):active {
@@ -152,8 +153,8 @@ body {
 
 .button--ghost {
     background: transparent;
-    color: #38bdf8;
-    border: 1px solid rgba(56, 189, 248, 0.4);
+    color: var(--color-link);
+    border: 1px solid rgba(148, 163, 184, 0.5);
     box-shadow: none;
 }
 
@@ -166,7 +167,7 @@ body {
     text-transform: uppercase;
     padding: 6px 12px;
     border-radius: 999px;
-    background: rgba(148, 163, 184, 0.2);
+    background: linear-gradient(120deg, rgba(59, 130, 246, 0.25), rgba(16, 185, 129, 0.25));
 }
 
 .status-card__title {
@@ -257,14 +258,9 @@ body {
 }
 
 .quick-actions__buttons {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
-}
-
-.quick-actions__buttons .button {
-    width: 100%;
-    text-align: center;
 }
 
 .link-button {
@@ -311,6 +307,7 @@ body {
     padding: 12px 14px;
     border-radius: 16px;
     background: var(--color-list-bg);
+    border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 .history-item__info h4 {
@@ -346,7 +343,7 @@ body {
 .ml-card p {
     margin-bottom: 12px;
     font-size: 14px;
-    color: var(--color-muted-strong);
+    color: var(--color-muted);
 }
 
 .whitelist-form {

@@ -66,6 +66,7 @@ const translations = {
         "status.untrusted.recommendations.0": "Не вводите личные данные до подтверждения подлинности сайта.",
         "status.untrusted.recommendations.1": "Сверьте адрес с официальным доменом организации.",
         "status.untrusted.recommendations.2": "Поищите отзывы и упоминания домена {domain} в открытых источниках.",
+        "status.untrusted.spoofWarning": "Похоже на {spoofTarget}. Возможный спуфинг.",
         "status.unsupported.badge": "Нельзя проверить",
         "status.unsupported.title": "Поддерживаются только сайты HTTP/HTTPS",
         "status.unsupported.hint": "Системные страницы браузера и локальные файлы пропускаются.",
@@ -153,6 +154,7 @@ const translations = {
         "status.untrusted.recommendations.0": "Do not enter personal data until the site is verified.",
         "status.untrusted.recommendations.1": "Compare the address with the official domain.",
         "status.untrusted.recommendations.2": "Search for reviews or mentions of {domain} online.",
+        "status.untrusted.spoofWarning": "Looks similar to {spoofTarget}. Possible spoofing.",
         "status.unsupported.badge": "Cannot scan",
         "status.unsupported.title": "Only HTTP/HTTPS sites are supported",
         "status.unsupported.hint": "Browser pages and local files are skipped.",
@@ -305,6 +307,49 @@ const applyLanguage = () => {
 const normalizeHost = (hostname = "") =>
     hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
 
+const levenshteinDistance = (a = "", b = "") => {
+    if (a === b) return 0;
+    const rows = a.length + 1;
+    const cols = b.length + 1;
+    const matrix = Array.from({ length: rows }, () => new Array(cols).fill(0));
+
+    for (let i = 0; i < rows; i++) matrix[i][0] = i;
+    for (let j = 0; j < cols; j++) matrix[0][j] = j;
+
+    for (let i = 1; i < rows; i++) {
+        for (let j = 1; j < cols; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+            );
+        }
+    }
+
+    return matrix[rows - 1][cols - 1];
+};
+
+const findSpoofCandidate = (target, trustedList) => {
+    let closest = null;
+    let distance = Infinity;
+    trustedList.forEach((domain) => {
+        if (Math.abs(target.length - domain.length) > 2) {
+            return;
+        }
+        const currentDistance = levenshteinDistance(target, domain);
+        if (currentDistance < distance) {
+            distance = currentDistance;
+            closest = domain;
+        }
+    });
+
+    if (distance <= 2) {
+        return closest;
+    }
+    return null;
+};
+
 const formatTime = (date) =>
     date?.toLocaleTimeString(getLocale(), { hour: "2-digit", minute: "2-digit" }) ?? "—";
 
@@ -334,6 +379,9 @@ const applyState = (stateKey, context = {}) => {
 
     const recKeys = config.recommendationsKeys || [];
     const recItems = recKeys.map((key) => translate(key, context));
+    if (stateKey === "untrusted" && context.spoofTarget) {
+        recItems.unshift(translate("status.untrusted.spoofWarning", context));
+    }
     updateRecommendations(recItems);
 };
 
@@ -588,12 +636,18 @@ const checkActiveTab = async () => {
         const hostname = url.hostname;
         const trustedList = await getTrustedDomains();
         const cleanDomain = normalizeHost(hostname);
-        const verdict = trustedList.some((domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`))
-            ? "trusted"
-            : "untrusted";
+        const isTrusted = trustedList.some(
+            (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
+        );
+        const spoofTarget = !isTrusted ? findSpoofCandidate(cleanDomain, trustedList) : null;
+        const verdict = isTrusted ? "trusted" : "untrusted";
 
-        applyState(verdict, { domain: cleanDomain, checkedAt: new Date() });
-        await recordHistory({ domain: cleanDomain, verdict, checkedAt: Date.now() });
+        applyState(verdict, {
+            domain: cleanDomain,
+            checkedAt: new Date(),
+            spoofTarget
+        });
+        await recordHistory({ domain: cleanDomain, verdict, checkedAt: Date.now(), spoofTarget });
 
         if (verdict === "untrusted") {
             warnAboutUntrusted(cleanDomain);
