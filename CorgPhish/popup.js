@@ -1,3 +1,4 @@
+// Ссылки на элементы интерфейса / References to UI elements
 const dom = {
     app: document.getElementById("app"),
     viewMain: document.getElementById("viewMain"),
@@ -30,6 +31,7 @@ const dom = {
     mlStatus: document.getElementById("mlStatus")
 };
 
+// Настройки по умолчанию / Default extension settings
 const DEFAULT_SETTINGS = {
     autoCheckOnOpen: true,
     warnOnUntrusted: true,
@@ -37,6 +39,7 @@ const DEFAULT_SETTINGS = {
     language: "ru"
 };
 
+// Таблица переводов интерфейса / UI translation dictionary
 const translations = {
     ru: {
         "main.subtitle": "Главная панель защиты",
@@ -219,6 +222,7 @@ const translations = {
 const HISTORY_LIMIT = 50;
 const CUSTOM_WHITELIST_KEY = "customTrustedDomains";
 
+// Конфигурации состояний попапа / Popup state configuration
 const VIEW_STATES = {
     pending: {
         theme: "pending",
@@ -272,6 +276,7 @@ const VIEW_STATES = {
     }
 };
 
+// Кэши и коллекции / Runtime caches and collections
 let trustedCache = null;
 let currentSettings = { ...DEFAULT_SETTINGS };
 let customWhitelist = [];
@@ -286,11 +291,13 @@ const translate = (key, params = {}) => {
     return template.replace(/\{(\w+)\}/g, (_, token) => params[token] ?? "");
 };
 
+// Переключение темы / Apply selected theme data attribute
 const applyTheme = (theme) => {
     const resolved = theme === "light" ? "light" : "dark";
     document.body.dataset.theme = resolved;
 };
 
+// Применение перевода к статике / Apply translation to DOM
 const applyLanguage = () => {
     document.querySelectorAll("[data-i18n]").forEach((el) => {
         const key = el.dataset.i18n;
@@ -304,6 +311,7 @@ const applyLanguage = () => {
     }
 };
 
+// Нормализация домена и поиск похожих / Normalize domain and detect look-alikes
 const normalizeHost = (hostname = "") =>
     hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
 
@@ -399,6 +407,7 @@ const switchView = (view) => {
     dom.app.dataset.view = "main";
 };
 
+// Загрузка локального trusted.json / Load trusted domains file
 const loadTrustedList = async () => {
     if (trustedCache) {
         return trustedCache;
@@ -418,6 +427,7 @@ const loadTrustedList = async () => {
     return trustedCache;
 };
 
+// Чтение настроек из sync storage / Read settings from sync storage
 const loadSettings = () =>
     new Promise((resolve) => {
         chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
@@ -425,11 +435,13 @@ const loadSettings = () =>
         });
     });
 
+// Сохранение настроек в sync storage / Persist settings to sync storage
 const saveSettings = (settings) =>
     new Promise((resolve) => {
         chrome.storage.sync.set(settings, () => resolve(settings));
     });
 
+// Получение пользовательского белого списка / Read user whitelist
 const loadWhitelist = () =>
     new Promise((resolve) => {
         chrome.storage.local.get({ [CUSTOM_WHITELIST_KEY]: [] }, (result) => {
@@ -437,11 +449,13 @@ const loadWhitelist = () =>
         });
     });
 
+// Сохранение пользовательского whitelist / Persist custom whitelist
 const saveWhitelist = (domains) =>
     new Promise((resolve) => {
         chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
     });
 
+// Тост в настройках / Inline toast for settings status
 const showSettingsStatus = (key, params = {}, isError = false) => {
     if (!dom.settingsStatus) {
         return;
@@ -455,6 +469,7 @@ const showSettingsStatus = (key, params = {}, isError = false) => {
     }, 2500);
 };
 
+// Отрисовка списка whitelist / Render whitelist list
 const renderWhitelist = (domains = []) => {
     if (!dom.whitelistList) {
         return;
@@ -581,6 +596,7 @@ const clearHistory = () =>
         chrome.storage.local.set({ scanHistory: [] }, resolve);
     });
 
+// Сохранение результата проверки / Persist scan result history
 const recordHistory = (entry) =>
     new Promise((resolve) => {
         chrome.storage.local.get({ scanHistory: [] }, (result) => {
@@ -590,11 +606,13 @@ const recordHistory = (entry) =>
         });
     });
 
+// Комбинированный список trusted + custom / Merge lists for fast lookup
 const getTrustedDomains = async () => {
     const base = await loadTrustedList();
     return [...new Set([...base, ...customWhitelist])];
 };
 
+// Предупреждение об опасном домене / Alert user about untrusted site
 const warnAboutUntrusted = (domain) => {
     if (!currentSettings.warnOnUntrusted) {
         return;
@@ -602,6 +620,7 @@ const warnAboutUntrusted = (domain) => {
     alert(translate("alerts.untrusted", { domain }));
 };
 
+// Эмуляция работы ML-модуля / Simulate ML engine response
 const simulateMlCheck = async () => {
     if (!dom.mlStatus || !dom.mlCheckBtn) {
         return;
@@ -617,6 +636,7 @@ const simulateMlCheck = async () => {
     dom.mlCheckBtn.disabled = false;
 };
 
+// Главная проверка активной вкладки / Main active tab scan
 const checkActiveTab = async () => {
     applyState("pending");
     dom.refreshBtn.disabled = true;
@@ -660,6 +680,7 @@ const checkActiveTab = async () => {
     }
 };
 
+// Синхронизация чекбоксов/селектов / Sync inputs with stored settings
 const updateSettingsControls = () => {
     if (dom.autoCheckInput) {
         dom.autoCheckInput.checked = currentSettings.autoCheckOnOpen;
@@ -675,6 +696,7 @@ const updateSettingsControls = () => {
     }
 };
 
+// Обработка изменений настроек / Handle settings change
 const handleSettingsChange = async () => {
     const nextSettings = {
         autoCheckOnOpen: dom.autoCheckInput?.checked ?? DEFAULT_SETTINGS.autoCheckOnOpen,
@@ -691,6 +713,7 @@ const handleSettingsChange = async () => {
     showSettingsStatus("settings.status.saved");
 };
 
+// Обработка формы whitelist / Handle whitelist form submit
 const handleWhitelistSubmit = async (event) => {
     event.preventDefault();
     if (!dom.whitelistInput) {
@@ -700,6 +723,7 @@ const handleWhitelistSubmit = async (event) => {
     dom.whitelistInput.value = "";
 };
 
+// Удаление домена из whitelist / Handle whitelist remove button
 const handleWhitelistListClick = async (event) => {
     const target = event.target.closest(".whitelist-remove");
     if (!target || !target.dataset.domain) {
@@ -708,6 +732,7 @@ const handleWhitelistListClick = async (event) => {
     await removeDomainFromWhitelist(target.dataset.domain);
 };
 
+// Безопасная подписка на события / Safe event binding helper
 const safeAddEvent = (element, event, handler) => {
     if (!element) {
         return;
