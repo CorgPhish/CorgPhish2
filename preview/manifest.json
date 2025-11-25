@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "PhishTor",
+  "version": "1.0.01",
+  "description": "A phishing detector plugin",
+  "permissions": ["activeTab","declarativeContent", "storage", "webNavigation"],
+  "background": {
+    "scripts": ["js/jquery.js","js/background.js","js/randomforest.js"],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_popup": "plugin_ui.html"
+  },
+  "content_scripts":[
+    {
+      "matches": ["http://*/*","https://*/*"],
+      "js": ["js/jquery.js","js/features.js"]
+    }
+  ]
+}

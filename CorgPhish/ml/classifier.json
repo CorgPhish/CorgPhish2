@@ -1,0 +1,24 @@
+{
+  "estimators": [
+    {
+      "type": "split",
+      "threshold": "Request URL <= 0",
+      "left": {
+        "type": "leaf",
+        "value": [[0, 1]]
+      },
+      "right": {
+        "type": "split",
+        "threshold": "Anchor <= 0",
+        "left": {
+          "type": "leaf",
+          "value": [[1, 0]]
+        },
+        "right": {
+          "type": "leaf",
+          "value": [[0, 1]]
+        }
+      }
+    }
+  ]
+}

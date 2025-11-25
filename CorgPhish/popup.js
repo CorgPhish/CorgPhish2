@@ -70,6 +70,7 @@ const translations = {
         "status.untrusted.recommendations.1": "Сверьте адрес с официальным доменом организации.",
         "status.untrusted.recommendations.2": "Поищите отзывы и упоминания домена {domain} в открытых источниках.",
         "status.untrusted.spoofWarning": "Похоже на {spoofTarget}. Возможный спуфинг.",
+        "status.untrusted.mlWarning": "ML-анализ фиксирует риск (уверенность {confidence}%).",
         "status.unsupported.badge": "Нельзя проверить",
         "status.unsupported.title": "Поддерживаются только сайты HTTP/HTTPS",
         "status.unsupported.hint": "Системные страницы браузера и локальные файлы пропускаются.",
@@ -158,6 +159,7 @@ const translations = {
         "status.untrusted.recommendations.1": "Compare the address with the official domain.",
         "status.untrusted.recommendations.2": "Search for reviews or mentions of {domain} online.",
         "status.untrusted.spoofWarning": "Looks similar to {spoofTarget}. Possible spoofing.",
+        "status.untrusted.mlWarning": "ML scan reports a high risk (confidence {confidence}%).",
         "status.unsupported.badge": "Cannot scan",
         "status.unsupported.title": "Only HTTP/HTTPS sites are supported",
         "status.unsupported.hint": "Browser pages and local files are skipped.",
@@ -390,6 +392,9 @@ const applyState = (stateKey, context = {}) => {
     if (stateKey === "untrusted" && context.spoofTarget) {
         recItems.unshift(translate("status.untrusted.spoofWarning", context));
     }
+    if (stateKey === "untrusted" && context.mlWarning) {
+        recItems.unshift(context.mlWarning);
+    }
     updateRecommendations(recItems);
 };
 
@@ -454,6 +459,20 @@ const saveWhitelist = (domains) =>
     new Promise((resolve) => {
         chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
     });
+
+// Получить ML-классификацию для вкладки / Fetch cached ML classification
+const fetchClassification = async (tabId) => {
+    if (typeof tabId !== "number") {
+        return null;
+    }
+    try {
+        const response = await chrome.runtime.sendMessage({ type: "getClassification", tabId });
+        return response?.classification ?? null;
+    } catch (error) {
+        console.warn("Не удалось получить ML классификацию", error);
+        return null;
+    }
+};
 
 // Тост в настройках / Inline toast for settings status
 const showSettingsStatus = (key, params = {}, isError = false) => {
@@ -628,12 +647,23 @@ const simulateMlCheck = async () => {
 
     dom.mlStatus.textContent = translate("ml.status.running");
     dom.mlCheckBtn.disabled = true;
-    await new Promise((resolve) => setTimeout(resolve, 1200));
 
-    const verdict = Math.random() > 0.5 ? "safe" : "alert";
-    dom.mlStatus.textContent =
-        verdict === "safe" ? translate("ml.status.safe") : translate("ml.status.alert");
-    dom.mlCheckBtn.disabled = false;
+    try {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const classification = await fetchClassification(activeTab?.id ?? null);
+        if (classification?.verdict?.isPhishing) {
+            dom.mlStatus.textContent = translate("ml.status.alert");
+        } else if (classification) {
+            dom.mlStatus.textContent = translate("ml.status.safe");
+        } else {
+            dom.mlStatus.textContent = translate("ml.note");
+        }
+    } catch (error) {
+        console.warn("ML status preview failed", error);
+        dom.mlStatus.textContent = translate("ml.note");
+    } finally {
+        dom.mlCheckBtn.disabled = false;
+    }
 };
 
 // Главная проверка активной вкладки / Main active tab scan
@@ -660,16 +690,30 @@ const checkActiveTab = async () => {
             (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
         );
         const spoofTarget = !isTrusted ? findSpoofCandidate(cleanDomain, trustedList) : null;
-        const verdict = isTrusted ? "trusted" : "untrusted";
+        const classification = await fetchClassification(activeTab.id);
+        let finalVerdict = isTrusted ? "trusted" : "untrusted";
+        let mlWarningText = null;
 
-        applyState(verdict, {
+        if (classification?.verdict?.isPhishing) {
+            finalVerdict = "untrusted";
+            const confidence = Math.round(classification.verdict.confidence ?? 0);
+            mlWarningText = translate("status.untrusted.mlWarning", { confidence });
+        }
+
+        applyState(finalVerdict, {
             domain: cleanDomain,
             checkedAt: new Date(),
+            spoofTarget,
+            mlWarning: mlWarningText
+        });
+        await recordHistory({
+            domain: cleanDomain,
+            verdict: finalVerdict,
+            checkedAt: Date.now(),
             spoofTarget
         });
-        await recordHistory({ domain: cleanDomain, verdict, checkedAt: Date.now(), spoofTarget });
 
-        if (verdict === "untrusted") {
+        if (finalVerdict === "untrusted") {
             warnAboutUntrusted(cleanDomain);
         }
     } catch (error) {
