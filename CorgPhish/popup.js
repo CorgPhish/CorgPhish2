@@ -1,3 +1,4 @@
+
 // Ссылки на элементы интерфейса / References to UI elements
 const dom = {
     app: document.getElementById("app"),
@@ -26,7 +27,15 @@ const dom = {
     settingsStatus: document.getElementById("settingsStatus"),
     whitelistForm: document.getElementById("whitelistForm"),
     whitelistInput: document.getElementById("whitelistInput"),
-    whitelistList: document.getElementById("whitelistList")
+    whitelistList: document.getElementById("whitelistList"),
+    sourceValue: document.getElementById("sourceValue"),
+    quickAddBtn: document.getElementById("quickAddBtn"),
+    manualForm: document.getElementById("manualForm"),
+    manualInput: document.getElementById("manualInput"),
+    manualHint: document.getElementById("manualHint"),
+    statsTrusted: document.getElementById("statsTrusted"),
+    statsAlert: document.getElementById("statsAlert"),
+    statsWhitelist: document.getElementById("statsWhitelist")
 };
 
 // Настройки по умолчанию / Default extension settings
@@ -84,7 +93,19 @@ const translations = {
         "recommendations.initial": "Держите вкладку открытой, чтобы мы могли её проанализировать.",
         "recommendations.empty": "Рекомендации отсутствуют.",
         "quickActions.title": "Дополнительно",
+        "actions.whitelist.addQuick": "Добавить в белый список",
         "footer.note": "CorgPhish проверяет только сайты по протоколам HTTP/HTTPS и работает локально.",
+        "manual.title": "Проверить домен вручную",
+        "manual.description": "Проверьте любой домен без перехода на сайт. Полезно для ссылок из писем или чатов.",
+        "manual.action": "Проверить",
+        "manual.placeholder": "example.com",
+        "manual.hint.default": "Укажите домен или полный URL, например https://bank.com.",
+        "manual.hint.success": "Домен {domain} проверен.",
+        "manual.hint.invalid": "Введите корректный домен или URL.",
+        "stats.title": "Обзор",
+        "stats.trusted": "Доверенных",
+        "stats.alerts": "Подозрительных",
+        "stats.whitelist": "В белом списке",
         "history.title": "История проверок",
         "history.subtitle": "Последние результаты анализа",
         "history.sectionTitle": "Последние проверки",
@@ -93,6 +114,8 @@ const translations = {
         "history.note": "Хранится не более 50 последних проверок. Данные локальны.",
         "history.badge.trusted": "Доверенный",
         "history.badge.alert": "Опасно",
+        "history.source.manual": "Ручная проверка",
+        "history.source.active": "Активная вкладка",
         "settings.title": "Настройки",
         "settings.subtitle": "Управляйте поведением CorgPhish",
         "settings.options": "Опции защиты",
@@ -118,7 +141,9 @@ const translations = {
         "alerts.untrusted": "CorgPhish предупреждает: сайт {domain} не найден в списке доверенных.",
         "errors.activeTab": "Невозможно получить ссылку активной вкладки.",
         "errors.loadTrusted": "Не удалось загрузить trusted.json.",
-        "errors.invalidTrusted": "Файл trusted.json содержит неверный формат."
+        "errors.invalidTrusted": "Файл trusted.json содержит неверный формат.",
+        "errors.invalidDomain": "Некорректный домен или URL.",
+        "status.sourceValue": "trusted.json + whitelist"
     },
     en: {
         "main.subtitle": "Protection dashboard",
@@ -165,7 +190,19 @@ const translations = {
         "recommendations.initial": "Keep the tab open so we can analyze it.",
         "recommendations.empty": "No recommendations available.",
         "quickActions.title": "Quick actions",
+        "actions.whitelist.addQuick": "Add to whitelist",
         "footer.note": "CorgPhish only scans HTTP/HTTPS sites and works locally.",
+        "manual.title": "Check a domain manually",
+        "manual.description": "Inspect any domain without visiting it. Handy for links from emails or chats.",
+        "manual.action": "Check",
+        "manual.placeholder": "example.com",
+        "manual.hint.default": "Type a domain or full URL, e.g. https://bank.com.",
+        "manual.hint.success": "Domain {domain} was inspected.",
+        "manual.hint.invalid": "Enter a valid domain or URL.",
+        "stats.title": "Overview",
+        "stats.trusted": "Trusted",
+        "stats.alerts": "Flagged",
+        "stats.whitelist": "In whitelist",
         "history.title": "Scan history",
         "history.subtitle": "Latest results",
         "history.sectionTitle": "Recent scans",
@@ -174,6 +211,8 @@ const translations = {
         "history.note": "Up to 50 scans are stored locally.",
         "history.badge.trusted": "Trusted",
         "history.badge.alert": "Alert",
+        "history.source.manual": "Manual check",
+        "history.source.active": "Active tab",
         "settings.title": "Settings",
         "settings.subtitle": "Control CorgPhish behaviour",
         "settings.options": "Protection options",
@@ -199,7 +238,9 @@ const translations = {
         "alerts.untrusted": "CorgPhish warns: {domain} is not in the trusted list.",
         "errors.activeTab": "Cannot read the active tab URL.",
         "errors.loadTrusted": "Failed to load trusted.json.",
-        "errors.invalidTrusted": "trusted.json has an invalid format."
+        "errors.invalidTrusted": "trusted.json has an invalid format.",
+        "errors.invalidDomain": "Invalid domain or URL.",
+        "status.sourceValue": "trusted.json + whitelist"
     }
 };
 
@@ -264,6 +305,7 @@ const VIEW_STATES = {
 let trustedCache = null;
 let currentSettings = { ...DEFAULT_SETTINGS };
 let customWhitelist = [];
+let lastInspection = null;
 
 const getLocale = () => (currentSettings.language === "en" ? "en-US" : "ru-RU");
 
@@ -289,6 +331,15 @@ const applyLanguage = () => {
     });
     if (dom.whitelistInput) {
         dom.whitelistInput.placeholder = translate("whitelist.placeholder");
+    }
+    if (dom.manualInput) {
+        dom.manualInput.placeholder = translate("manual.placeholder");
+    }
+    if (dom.manualHint) {
+        dom.manualHint.textContent = translate("manual.hint.default");
+    }
+    if (dom.sourceValue) {
+        dom.sourceValue.textContent = translate("status.sourceValue");
     }
 };
 
@@ -339,6 +390,38 @@ const findSpoofCandidate = (target, trustedList) => {
     return null;
 };
 
+const resolveHostname = (input = "") => {
+    const trimmed = input.trim();
+    if (!trimmed) {
+        return "";
+    }
+    try {
+        const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+        return url.hostname;
+    } catch (error) {
+        return normalizeHost(trimmed);
+    }
+};
+
+const setManualHint = (text, isError = false) => {
+    if (!dom.manualHint) {
+        return;
+    }
+    dom.manualHint.textContent = text;
+    dom.manualHint.style.color = isError ? "#f87171" : "var(--color-muted-strong)";
+};
+
+const setQuickAddState = (domain, isTrusted) => {
+    if (!dom.quickAddBtn) {
+        return;
+    }
+    const clean = normalizeHost(domain);
+    const hidden = !clean || isTrusted || customWhitelist.includes(clean);
+    dom.quickAddBtn.disabled = hidden;
+    dom.quickAddBtn.dataset.domain = hidden ? "" : clean;
+    dom.quickAddBtn.classList.toggle("is-hidden", hidden);
+};
+
 const formatTime = (date) =>
     date?.toLocaleTimeString(getLocale(), { hour: "2-digit", minute: "2-digit" }) ?? "—";
 
@@ -365,6 +448,10 @@ const applyState = (stateKey, context = {}) => {
     dom.riskLevel.textContent = translate(config.riskKey, context);
     dom.domainValue.textContent = context.domain ?? "—";
     dom.checkedAt.textContent = context.checkedAt ? formatTime(context.checkedAt) : "—";
+    if (dom.sourceValue) {
+        dom.sourceValue.textContent = translate("status.sourceValue");
+    }
+    setQuickAddState(context.domain, stateKey === "trusted");
 
     const recKeys = config.recommendationsKeys || [];
     const recItems = recKeys.map((key) => translate(key, context));
@@ -487,12 +574,14 @@ const refreshWhitelist = async () => {
     const stored = await loadWhitelist();
     customWhitelist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
     renderWhitelist(customWhitelist);
+    refreshStats();
 };
 
 const updateWhitelistStorage = async (domains) => {
     customWhitelist = domains.map((domain) => normalizeHost(domain)).filter(Boolean);
     await saveWhitelist(customWhitelist);
     renderWhitelist(customWhitelist);
+    refreshStats();
 };
 
 const addDomainToWhitelist = async (rawDomain) => {
@@ -522,6 +611,23 @@ const loadHistory = () =>
         });
     });
 
+const updateStats = (items = []) => {
+    if (dom.statsTrusted) {
+        dom.statsTrusted.textContent = items.filter((item) => item.verdict === "trusted").length;
+    }
+    if (dom.statsAlert) {
+        dom.statsAlert.textContent = items.filter((item) => item.verdict === "untrusted").length;
+    }
+    if (dom.statsWhitelist) {
+        dom.statsWhitelist.textContent = customWhitelist.length;
+    }
+};
+
+const refreshStats = async () => {
+    const items = await loadHistory();
+    updateStats(items);
+};
+
 const renderHistory = (items = []) => {
     if (!dom.historyList || !dom.historyEmpty) {
         return;
@@ -544,12 +650,19 @@ const renderHistory = (items = []) => {
         const title = document.createElement("h4");
         title.textContent = item.domain ?? "—";
         const subtitle = document.createElement("p");
-        subtitle.textContent = new Date(item.checkedAt).toLocaleString(getLocale(), {
+        const dateText = new Date(item.checkedAt).toLocaleString(getLocale(), {
             hour: "2-digit",
             minute: "2-digit",
             day: "2-digit",
             month: "2-digit"
         });
+        const sourceText =
+            item.source === "manual"
+                ? translate("history.source.manual")
+                : translate("history.source.active");
+        subtitle.textContent = `${dateText} • ${sourceText}${
+            item.spoofTarget ? ` • ${item.spoofTarget}` : ""
+        }`;
 
         info.appendChild(title);
         info.appendChild(subtitle);
@@ -570,6 +683,7 @@ const renderHistory = (items = []) => {
 const refreshHistory = async () => {
     const items = await loadHistory();
     renderHistory(items.slice(0, HISTORY_LIMIT));
+    updateStats(items);
 };
 
 const clearHistory = () =>
@@ -582,7 +696,14 @@ const recordHistory = (entry) =>
     new Promise((resolve) => {
         chrome.storage.local.get({ scanHistory: [] }, (result) => {
             const history = Array.isArray(result.scanHistory) ? result.scanHistory : [];
-            const next = [entry, ...history].slice(0, HISTORY_LIMIT);
+            const normalized = {
+                domain: entry.domain,
+                verdict: entry.verdict,
+                checkedAt: entry.checkedAt ?? Date.now(),
+                spoofTarget: entry.spoofTarget,
+                source: entry.source ?? "active"
+            };
+            const next = [normalized, ...history].slice(0, HISTORY_LIMIT);
             chrome.storage.local.set({ scanHistory: next }, resolve);
         });
     });
@@ -599,6 +720,48 @@ const warnAboutUntrusted = (domain) => {
         return;
     }
     alert(translate("alerts.untrusted", { domain }));
+};
+
+const inspectDomain = async (hostname) => {
+    const trustedList = await getTrustedDomains();
+    const cleanDomain = normalizeHost(hostname);
+    if (!cleanDomain) {
+        throw new Error(translate("errors.invalidDomain"));
+    }
+    const isTrusted = trustedList.some(
+        (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
+    );
+    const spoofTarget = !isTrusted ? findSpoofCandidate(cleanDomain, trustedList) : null;
+    return {
+        domain: cleanDomain,
+        verdict: isTrusted ? "trusted" : "untrusted",
+        spoofTarget,
+        isTrusted
+    };
+};
+
+const applyInspectionResult = async (result, options = {}) => {
+    const { shouldAlert = false, source = "active" } = options;
+    lastInspection = result;
+
+    applyState(result.verdict, {
+        domain: result.domain,
+        checkedAt: new Date(),
+        spoofTarget: result.spoofTarget
+    });
+
+    await recordHistory({
+        domain: result.domain,
+        verdict: result.verdict,
+        checkedAt: Date.now(),
+        spoofTarget: result.spoofTarget,
+        source
+    });
+
+    if (shouldAlert && result.verdict === "untrusted") {
+        warnAboutUntrusted(result.domain);
+    }
+    refreshHistory();
 };
 
 // Главная проверка активной вкладки / Main active tab scan
@@ -618,30 +781,8 @@ const checkActiveTab = async () => {
         }
 
         const url = new URL(activeTab.url);
-        const hostname = url.hostname;
-        const trustedList = await getTrustedDomains();
-        const cleanDomain = normalizeHost(hostname);
-        const isTrusted = trustedList.some(
-            (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
-        );
-        const spoofTarget = !isTrusted ? findSpoofCandidate(cleanDomain, trustedList) : null;
-        const finalVerdict = isTrusted ? "trusted" : "untrusted";
-
-        applyState(finalVerdict, {
-            domain: cleanDomain,
-            checkedAt: new Date(),
-            spoofTarget
-        });
-        await recordHistory({
-            domain: cleanDomain,
-            verdict: finalVerdict,
-            checkedAt: Date.now(),
-            spoofTarget
-        });
-
-        if (finalVerdict === "untrusted") {
-            warnAboutUntrusted(cleanDomain);
-        }
+        const result = await inspectDomain(url.hostname);
+        await applyInspectionResult(result, { shouldAlert: true, source: "active" });
     } catch (error) {
         console.error("Ошибка во время проверки", error);
         applyState("error", { error: error?.message || "" });
@@ -681,6 +822,42 @@ const handleSettingsChange = async () => {
         refreshHistory();
     }
     showSettingsStatus("settings.status.saved");
+};
+
+// Ручная проверка домена / Manual domain inspection
+const handleManualSubmit = async (event) => {
+    event.preventDefault();
+    if (!dom.manualInput) {
+        return;
+    }
+    const hostname = resolveHostname(dom.manualInput.value);
+    if (!hostname) {
+        setManualHint(translate("manual.hint.invalid"), true);
+        return;
+    }
+    try {
+        const result = await inspectDomain(hostname);
+        await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
+        setManualHint(translate("manual.hint.success", { domain: result.domain }));
+    } catch (error) {
+        setManualHint(error?.message || translate("manual.hint.invalid"), true);
+    }
+};
+
+// Быстрое добавление домена из статуса / Quick whitelist add from main view
+const handleQuickAddClick = async () => {
+    const domain = dom.quickAddBtn?.dataset.domain;
+    if (!domain) {
+        return;
+    }
+    await addDomainToWhitelist(domain);
+    try {
+        const result = await inspectDomain(domain);
+        await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
+        setManualHint(translate("whitelist.status.added", { domain }));
+    } catch (error) {
+        console.warn("Не удалось обновить состояние после добавления в whitelist", error);
+    }
 };
 
 // Обработка формы whitelist / Handle whitelist form submit
@@ -727,8 +904,11 @@ safeAddEvent(dom.autoCheckInput, "change", handleSettingsChange);
 safeAddEvent(dom.alertInput, "change", handleSettingsChange);
 safeAddEvent(dom.themeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.languageSelect, "change", handleSettingsChange);
+safeAddEvent(dom.manualForm, "submit", handleManualSubmit);
+safeAddEvent(dom.manualInput, "input", () => setManualHint(translate("manual.hint.default")));
 safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
 safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
+safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
 
 const init = async () => {
     currentSettings = await loadSettings();

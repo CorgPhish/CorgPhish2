@@ -33,6 +33,10 @@ body[data-theme="light"] {
     box-sizing: border-box;
 }
 
+.is-hidden {
+    display: none !important;
+}
+
 body {
     margin: 0;
     width: 360px;
@@ -208,6 +212,16 @@ body {
     color: var(--color-muted);
 }
 
+.status-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.status-actions .button {
+    width: 100%;
+}
+
 .card__header {
     display: flex;
     align-items: center;
@@ -338,6 +352,72 @@ body {
 .chip--untrusted {
     background: rgba(248, 113, 113, 0.2);
     color: #fecdd3;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.stat {
+    padding: 12px;
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(14, 165, 233, 0.08));
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.stat__label {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-muted);
+}
+
+.stat__value {
+    margin: 6px 0 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.stat--trust .stat__value {
+    color: #34d399;
+}
+
+.stat--alert .stat__value {
+    color: #f87171;
+}
+
+.stat--whitelist .stat__value {
+    color: #38bdf8;
+}
+
+.manual-card__hint {
+    margin: 0 0 10px;
+    color: var(--color-muted-strong);
+    font-size: 14px;
+}
+
+.manual-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.manual-form input {
+    flex: 1;
+    border-radius: 12px;
+    border: 1px solid var(--color-card-border);
+    padding: 11px 12px;
+    background: transparent;
+    color: var(--color-text);
+}
+
+.manual-form input::placeholder {
+    color: var(--color-muted);
+}
+
+.manual-form .button {
+    white-space: nowrap;
 }
 
 .whitelist-form {
@@ -481,6 +561,12 @@ input:checked + .slider::before {
     color: var(--color-muted);
     text-align: center;
     margin: 0;
+}
+
+@media (max-width: 360px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 [data-state="trusted"] .status-card__badge {

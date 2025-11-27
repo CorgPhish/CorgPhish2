@@ -34,12 +34,17 @@
                     </div>
                     <div>
                         <dt data-i18n="status.sourceLabel">Источник проверки</dt>
-                        <dd>trusted.json</dd>
+                        <dd id="sourceValue">trusted.json</dd>
                     </div>
                 </dl>
                 <p class="status-card__timestamp">
                     <span data-i18n="status.lastCheck">Последняя проверка:</span> <span id="checkedAt">—</span>
                 </p>
+                <div class="status-actions" id="statusActions">
+                    <button class="button button--ghost is-hidden" id="quickAddBtn" type="button" data-i18n="actions.whitelist.addQuick">
+                        Добавить в белый список
+                    </button>
+                </div>
             </section>
 
             <section class="card recommendations">
@@ -60,6 +65,41 @@
                     <button class="button button--ghost" id="openHistoryBtn" type="button" data-i18n="actions.history">История проверок</button>
                     <button class="button button--ghost" id="openSettingsBtn" type="button" data-i18n="actions.settings">Настройки</button>
                 </div>
+            </section>
+
+            <section class="card stats-card">
+                <div class="card__header">
+                    <h4 data-i18n="stats.title">Обзор</h4>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat stat--trust">
+                        <p class="stat__label" data-i18n="stats.trusted">Доверенных</p>
+                        <p class="stat__value" id="statsTrusted">0</p>
+                    </div>
+                    <div class="stat stat--alert">
+                        <p class="stat__label" data-i18n="stats.alerts">Подозрительных</p>
+                        <p class="stat__value" id="statsAlert">0</p>
+                    </div>
+                    <div class="stat stat--whitelist">
+                        <p class="stat__label" data-i18n="stats.whitelist">В белом списке</p>
+                        <p class="stat__value" id="statsWhitelist">0</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card manual-card">
+                <div class="card__header">
+                    <h4 data-i18n="manual.title">Проверить домен вручную</h4>
+                    <span class="tag">NEW</span>
+                </div>
+                <p class="manual-card__hint" data-i18n="manual.description">
+                    Проверьте любой домен без перехода на сайт. Полезно для ссылок из писем или чатов.
+                </p>
+                <form class="manual-form" id="manualForm">
+                    <input type="text" id="manualInput" autocomplete="off" placeholder="example.com" />
+                    <button class="button" id="manualSubmit" type="submit" data-i18n="manual.action">Проверить</button>
+                </form>
+                <p class="note" id="manualHint" data-i18n="manual.hint.default">Укажите домен или полный URL, например https://bank.com.</p>
             </section>
 
             <p class="footer-note" data-i18n="footer.note">
