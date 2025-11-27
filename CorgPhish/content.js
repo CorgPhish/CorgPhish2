@@ -2,7 +2,8 @@
 (async () => {
   const DEFAULT_SETTINGS = {
     blockOnUntrusted: true,
-    systemNotifyOnRisk: true
+    systemNotifyOnRisk: true,
+    warnOnUntrusted: true
   };
 
   const normalizeHost = (hostname = "") =>
@@ -160,10 +161,27 @@
       if (!blockedRef.active) return;
       const target = event.target;
       const isForm = event.type === "submit" || target?.closest?.("form");
-      const isDownloadLink =
+      const href = target?.closest?.("a")?.getAttribute?.("href") || "";
+      const downloadLink =
         target?.closest &&
-        target.closest('a[download], a[href$=".exe"], a[href$=".zip"], a[href$=".scr"], a[href$=".msi"]');
-      if (isForm || isDownloadLink) {
+        target.closest(
+          [
+            "a[download]",
+            'a[href$=".exe"]',
+            'a[href$=".msi"]',
+            'a[href$=".scr"]',
+            'a[href$=".zip"]',
+            'a[href$=".rar"]',
+            'a[href$=".7z"]',
+            'a[href$=".tar"]',
+            'a[href$=".tar.gz"]',
+            'a[href$=".gz"]',
+            'a[href$=".dmg"]',
+            'a[href$=".apk"]'
+          ].join(",")
+        );
+      const looksLikeDownload = downloadLink || /download/i.test(href);
+      if (isForm || looksLikeDownload) {
         event.preventDefault();
         event.stopPropagation();
         alert("Ввод и загрузка заблокированы на этом сайте CorgPhish.");
@@ -192,6 +210,10 @@
   const spoofTarget = findSpoofCandidate(cleanDomain, merged);
   let blockedState = { active: Boolean(settings.blockOnUntrusted) };
   const teardown = preventDangerousActions(blockedState);
+
+  if (settings.warnOnUntrusted) {
+    alert(`Внимание: сайт ${cleanDomain} не в списке доверенных. Не вводите данные и не скачивайте файлы.`);
+  }
 
   if (settings.systemNotifyOnRisk) {
     chrome.runtime.sendMessage({
