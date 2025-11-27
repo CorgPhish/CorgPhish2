@@ -83,7 +83,7 @@
     }
   };
 
-  const injectOverlay = (domain, spoofTarget, onAllow, onClose) => {
+  const createOverlay = () => {
     const overlay = document.createElement("div");
     overlay.style.position = "fixed";
     overlay.style.inset = "0";
@@ -101,19 +101,12 @@
     overlay.style.fontFamily = "Inter, system-ui, -apple-system, sans-serif";
 
     const title = document.createElement("h2");
-    title.textContent = "CorgPhish заблокировал страницу";
     title.style.margin = "0 0 12px";
     const subtitle = document.createElement("p");
-    subtitle.textContent = `Домен ${domain} не в списке доверенных. Ввод данных и загрузки отключены.`;
     subtitle.style.margin = "0 0 12px";
-
     const details = document.createElement("p");
-    details.textContent = spoofTarget
-      ? `Похоже на: ${spoofTarget}`
-      : "Если доверяете источнику, разблокируйте на 5 минут.";
     details.style.margin = "0 0 16px";
     details.style.color = "#94a3b8";
-
     const buttons = document.createElement("div");
     buttons.style.display = "flex";
     buttons.style.gap = "10px";
@@ -136,24 +129,34 @@
     closeBtn.style.color = "#e2e8f0";
     closeBtn.style.cursor = "pointer";
 
-    allowBtn.addEventListener("click", () => {
-      overlay.remove();
-      onAllow?.();
-    });
-    closeBtn.addEventListener("click", () => {
-      chrome.runtime.sendMessage({ type: "closeTab" });
-      onClose?.();
-    });
-
     buttons.appendChild(allowBtn);
     buttons.appendChild(closeBtn);
-
     overlay.appendChild(title);
     overlay.appendChild(subtitle);
     overlay.appendChild(details);
     overlay.appendChild(buttons);
+
     document.documentElement.appendChild(overlay);
-    return overlay;
+
+    const setState = ({ mode, domain, spoofTarget }) => {
+      if (mode === "pending") {
+        title.textContent = "CorgPhish проверяет страницу";
+        subtitle.textContent = "Ожидайте завершения проверки домена…";
+        details.textContent = "Ввод и загрузки временно заблокированы.";
+        buttons.style.display = "none";
+      } else if (mode === "blocked") {
+        title.textContent = "CorgPhish заблокировал страницу";
+        subtitle.textContent = `Домен ${domain} не в списке доверенных.`;
+        details.textContent = spoofTarget
+          ? `Похоже на: ${spoofTarget}. Ввод и загрузки отключены.`
+          : "Ввод и загрузки отключены. Разблокируйте на 5 минут, если доверяете.";
+        buttons.style.display = "flex";
+      } else if (mode === "safe") {
+        overlay.remove();
+      }
+    };
+
+    return { overlay, allowBtn, closeBtn, setState };
   };
 
   const preventDangerousActions = (blockedRef) => {
@@ -215,17 +218,33 @@
   const hostname = resolveHostname(window.location.href);
   if (!hostname || !/^https?:/i.test(window.location.href)) return;
 
+  // Стартуем в заблокированном состоянии, пока не узнаем вердикт.
+  const overlayController = createOverlay();
+  overlayController.setState({ mode: "pending" });
+  let blockedState = { active: true };
+  const teardown = preventDangerousActions(blockedState);
+
   const [trustedList, whitelist] = await Promise.all([loadTrustedList(), loadWhitelist()]);
   const merged = [...new Set([...trustedList, ...whitelist])];
-  if (!merged.length) return;
+  if (!merged.length) {
+    // если не смогли загрузить доверенные — держим блок.
+    overlayController.setState({ mode: "blocked", domain: hostname });
+    return;
+  }
 
   const cleanDomain = normalizeHost(hostname);
   const isTrusted = isTrustedDomain(cleanDomain, merged);
-  if (isTrusted) return;
+
+  if (isTrusted) {
+    blockedState.active = false;
+    overlayController.setState({ mode: "safe" });
+    teardown();
+    return;
+  }
 
   const spoofTarget = findSpoofCandidate(cleanDomain, merged);
-  let blockedState = { active: Boolean(settings.blockOnUntrusted) };
-  const teardown = preventDangerousActions(blockedState);
+
+  overlayController.setState({ mode: "blocked", domain: cleanDomain, spoofTarget });
 
   if (settings.warnOnUntrusted) {
     alert(`Внимание: сайт ${cleanDomain} не в списке доверенных. Не вводите данные и не скачивайте файлы.`);
@@ -240,26 +259,19 @@
   }
 
   if (settings.blockOnUntrusted) {
-    // Останавливаем загрузку исходной страницы и показываем блокирующий экран.
-    try {
-      window.stop();
-    } catch (e) {
-      // ignore
-    }
-    document.documentElement.innerHTML = "";
-    injectOverlay(
-      cleanDomain,
-      spoofTarget,
-      () => {
-        blockedState.active = false;
-        setTimeout(() => {
-          blockedState.active = true;
-        }, 5 * 60 * 1000);
-        location.reload();
-      },
-      () => {
-        teardown();
-      }
-    );
+    overlayController.allowBtn.addEventListener("click", () => {
+      blockedState.active = false;
+      overlayController.setState({ mode: "safe" });
+      setTimeout(() => {
+        blockedState.active = true;
+      }, 5 * 60 * 1000);
+    });
+    overlayController.closeBtn.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ type: "closeTab" });
+    });
+  } else {
+    blockedState.active = false;
+    overlayController.setState({ mode: "safe" });
+    teardown();
   }
 })();
