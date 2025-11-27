@@ -1,0 +1,87 @@
+// Работа с данными: trusted.json, настройки, история, whitelist.
+import { CUSTOM_WHITELIST_KEY, DEFAULT_SETTINGS, HISTORY_LIMIT } from "./config.js";
+
+let trustedCache = null;
+
+export const loadTrustedList = async () => {
+  if (trustedCache) {
+    return trustedCache;
+  }
+  const response = await fetch(chrome.runtime.getURL("trusted.json"));
+  if (!response.ok) {
+    throw new Error("errors.loadTrusted");
+  }
+  const payload = await response.json();
+  if (!Array.isArray(payload?.trusted)) {
+    throw new Error("errors.invalidTrusted");
+  }
+  trustedCache = payload.trusted.map((domain) => domain.trim().toLowerCase()).filter(Boolean);
+  return trustedCache;
+};
+
+export const getTrustedDomains = async (customWhitelist = []) => {
+  const base = await loadTrustedList();
+  return [...new Set([...base, ...customWhitelist])];
+};
+
+export const loadSettings = () =>
+  new Promise((resolve) => {
+    chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
+      resolve({ ...DEFAULT_SETTINGS, ...settings });
+    });
+  });
+
+export const saveSettings = (settings) =>
+  new Promise((resolve) => {
+    chrome.storage.sync.set(settings, () => resolve(settings));
+  });
+
+export const loadWhitelist = () =>
+  new Promise((resolve) => {
+    chrome.storage.local.get({ [CUSTOM_WHITELIST_KEY]: [] }, (result) => {
+      resolve(Array.isArray(result[CUSTOM_WHITELIST_KEY]) ? result[CUSTOM_WHITELIST_KEY] : []);
+    });
+  });
+
+export const saveWhitelist = (domains) =>
+  new Promise((resolve) => {
+    chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
+  });
+
+const pruneByRetention = (items = [], days = 0) => {
+  const retentionDays = Number(days) || 0;
+  if (retentionDays <= 0) {
+    return items;
+  }
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  return items.filter((entry) => Number(entry.checkedAt || 0) >= cutoff);
+};
+
+export const loadHistory = (retentionDays) =>
+  new Promise((resolve) => {
+    chrome.storage.local.get({ scanHistory: [] }, (result) => {
+      const history = Array.isArray(result.scanHistory) ? result.scanHistory : [];
+      resolve(pruneByRetention(history, retentionDays));
+    });
+  });
+
+export const clearHistory = () =>
+  new Promise((resolve) => {
+    chrome.storage.local.set({ scanHistory: [] }, resolve);
+  });
+
+export const recordHistory = (entry, retentionDays) =>
+  new Promise((resolve) => {
+    chrome.storage.local.get({ scanHistory: [] }, (result) => {
+      const history = Array.isArray(result.scanHistory) ? result.scanHistory : [];
+      const normalized = {
+        domain: entry.domain,
+        verdict: entry.verdict,
+        checkedAt: entry.checkedAt ?? Date.now(),
+        spoofTarget: entry.spoofTarget,
+        source: entry.source ?? "active"
+      };
+      const next = pruneByRetention([normalized, ...history], retentionDays).slice(0, HISTORY_LIMIT);
+      chrome.storage.local.set({ scanHistory: next }, resolve);
+    });
+  });

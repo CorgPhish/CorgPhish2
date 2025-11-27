@@ -45,6 +45,10 @@ body {
     color: var(--color-text);
 }
 
+.is-hidden {
+    display: none !important;
+}
+
 .app {
     padding: 18px;
     display: flex;
@@ -508,6 +512,14 @@ body {
     font-size: 13px;
 }
 
+.setting-item select {
+    border-radius: 12px;
+    border: 1px solid var(--color-card-border);
+    background: transparent;
+    color: var(--color-text);
+    padding: 8px 10px;
+}
+
 .switch {
     position: relative;
     width: 38px;
@@ -609,4 +621,21 @@ input:checked + .slider::before {
 [data-state="pending"] .tag {
     background: rgba(59, 130, 246, 0.2);
     color: #bfdbfe;
+}
+
+body[data-density="compact"] .app {
+    padding: 12px;
+    gap: 12px;
+}
+
+body[data-density="compact"] .card {
+    padding: 12px;
+}
+
+body[data-density="compact"] .view {
+    gap: 12px;
+}
+
+body[data-density="compact"] .button {
+    padding: 10px 14px;
 }

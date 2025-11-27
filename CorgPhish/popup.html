@@ -180,6 +180,28 @@
                             <span class="slider"></span>
                         </div>
                     </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="settings.retention.title">Автоочистка истории</h4>
+                            <p data-i18n="settings.retention.desc">Ограничивайте давность записей в истории проверок.</p>
+                        </div>
+                        <select id="historyRetentionSelect">
+                            <option value="0" data-i18n="settings.retention.never">Не очищать</option>
+                            <option value="7" data-i18n="settings.retention.days7">7 дней</option>
+                            <option value="30" data-i18n="settings.retention.days30">30 дней</option>
+                            <option value="90" data-i18n="settings.retention.days90">90 дней</option>
+                        </select>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="settings.compact.title">Компактный режим</h4>
+                            <p data-i18n="settings.compact.desc">Меньше отступов и плотнее карточки.</p>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="compactModeToggle" />
+                            <span class="slider"></span>
+                        </div>
+                    </label>
                 </div>
                 <p class="note" id="settingsStatus" data-i18n="settings.status.default">Изменения сохраняются автоматически.</p>
             </section>
@@ -196,6 +218,6 @@
         </section>
     </div>
 </div>
-<script src="popup.js"></script>
+<script type="module" src="popup/main.js"></script>
 </body>
 </html>
