@@ -5,7 +5,9 @@ export const DEFAULT_SETTINGS = {
   theme: "dark",
   language: "ru",
   historyRetentionDays: 30,
-  compactMode: false
+  compactMode: false,
+  blockOnUntrusted: true,
+  systemNotifyOnRisk: true
 };
 
 export const HISTORY_LIMIT = 50;
@@ -145,6 +147,10 @@ export const translations = {
     "settings.autoCheck.desc": "Автоматически запускать анализ при появлении попапа.",
     "settings.alerts.title": "Уведомления о рисках",
     "settings.alerts.desc": "Показывать предупреждение при подозрительном сайте.",
+    "settings.block.title": "Блокировка ввода",
+    "settings.block.desc": "На подозрительных сайтах запретить ввод и загрузки.",
+    "settings.notify.title": "Системные уведомления",
+    "settings.notify.desc": "Показывать уведомление при подозрительном сайте.",
     "settings.retention.title": "Автоочистка истории",
     "settings.retention.desc": "Ограничивайте давность записей в истории проверок.",
     "settings.retention.never": "Не очищать",
@@ -250,6 +256,10 @@ export const translations = {
     "settings.autoCheck.desc": "Launch the analysis when the popup appears.",
     "settings.alerts.title": "Risk alerts",
     "settings.alerts.desc": "Show a warning when a suspicious site is detected.",
+    "settings.block.title": "Block input",
+    "settings.block.desc": "Block forms/downloads on suspicious sites.",
+    "settings.notify.title": "System notifications",
+    "settings.notify.desc": "Show a system notification on suspicious sites.",
     "settings.retention.title": "History cleanup",
     "settings.retention.desc": "Limit how long scan records are kept.",
     "settings.retention.never": "Never",

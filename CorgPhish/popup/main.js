@@ -194,6 +194,8 @@ const handleSettingsChange = async () => {
     warnOnUntrusted: dom.alertInput?.checked ?? DEFAULT_SETTINGS.warnOnUntrusted,
     theme: dom.themeToggle?.checked ? "light" : "dark",
     language: dom.languageSelect?.value ?? DEFAULT_SETTINGS.language,
+    blockOnUntrusted: dom.blockInputToggle?.checked ?? DEFAULT_SETTINGS.blockOnUntrusted,
+    systemNotifyOnRisk: dom.systemNotifyToggle?.checked ?? DEFAULT_SETTINGS.systemNotifyOnRisk,
     historyRetentionDays:
       Number(dom.historyRetentionSelect?.value) || DEFAULT_SETTINGS.historyRetentionDays,
     compactMode: dom.compactModeToggle?.checked ?? DEFAULT_SETTINGS.compactMode
@@ -218,6 +220,12 @@ const updateSettingsControls = () => {
   }
   if (dom.languageSelect) {
     dom.languageSelect.value = currentSettings.language;
+  }
+  if (dom.blockInputToggle) {
+    dom.blockInputToggle.checked = currentSettings.blockOnUntrusted;
+  }
+  if (dom.systemNotifyToggle) {
+    dom.systemNotifyToggle.checked = currentSettings.systemNotifyOnRisk;
   }
   if (dom.historyRetentionSelect) {
     dom.historyRetentionSelect.value = String(currentSettings.historyRetentionDays);
@@ -264,6 +272,8 @@ safeAddEvent(dom.autoCheckInput, "change", handleSettingsChange);
 safeAddEvent(dom.alertInput, "change", handleSettingsChange);
 safeAddEvent(dom.themeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.languageSelect, "change", handleSettingsChange);
+safeAddEvent(dom.blockInputToggle, "change", handleSettingsChange);
+safeAddEvent(dom.systemNotifyToggle, "change", handleSettingsChange);
 safeAddEvent(dom.historyRetentionSelect, "change", handleSettingsChange);
 safeAddEvent(dom.compactModeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.manualForm, "submit", handleManualSubmit);

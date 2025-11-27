@@ -24,6 +24,8 @@ export const dom = {
   alertInput: document.getElementById("alertInput"),
   themeToggle: document.getElementById("themeToggle"),
   languageSelect: document.getElementById("languageSelect"),
+  blockInputToggle: document.getElementById("blockInputToggle"),
+  systemNotifyToggle: document.getElementById("systemNotifyToggle"),
   historyRetentionSelect: document.getElementById("historyRetentionSelect"),
   compactModeToggle: document.getElementById("compactModeToggle"),
   settingsStatus: document.getElementById("settingsStatus"),
