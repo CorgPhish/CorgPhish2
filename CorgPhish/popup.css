@@ -340,12 +340,6 @@ body {
     color: #fecdd3;
 }
 
-.ml-card p {
-    margin-bottom: 12px;
-    font-size: 14px;
-    color: var(--color-muted);
-}
-
 .whitelist-form {
     display: flex;
     gap: 8px;

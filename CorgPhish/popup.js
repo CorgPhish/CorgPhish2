@@ -26,9 +26,7 @@ const dom = {
     settingsStatus: document.getElementById("settingsStatus"),
     whitelistForm: document.getElementById("whitelistForm"),
     whitelistInput: document.getElementById("whitelistInput"),
-    whitelistList: document.getElementById("whitelistList"),
-    mlCheckBtn: document.getElementById("mlCheckBtn"),
-    mlStatus: document.getElementById("mlStatus")
+    whitelistList: document.getElementById("whitelistList")
 };
 
 // Настройки по умолчанию / Default extension settings
@@ -70,7 +68,6 @@ const translations = {
         "status.untrusted.recommendations.1": "Сверьте адрес с официальным доменом организации.",
         "status.untrusted.recommendations.2": "Поищите отзывы и упоминания домена {domain} в открытых источниках.",
         "status.untrusted.spoofWarning": "Похоже на {spoofTarget}. Возможный спуфинг.",
-        "status.untrusted.mlWarning": "ML-анализ фиксирует риск (уверенность {confidence}%).",
         "status.unsupported.badge": "Нельзя проверить",
         "status.unsupported.title": "Поддерживаются только сайты HTTP/HTTPS",
         "status.unsupported.hint": "Системные страницы браузера и локальные файлы пропускаются.",
@@ -87,13 +84,6 @@ const translations = {
         "recommendations.initial": "Держите вкладку открытой, чтобы мы могли её проанализировать.",
         "recommendations.empty": "Рекомендации отсутствуют.",
         "quickActions.title": "Дополнительно",
-        "ml.title": "ML-анализ",
-        "ml.description": "В ближайшем обновлении CorgPhish подключит модель машинного обучения для анализа поведенческих признаков фишинга.",
-        "ml.button": "Смоделировать анализ",
-        "ml.note": "ML-модуль пока недоступен. Используем локальный список доверенных доменов.",
-        "ml.status.running": "Запрашиваем результаты у ML-модуля...",
-        "ml.status.safe": "ML-модуль (эмуляция) не нашёл подозрительных признаков.",
-        "ml.status.alert": "ML-модуль (эмуляция) рекомендует проявить осторожность.",
         "footer.note": "CorgPhish проверяет только сайты по протоколам HTTP/HTTPS и работает локально.",
         "history.title": "История проверок",
         "history.subtitle": "Последние результаты анализа",
@@ -159,7 +149,6 @@ const translations = {
         "status.untrusted.recommendations.1": "Compare the address with the official domain.",
         "status.untrusted.recommendations.2": "Search for reviews or mentions of {domain} online.",
         "status.untrusted.spoofWarning": "Looks similar to {spoofTarget}. Possible spoofing.",
-        "status.untrusted.mlWarning": "ML scan reports a high risk (confidence {confidence}%).",
         "status.unsupported.badge": "Cannot scan",
         "status.unsupported.title": "Only HTTP/HTTPS sites are supported",
         "status.unsupported.hint": "Browser pages and local files are skipped.",
@@ -176,13 +165,6 @@ const translations = {
         "recommendations.initial": "Keep the tab open so we can analyze it.",
         "recommendations.empty": "No recommendations available.",
         "quickActions.title": "Quick actions",
-        "ml.title": "ML analysis",
-        "ml.description": "An upcoming release will connect a machine-learning model to detect phishing behavior patterns.",
-        "ml.button": "Simulate analysis",
-        "ml.note": "The ML module is not available yet. Using the local trusted list.",
-        "ml.status.running": "Requesting ML engine response...",
-        "ml.status.safe": "The simulated ML module found no suspicious indicators.",
-        "ml.status.alert": "The simulated ML module suggests extra caution.",
         "footer.note": "CorgPhish only scans HTTP/HTTPS sites and works locally.",
         "history.title": "Scan history",
         "history.subtitle": "Latest results",
@@ -308,9 +290,6 @@ const applyLanguage = () => {
     if (dom.whitelistInput) {
         dom.whitelistInput.placeholder = translate("whitelist.placeholder");
     }
-    if (dom.mlStatus) {
-        dom.mlStatus.textContent = translate("ml.note");
-    }
 };
 
 // Нормализация домена и поиск похожих / Normalize domain and detect look-alikes
@@ -392,9 +371,6 @@ const applyState = (stateKey, context = {}) => {
     if (stateKey === "untrusted" && context.spoofTarget) {
         recItems.unshift(translate("status.untrusted.spoofWarning", context));
     }
-    if (stateKey === "untrusted" && context.mlWarning) {
-        recItems.unshift(context.mlWarning);
-    }
     updateRecommendations(recItems);
 };
 
@@ -459,20 +435,6 @@ const saveWhitelist = (domains) =>
     new Promise((resolve) => {
         chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
     });
-
-// Получить ML-классификацию для вкладки / Fetch cached ML classification
-const fetchClassification = async (tabId) => {
-    if (typeof tabId !== "number") {
-        return null;
-    }
-    try {
-        const response = await chrome.runtime.sendMessage({ type: "getClassification", tabId });
-        return response?.classification ?? null;
-    } catch (error) {
-        console.warn("Не удалось получить ML классификацию", error);
-        return null;
-    }
-};
 
 // Тост в настройках / Inline toast for settings status
 const showSettingsStatus = (key, params = {}, isError = false) => {
@@ -639,33 +601,6 @@ const warnAboutUntrusted = (domain) => {
     alert(translate("alerts.untrusted", { domain }));
 };
 
-// Эмуляция работы ML-модуля / Simulate ML engine response
-const simulateMlCheck = async () => {
-    if (!dom.mlStatus || !dom.mlCheckBtn) {
-        return;
-    }
-
-    dom.mlStatus.textContent = translate("ml.status.running");
-    dom.mlCheckBtn.disabled = true;
-
-    try {
-        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const classification = await fetchClassification(activeTab?.id ?? null);
-        if (classification?.verdict?.isPhishing) {
-            dom.mlStatus.textContent = translate("ml.status.alert");
-        } else if (classification) {
-            dom.mlStatus.textContent = translate("ml.status.safe");
-        } else {
-            dom.mlStatus.textContent = translate("ml.note");
-        }
-    } catch (error) {
-        console.warn("ML status preview failed", error);
-        dom.mlStatus.textContent = translate("ml.note");
-    } finally {
-        dom.mlCheckBtn.disabled = false;
-    }
-};
-
 // Главная проверка активной вкладки / Main active tab scan
 const checkActiveTab = async () => {
     applyState("pending");
@@ -690,21 +625,12 @@ const checkActiveTab = async () => {
             (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
         );
         const spoofTarget = !isTrusted ? findSpoofCandidate(cleanDomain, trustedList) : null;
-        const classification = await fetchClassification(activeTab.id);
-        let finalVerdict = isTrusted ? "trusted" : "untrusted";
-        let mlWarningText = null;
-
-        if (classification?.verdict?.isPhishing) {
-            finalVerdict = "untrusted";
-            const confidence = Math.round(classification.verdict.confidence ?? 0);
-            mlWarningText = translate("status.untrusted.mlWarning", { confidence });
-        }
+        const finalVerdict = isTrusted ? "trusted" : "untrusted";
 
         applyState(finalVerdict, {
             domain: cleanDomain,
             checkedAt: new Date(),
-            spoofTarget,
-            mlWarning: mlWarningText
+            spoofTarget
         });
         await recordHistory({
             domain: cleanDomain,
@@ -803,7 +729,6 @@ safeAddEvent(dom.themeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.languageSelect, "change", handleSettingsChange);
 safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
 safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
-safeAddEvent(dom.mlCheckBtn, "click", simulateMlCheck);
 
 const init = async () => {
     currentSettings = await loadSettings();
