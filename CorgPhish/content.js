@@ -187,11 +187,27 @@
         alert("Ввод и загрузка заблокированы на этом сайте CorgPhish.");
       }
     };
+    const blockNavigation = (event) => {
+      if (!blockedRef.active) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
     document.addEventListener("submit", blockEvent, true);
     document.addEventListener("click", blockEvent, true);
+    window.addEventListener("beforeunload", blockNavigation, true);
+    const originalOpen = window.open;
+    window.open = (...args) => {
+      if (blockedRef.active) {
+        alert("Открытие новых вкладок заблокировано CorgPhish для этого сайта.");
+        return null;
+      }
+      return originalOpen.apply(window, args);
+    };
     return () => {
       document.removeEventListener("submit", blockEvent, true);
       document.removeEventListener("click", blockEvent, true);
+      window.removeEventListener("beforeunload", blockNavigation, true);
+      window.open = originalOpen;
     };
   };
 
@@ -224,6 +240,13 @@
   }
 
   if (settings.blockOnUntrusted) {
+    // Останавливаем загрузку исходной страницы и показываем блокирующий экран.
+    try {
+      window.stop();
+    } catch (e) {
+      // ignore
+    }
+    document.documentElement.innerHTML = "";
     injectOverlay(
       cleanDomain,
       spoofTarget,
@@ -232,8 +255,11 @@
         setTimeout(() => {
           blockedState.active = true;
         }, 5 * 60 * 1000);
+        location.reload();
       },
-      () => teardown()
+      () => {
+        teardown();
+      }
     );
   }
 })();
