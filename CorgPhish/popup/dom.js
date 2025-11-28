@@ -8,6 +8,7 @@ export const dom = {
   statusTitle: document.getElementById("statusTitle"),
   statusHint: document.getElementById("statusHint"),
   domainValue: document.getElementById("domainValue"),
+  domainValueMeta: document.getElementById("domainValueMeta"),
   sourceValue: document.getElementById("sourceValue"),
   checkedAt: document.getElementById("checkedAt"),
   recommendationsList: document.getElementById("recommendationsList"),

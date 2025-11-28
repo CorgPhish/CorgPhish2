@@ -9,37 +9,45 @@
 <div class="app" id="app" data-state="pending" data-view="main">
     <div class="view-container">
         <section class="view view--main" id="viewMain">
-            <header class="app__header">
-                <div class="brand">
+            <header class="hero">
+                <div class="hero__brand">
                     <div class="brand__logo">CP</div>
                     <div>
                         <p class="brand__title">CorgPhish</p>
                         <p class="brand__subtitle" data-i18n="main.subtitle">Главная панель защиты</p>
                     </div>
                 </div>
-                <button class="button" id="refreshBtn" type="button" data-i18n="actions.refresh">
-                    Перепроверить
-                </button>
+                <div class="hero__cta">
+                    <p class="hero__hint" data-i18n="recommendations.initial">Держите вкладку открытой, чтобы мы могли её проанализировать.</p>
+                    <button class="button" id="refreshBtn" type="button" data-i18n="actions.refresh">
+                        Перепроверить
+                    </button>
+                </div>
             </header>
 
             <section class="card status-card">
-                <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
+                <div class="status-top">
+                    <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
+                    <span class="pill" id="riskLevel">—</span>
+                </div>
                 <h2 class="status-card__title" id="statusTitle" data-i18n="status.pending.title">Анализируем активную вкладку</h2>
                 <p class="status-card__hint" id="statusHint" data-i18n="status.pending.hint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
+
+                <div class="status-chips">
+                    <span class="pill pill--ghost" id="domainValue">—</span>
+                    <span class="pill pill--muted" id="sourceValue">trusted.json + ML</span>
+                </div>
 
                 <dl class="status-card__meta">
                     <div>
                         <dt data-i18n="status.domainLabel">Домен</dt>
-                        <dd id="domainValue">—</dd>
+                        <dd id="domainValueMeta">—</dd>
                     </div>
                     <div>
-                        <dt data-i18n="status.sourceLabel">Источник проверки</dt>
-                        <dd id="sourceValue">trusted.json</dd>
+                        <dt data-i18n="status.lastCheck">Последняя проверка:</dt>
+                        <dd id="checkedAt">—</dd>
                     </div>
                 </dl>
-                <p class="status-card__timestamp">
-                    <span data-i18n="status.lastCheck">Последняя проверка:</span> <span id="checkedAt">—</span>
-                </p>
                 <div class="status-actions" id="statusActions">
                     <button class="button button--ghost is-hidden" id="quickAddBtn" type="button" data-i18n="actions.whitelist.addQuick">
                         Добавить в белый список

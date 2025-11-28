@@ -61,6 +61,9 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   dom.statusHint.textContent = translate(config.hintKey, context);
   dom.riskLevel.textContent = translate(config.riskKey, context);
   dom.domainValue.textContent = context.domain ?? "—";
+  if (dom.domainValueMeta) {
+    dom.domainValueMeta.textContent = context.domain ?? "—";
+  }
   dom.checkedAt.textContent = context.checkedAt
     ? formatTime(context.checkedAt, context.language)
     : "—";
