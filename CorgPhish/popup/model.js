@@ -59,10 +59,13 @@ const ensureSession = async () => {
     ort.env.wasm.numThreads = 1;
     return ort.InferenceSession.create(MODEL_PATH, {
       executionProviders: ["wasm"],
-      graphOptimizationLevel: "all",
-      preferredOutputType: "float32"
+      graphOptimizationLevel: "all"
     });
   })();
+  sessionPromise = sessionPromise.catch((error) => {
+    sessionPromise = null;
+    throw error;
+  });
   return sessionPromise;
 };
 
@@ -137,8 +140,8 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
     FEATURE_COLUMNS.forEach((name) => {
       const value = Number(features[name]) || 0;
-      // Подаём float32, а выводу даём preferredOutputType float32
-      feeds[name] = new ort.Tensor("float32", new Float32Array([value]), [1, 1]);
+      // Модель экспортирована в double, подаём float64 чтобы исключить ошибки типов.
+      feeds[name] = new ort.Tensor("float64", new Float64Array([value]), [1, 1]);
     });
 
     const output = await session.run(feeds);
@@ -163,13 +166,14 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     }
 
     return {
+      status: "ok",
       probability: probability !== null && !Number.isNaN(probability) ? probability : null,
       label,
       threshold
     };
   } catch (error) {
     console.warn("ML predict failed", error);
-    return { probability: null, label: null, threshold };
+    return { status: "error", error: error?.message || String(error), probability: null, label: null, threshold };
   }
 };
 

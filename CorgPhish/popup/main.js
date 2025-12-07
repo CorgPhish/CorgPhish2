@@ -41,6 +41,30 @@ const showSettingsStatus = (key, params = {}, isError = false) => {
   }, 2500);
 };
 
+const setStatusMessage = (text = "", tone = "info") => {
+  if (!dom.statusBanner) return;
+  if (!text) {
+    dom.statusBanner.textContent = "";
+    dom.statusBanner.classList.add("is-hidden");
+    dom.statusBanner.removeAttribute("data-tone");
+    return;
+  }
+  dom.statusBanner.textContent = text;
+  dom.statusBanner.dataset.tone = tone;
+  dom.statusBanner.classList.remove("is-hidden");
+};
+
+const queryActiveTab = () =>
+  new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message || "errors.activeTab"));
+        return;
+      }
+      resolve(tabs || []);
+    });
+  });
+
 const switchView = (view) => {
   if (view === "settings") {
     dom.app.dataset.view = "settings";
@@ -53,11 +77,6 @@ const switchView = (view) => {
     return;
   }
   dom.app.dataset.view = "main";
-};
-
-const warnAboutUntrusted = (domain) => {
-  if (!currentSettings.warnOnUntrusted) return;
-  alert(getTranslator()("alerts.untrusted", { domain }));
 };
 
 const refreshWhitelist = async () => {
@@ -107,38 +126,56 @@ const applyInspectionResult = async (result, options = {}) => {
   const t = getTranslator();
   const isMlTrusted = result.verdict === "mlSafe";
   const isMlRisk = result.verdict === "mlRisky" || result.verdict === "untrusted";
+  const mlUnavailable = result.mlStatus === "error";
+  const fromCache = Boolean(result.cached);
   applyState(dom, t, result.verdict, {
     domain: result.domain,
-    checkedAt: new Date(),
+    checkedAt: result.checkedAt ? new Date(result.checkedAt) : new Date(),
     spoofTarget: result.spoofTarget,
     language: currentSettings.language,
     mlProbability: result.mlProbability,
+    mlVerdict: result.mlVerdict,
     sourceKey: result.detectionSource
   });
-  await recordHistory(
-    {
-      domain: result.domain,
-      verdict: result.verdict,
-      checkedAt: Date.now(),
-      spoofTarget: result.spoofTarget,
-      source,
-      mlProbability: result.mlProbability,
-      detectionSource: result.detectionSource
-    },
-    currentSettings.historyRetentionDays
-  );
-  if (shouldAlert && isMlRisk) {
-    warnAboutUntrusted(result.domain);
+  if (!fromCache) {
+    await recordHistory(
+      {
+        domain: result.domain,
+        verdict: result.verdict,
+        checkedAt: result.checkedAt ?? Date.now(),
+        spoofTarget: result.spoofTarget,
+        source,
+        mlProbability: result.mlProbability,
+        detectionSource: result.detectionSource,
+        mlVerdict: result.mlVerdict,
+        mlStatus: result.mlStatus
+      },
+      currentSettings.historyRetentionDays
+    );
   }
-  refreshHistory();
+  if (!fromCache && shouldAlert && isMlRisk && currentSettings.warnOnUntrusted) {
+    setStatusMessage(t("alerts.untrusted", { domain: result.domain }), "warn");
+    console.warn("CorgPhish: high risk verdict", { domain: result.domain, verdict: result.verdict });
+  } else if (mlUnavailable) {
+    setStatusMessage(t("status.ml.unavailable"), "warn");
+    if (result.mlError) {
+      console.warn("CorgPhish: ML unavailable", result.mlError);
+    }
+  } else {
+    setStatusMessage("");
+  }
+  if (!fromCache) {
+    refreshHistory();
+  }
 };
 
 const checkActiveTab = async () => {
   const t = getTranslator();
+  setStatusMessage("");
   applyState(dom, t, "pending", { language: currentSettings.language });
   dom.refreshBtn.disabled = true;
   try {
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [activeTab] = await queryActiveTab();
     if (!activeTab || !activeTab.url) {
       throw new Error(t("errors.activeTab"));
     }
@@ -157,6 +194,7 @@ const checkActiveTab = async () => {
         ? baseTranslate(currentSettings.language, errorKey)
         : error?.message || "";
     applyState(dom, t, "error", { error: errorText, language: currentSettings.language });
+    setStatusMessage(errorText || t("status.error.title"), "error");
   } finally {
     dom.refreshBtn.disabled = false;
   }
@@ -172,6 +210,7 @@ const handleManualSubmit = async (event) => {
     setManualHint(dom, t("manual.hint.invalid"), true);
     return;
   }
+  setStatusMessage("");
   try {
     const result = await inspectDomain(hostname, customWhitelist, rawInput);
     await applyInspectionResult(result, { shouldAlert: false, source: "manual" });

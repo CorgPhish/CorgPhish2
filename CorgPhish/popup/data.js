@@ -3,20 +3,43 @@ import { CUSTOM_WHITELIST_KEY, DEFAULT_SETTINGS, HISTORY_LIMIT } from "./config.
 
 let trustedCache = null;
 
+const loadFromBackground = () =>
+  new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
+      if (chrome.runtime.lastError) {
+        resolve([]);
+        return;
+      }
+      const list = Array.isArray(response?.trusted) ? response.trusted : [];
+      resolve(list.map((domain) => domain.trim().toLowerCase()).filter(Boolean));
+    });
+    setTimeout(() => resolve([]), 1000);
+  });
+
 export const loadTrustedList = async () => {
   if (trustedCache) {
     return trustedCache;
   }
-  const response = await fetch(chrome.runtime.getURL("trusted.json"));
-  if (!response.ok) {
-    throw new Error("errors.loadTrusted");
+  const viaSw = await loadFromBackground();
+  if (viaSw.length) {
+    trustedCache = viaSw;
+    return trustedCache;
   }
-  const payload = await response.json();
-  if (!Array.isArray(payload?.trusted)) {
-    throw new Error("errors.invalidTrusted");
+  try {
+    const response = await fetch(chrome.runtime.getURL("trusted.json"));
+    if (!response.ok) {
+      throw new Error("errors.loadTrusted");
+    }
+    const payload = await response.json();
+    if (!Array.isArray(payload?.trusted)) {
+      throw new Error("errors.invalidTrusted");
+    }
+    trustedCache = payload.trusted.map((domain) => domain.trim().toLowerCase()).filter(Boolean);
+    return trustedCache;
+  } catch (error) {
+    console.warn("CorgPhish: failed to fetch trusted.json in popup", error);
+    throw error;
   }
-  trustedCache = payload.trusted.map((domain) => domain.trim().toLowerCase()).filter(Boolean);
-  return trustedCache;
 };
 
 export const getTrustedDomains = async (customWhitelist = []) => {
@@ -84,7 +107,9 @@ export const recordHistory = (entry, retentionDays) =>
           typeof entry.mlProbability === "number" && !Number.isNaN(entry.mlProbability)
             ? entry.mlProbability
             : null,
-        detectionSource: entry.detectionSource
+        detectionSource: entry.detectionSource,
+        mlVerdict: entry.mlVerdict ?? null,
+        mlStatus: entry.mlStatus ?? null
       };
       const next = pruneByRetention([normalized, ...history], retentionDays).slice(0, HISTORY_LIMIT);
       chrome.storage.local.set({ scanHistory: next }, resolve);
