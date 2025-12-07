@@ -60,12 +60,27 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   dom.statusTitle.textContent = translate(config.titleKey, context);
   dom.statusHint.textContent = translate(config.hintKey, context);
   const hasMl = context.mlProbability != null && !Number.isNaN(Number(context.mlProbability));
-  dom.riskLevel.textContent = hasMl
-    ? `ML: ${(Number(context.mlProbability) * 100).toFixed(1)}%`
-    : translate(config.riskKey, context);
+  const mlPercent = hasMl ? (Number(context.mlProbability) * 100).toFixed(1) : null;
+  const mlLabel =
+    context.mlVerdict === "risky"
+      ? translate("status.ml.label.risk")
+      : context.mlVerdict === "safe"
+        ? translate("status.ml.label.safe")
+        : null;
+  const riskText =
+    hasMl && mlPercent ? `${mlLabel ?? "ML"} • ${mlPercent}%` : translate(config.riskKey, context);
+  [dom.riskLevel, dom.riskTag]
+    .filter(Boolean)
+    .forEach((node) => {
+      node.textContent = riskText;
+      node.dataset.tone =
+        context.mlVerdict === "risky" || stateKey === "untrusted" || stateKey === "mlRisky"
+          ? "warn"
+          : "info";
+    });
   if (dom.mlScore) {
     if (hasMl) {
-      dom.mlScore.textContent = `ML ${(Number(context.mlProbability) * 100).toFixed(1)}%`;
+      dom.mlScore.textContent = `ML ${mlLabel ?? ""} ${mlPercent}%`.trim();
       dom.mlScore.classList.remove("is-hidden");
     } else {
       dom.mlScore.textContent = "ML —";
@@ -148,10 +163,17 @@ export const renderHistory = (dom, translate, items = [], locale) => {
     });
     const sourceText =
       item.source === "manual" ? translate("history.source.manual") : translate("history.source.active");
-    const mlText =
-      typeof item.mlProbability === "number"
-        ? ` • ML ${(item.mlProbability * 100).toFixed(1)}%`
-        : "";
+    const mlText = (() => {
+      if (typeof item.mlProbability !== "number") return "";
+      const percent = (item.mlProbability * 100).toFixed(1);
+      const mlLabel =
+        item.mlVerdict === "risky"
+          ? translate("status.ml.label.risk")
+          : item.mlVerdict === "safe"
+            ? translate("status.ml.label.safe")
+            : "ML";
+      return ` • ML ${mlLabel} ${percent}%`;
+    })();
     subtitle.textContent = `${dateText} • ${sourceText}${mlText}${
       item.spoofTarget ? ` • ${item.spoofTarget}` : ""
     }`;
@@ -160,11 +182,11 @@ export const renderHistory = (dom, translate, items = [], locale) => {
     info.appendChild(subtitle);
 
     const badge = document.createElement("span");
-    badge.className = `chip ${item.verdict === "trusted" ? "chip--trusted" : "chip--untrusted"}`;
-    badge.textContent =
-      item.verdict === "trusted"
-        ? translate("history.badge.trusted")
-        : translate("history.badge.alert");
+    const isTrustedVerdict = item.verdict === "trusted" || item.verdict === "mlSafe";
+    badge.className = `chip ${isTrustedVerdict ? "chip--trusted" : "chip--untrusted"}`;
+    badge.textContent = isTrustedVerdict
+      ? translate("history.badge.trusted")
+      : translate("history.badge.alert");
 
     li.appendChild(info);
     li.appendChild(badge);
@@ -174,10 +196,10 @@ export const renderHistory = (dom, translate, items = [], locale) => {
 
 export const updateStats = (dom, items = [], whitelist = []) => {
   if (dom.statsTrusted) {
-    dom.statsTrusted.textContent = items.filter((item) => item.verdict === "trusted").length;
+    dom.statsTrusted.textContent = items.filter((item) => item.verdict === "trusted" || item.verdict === "mlSafe").length;
   }
   if (dom.statsAlert) {
-    dom.statsAlert.textContent = items.filter((item) => item.verdict === "untrusted").length;
+    dom.statsAlert.textContent = items.filter((item) => item.verdict === "untrusted" || item.verdict === "mlRisky").length;
   }
   if (dom.statsWhitelist) {
     dom.statsWhitelist.textContent = whitelist.length;
