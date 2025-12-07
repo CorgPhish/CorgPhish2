@@ -59,7 +59,19 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   dom.statusBadge.textContent = translate(config.badgeKey, context);
   dom.statusTitle.textContent = translate(config.titleKey, context);
   dom.statusHint.textContent = translate(config.hintKey, context);
-  dom.riskLevel.textContent = translate(config.riskKey, context);
+  const hasMl = context.mlProbability != null && !Number.isNaN(Number(context.mlProbability));
+  dom.riskLevel.textContent = hasMl
+    ? `ML: ${(Number(context.mlProbability) * 100).toFixed(1)}%`
+    : translate(config.riskKey, context);
+  if (dom.mlScore) {
+    if (hasMl) {
+      dom.mlScore.textContent = `ML ${(Number(context.mlProbability) * 100).toFixed(1)}%`;
+      dom.mlScore.classList.remove("is-hidden");
+    } else {
+      dom.mlScore.textContent = "ML —";
+      dom.mlScore.classList.add("is-hidden");
+    }
+  }
   dom.domainValue.textContent = context.domain ?? "—";
   if (dom.domainValueMeta) {
     dom.domainValueMeta.textContent = context.domain ?? "—";
@@ -68,7 +80,8 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
     ? formatTime(context.checkedAt, context.language)
     : "—";
   if (dom.sourceValue) {
-    dom.sourceValue.textContent = translate("status.sourceValue");
+    const sourceKey = context.sourceKey || "status.sourceValue";
+    dom.sourceValue.textContent = translate(sourceKey, context);
   }
   setQuickAddState(dom, context.domain, stateKey === "trusted");
 
@@ -135,7 +148,13 @@ export const renderHistory = (dom, translate, items = [], locale) => {
     });
     const sourceText =
       item.source === "manual" ? translate("history.source.manual") : translate("history.source.active");
-    subtitle.textContent = `${dateText} • ${sourceText}${item.spoofTarget ? ` • ${item.spoofTarget}` : ""}`;
+    const mlText =
+      typeof item.mlProbability === "number"
+        ? ` • ML ${(item.mlProbability * 100).toFixed(1)}%`
+        : "";
+    subtitle.textContent = `${dateText} • ${sourceText}${mlText}${
+      item.spoofTarget ? ` • ${item.spoofTarget}` : ""
+    }`;
 
     info.appendChild(title);
     info.appendChild(subtitle);

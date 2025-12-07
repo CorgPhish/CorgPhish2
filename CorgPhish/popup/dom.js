@@ -10,6 +10,7 @@ export const dom = {
   domainValue: document.getElementById("domainValue"),
   domainValueMeta: document.getElementById("domainValueMeta"),
   sourceValue: document.getElementById("sourceValue"),
+  mlScore: document.getElementById("mlScore"),
   checkedAt: document.getElementById("checkedAt"),
   recommendationsList: document.getElementById("recommendationsList"),
   riskLevel: document.getElementById("riskLevel"),

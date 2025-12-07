@@ -79,7 +79,12 @@ export const recordHistory = (entry, retentionDays) =>
         verdict: entry.verdict,
         checkedAt: entry.checkedAt ?? Date.now(),
         spoofTarget: entry.spoofTarget,
-        source: entry.source ?? "active"
+        source: entry.source ?? "active",
+        mlProbability:
+          typeof entry.mlProbability === "number" && !Number.isNaN(entry.mlProbability)
+            ? entry.mlProbability
+            : null,
+        detectionSource: entry.detectionSource
       };
       const next = pruneByRetention([normalized, ...history], retentionDays).slice(0, HISTORY_LIMIT);
       chrome.storage.local.set({ scanHistory: next }, resolve);

@@ -7,6 +7,12 @@
     "default_popup": "popup.html"
   },
   "permissions": ["storage", "tabs", "notifications"],
+  "web_accessible_resources": [
+    {
+      "resources": ["models/*.onnx", "vendor/ort/*", "trusted.json"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

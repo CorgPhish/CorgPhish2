@@ -42,6 +42,17 @@ export const VIEW_STATES = {
       "status.untrusted.recommendations.2"
     ]
   },
+  mlSafe: {
+    theme: "trusted",
+    badgeKey: "status.mlSafe.badge",
+    titleKey: "status.mlSafe.title",
+    hintKey: "status.mlSafe.hint",
+    riskKey: "status.mlSafe.risk",
+    recommendationsKeys: [
+      "status.trusted.recommendations.0",
+      "status.trusted.recommendations.1"
+    ]
+  },
   unsupported: {
     theme: "warning",
     badgeKey: "status.unsupported.badge",
@@ -76,7 +87,9 @@ export const translations = {
     "actions.whitelist.addQuick": "Добавить в белый список",
     "status.domainLabel": "Домен",
     "status.sourceLabel": "Источник проверки",
-    "status.sourceValue": "trusted.json + whitelist",
+    "status.sourceValue": "trusted.json + ML + whitelist",
+    "status.sourceValue.ml": "ML-модель",
+    "status.sourceValue.list": "Белый список + trusted.json",
     "status.lastCheck": "Последняя проверка:",
     "status.pending.badge": "Проверяем...",
     "status.pending.title": "Анализируем активную вкладку",
@@ -98,6 +111,10 @@ export const translations = {
     "status.untrusted.recommendations.1": "Сверьте адрес с официальным доменом организации.",
     "status.untrusted.recommendations.2": "Поищите отзывы и упоминания домена {domain} в открытых источниках.",
     "status.untrusted.spoofWarning": "Похоже на {spoofTarget}. Возможный спуфинг.",
+    "status.mlSafe.badge": "ML: низкий риск",
+    "status.mlSafe.title": "ML считает {domain} безопасным",
+    "status.mlSafe.hint": "Домен не в списке, но модель оценила его как легитимный.",
+    "status.mlSafe.risk": "низкий риск (ML)",
     "status.unsupported.badge": "Нельзя проверить",
     "status.unsupported.title": "Поддерживаются только сайты HTTP/HTTPS",
     "status.unsupported.hint": "Системные страницы браузера и локальные файлы пропускаются.",
@@ -174,7 +191,8 @@ export const translations = {
     "errors.activeTab": "Невозможно получить ссылку активной вкладки.",
     "errors.loadTrusted": "Не удалось загрузить trusted.json.",
     "errors.invalidTrusted": "Файл trusted.json содержит неверный формат.",
-    "errors.invalidDomain": "Некорректный домен или URL."
+    "errors.invalidDomain": "Некорректный домен или URL.",
+    "errors.modelLoad": "Не удалось загрузить ML-модель."
   },
   en: {
     "main.subtitle": "Protection dashboard",
@@ -185,7 +203,9 @@ export const translations = {
     "actions.whitelist.addQuick": "Add to whitelist",
     "status.domainLabel": "Domain",
     "status.sourceLabel": "Source",
-    "status.sourceValue": "trusted.json + whitelist",
+    "status.sourceValue": "trusted.json + ML + whitelist",
+    "status.sourceValue.ml": "ML model",
+    "status.sourceValue.list": "Whitelist + trusted.json",
     "status.lastCheck": "Last check:",
     "status.pending.badge": "Scanning...",
     "status.pending.title": "Analyzing active tab",
@@ -207,6 +227,10 @@ export const translations = {
     "status.untrusted.recommendations.1": "Compare the address with the official domain.",
     "status.untrusted.recommendations.2": "Search for reviews or mentions of {domain} online.",
     "status.untrusted.spoofWarning": "Looks similar to {spoofTarget}. Possible spoofing.",
+    "status.mlSafe.badge": "ML: low risk",
+    "status.mlSafe.title": "ML thinks {domain} is safe",
+    "status.mlSafe.hint": "Not in the list, but the model marked it as legitimate.",
+    "status.mlSafe.risk": "low risk (ML)",
     "status.unsupported.badge": "Cannot scan",
     "status.unsupported.title": "Only HTTP/HTTPS sites are supported",
     "status.unsupported.hint": "Browser pages and local files are skipped.",
@@ -283,6 +307,7 @@ export const translations = {
     "errors.activeTab": "Cannot read the active tab URL.",
     "errors.loadTrusted": "Failed to load trusted.json.",
     "errors.invalidTrusted": "trusted.json has an invalid format.",
-    "errors.invalidDomain": "Invalid domain or URL."
+    "errors.invalidDomain": "Invalid domain or URL.",
+    "errors.modelLoad": "Failed to load ML model."
   }
 };

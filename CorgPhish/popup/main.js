@@ -109,7 +109,9 @@ const applyInspectionResult = async (result, options = {}) => {
     domain: result.domain,
     checkedAt: new Date(),
     spoofTarget: result.spoofTarget,
-    language: currentSettings.language
+    language: currentSettings.language,
+    mlProbability: result.mlProbability,
+    sourceKey: result.detectionSource
   });
   await recordHistory(
     {
@@ -117,7 +119,9 @@ const applyInspectionResult = async (result, options = {}) => {
       verdict: result.verdict,
       checkedAt: Date.now(),
       spoofTarget: result.spoofTarget,
-      source
+      source,
+      mlProbability: result.mlProbability,
+      detectionSource: result.detectionSource
     },
     currentSettings.historyRetentionDays
   );
@@ -141,7 +145,7 @@ const checkActiveTab = async () => {
       return;
     }
     const url = new URL(activeTab.url);
-    const result = await inspectDomain(url.hostname, customWhitelist);
+    const result = await inspectDomain(url.hostname, customWhitelist, activeTab.url);
     await applyInspectionResult(result, { shouldAlert: true, source: "active" });
   } catch (error) {
     console.error("Ошибка во время проверки", error);
@@ -160,13 +164,14 @@ const handleManualSubmit = async (event) => {
   event.preventDefault();
   if (!dom.manualInput) return;
   const t = getTranslator();
-  const hostname = resolveHostname(dom.manualInput.value);
+  const rawInput = dom.manualInput.value;
+  const hostname = resolveHostname(rawInput);
   if (!hostname) {
     setManualHint(dom, t("manual.hint.invalid"), true);
     return;
   }
   try {
-    const result = await inspectDomain(hostname, customWhitelist);
+    const result = await inspectDomain(hostname, customWhitelist, rawInput);
     await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
     setManualHint(dom, t("manual.hint.success", { domain: result.domain }));
   } catch (error) {
@@ -239,7 +244,7 @@ const handleQuickAddClick = async () => {
   const domain = dom.quickAddBtn?.dataset.domain;
   if (!domain) return;
   await addDomainToWhitelist(domain);
-  const result = await inspectDomain(domain, customWhitelist);
+  const result = await inspectDomain(domain, customWhitelist, domain);
   await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
 };
 

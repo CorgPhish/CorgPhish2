@@ -1,8 +1,9 @@
 // Проверка домена против trusted.json и пользовательского whitelist.
 import { getTrustedDomains } from "./data.js";
 import { findSpoofCandidate, normalizeHost } from "./utils.js";
+import { predictUrl } from "./model.js";
 
-export const inspectDomain = async (hostname, customWhitelist = []) => {
+export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = "") => {
   const trustedList = await getTrustedDomains(customWhitelist);
   const cleanDomain = normalizeHost(hostname);
   if (!cleanDomain) {
@@ -11,11 +12,28 @@ export const inspectDomain = async (hostname, customWhitelist = []) => {
   const isTrusted = trustedList.some(
     (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
   );
-  const spoofTarget = !isTrusted ? findSpoofCandidate(cleanDomain, trustedList) : null;
+  const mlResult = fullUrl ? await predictUrl(fullUrl) : { probability: null, label: null };
+
+  let verdict = "untrusted";
+  let sourceKey = "status.sourceValue";
+  if (isTrusted) {
+    verdict = "trusted";
+    sourceKey = "status.sourceValue.list";
+  } else if (mlResult?.label === 0 && mlResult?.probability !== null) {
+    verdict = "mlSafe";
+    sourceKey = "status.sourceValue.ml";
+  } else if (mlResult?.label === 1) {
+    verdict = "untrusted";
+    sourceKey = "status.sourceValue.ml";
+  }
+
+  const spoofTarget = verdict === "trusted" ? null : findSpoofCandidate(cleanDomain, trustedList);
   return {
     domain: cleanDomain,
-    verdict: isTrusted ? "trusted" : "untrusted",
+    verdict,
     spoofTarget,
-    isTrusted
+    isTrusted,
+    mlProbability: mlResult?.probability ?? null,
+    detectionSource: sourceKey
   };
 };
