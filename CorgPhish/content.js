@@ -227,8 +227,10 @@
   const [trustedList, whitelist] = await Promise.all([loadTrustedList(), loadWhitelist()]);
   const merged = [...new Set([...trustedList, ...whitelist])];
   if (!merged.length) {
-    // если не смогли загрузить доверенные — держим блок.
-    overlayController.setState({ mode: "blocked", domain: hostname });
+    console.warn("CorgPhish: trusted list is empty, skipping block.");
+    blockedState.active = false;
+    overlayController.setState({ mode: "safe" });
+    teardown();
     return;
   }
 
