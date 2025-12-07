@@ -35,6 +35,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "getTrustedDomains") {
+    (async () => {
+      try {
+        const response = await fetch(chrome.runtime.getURL("trusted.json"));
+        if (!response.ok) {
+          sendResponse?.({ ok: false, trusted: [] });
+          return;
+        }
+        const payload = await response.json();
+        const list = Array.isArray(payload?.trusted) ? payload.trusted : [];
+        sendResponse?.({ ok: true, trusted: list });
+      } catch (error) {
+        console.warn("CorgPhish: failed to serve trusted.json", error);
+        sendResponse?.({ ok: false, trusted: [] });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === "closeTab" && sender?.tab?.id) {
     chrome.tabs.remove(sender.tab.id);
     sendResponse?.({ ok: true });

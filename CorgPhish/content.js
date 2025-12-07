@@ -58,18 +58,15 @@
       });
     });
 
-  const loadTrustedList = async () => {
-    try {
-      const response = await fetch(chrome.runtime.getURL("trusted.json"));
-      if (!response.ok) return [];
-      const payload = await response.json();
-      if (!Array.isArray(payload?.trusted)) return [];
-      return payload.trusted.map((d) => normalizeHost(d)).filter(Boolean);
-    } catch (error) {
-      console.warn("Не удалось загрузить trusted.json", error);
-      return [];
-    }
-  };
+  const loadTrustedList = async () =>
+    new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
+        const list = Array.isArray(response?.trusted) ? response.trusted : [];
+        resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
+      });
+      // safety timeout in case SW unavailable
+      setTimeout(() => resolve([]), 1500);
+    });
 
   const isTrustedDomain = (domain, trustedList) =>
     trustedList.some((item) => domain === item || domain.endsWith(`.${item}`));
