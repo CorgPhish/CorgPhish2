@@ -58,20 +58,36 @@
       });
     });
 
-  const loadTrustedList = async () =>
-    new Promise((resolve) => {
+  const loadTrustedList = async () => {
+    // 1) пробуем через сервис-воркер
+    const fromSw = await new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
         if (chrome.runtime.lastError) {
-          console.warn("CorgPhish: trusted list via background failed", chrome.runtime.lastError);
+          console.warn("CorgPhish: trusted via SW error", chrome.runtime.lastError);
           resolve([]);
           return;
         }
         const list = Array.isArray(response?.trusted) ? response.trusted : [];
         resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
       });
-      // safety timeout in case SW unavailable
-      setTimeout(() => resolve([]), 1500);
+      setTimeout(() => resolve([]), 1200);
     });
+    if (fromSw.length) {
+      return fromSw;
+    }
+
+    // 2) fallback: прямой fetch, должен работать благодаря web_accessible_resources
+    try {
+      const response = await fetch(chrome.runtime.getURL("trusted.json"));
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      const payload = await response.json();
+      if (!Array.isArray(payload?.trusted)) return [];
+      return payload.trusted.map((d) => normalizeHost(d)).filter(Boolean);
+    } catch (error) {
+      console.warn("Не удалось загрузить trusted.json", error);
+      return [];
+    }
+  };
 
   const isTrustedDomain = (domain, trustedList) =>
     trustedList.some((item) => domain === item || domain.endsWith(`.${item}`));
