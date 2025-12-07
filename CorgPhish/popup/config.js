@@ -1,13 +1,13 @@
 // Конфигурация: дефолтные настройки, словари переводов и константы UI.
 export const DEFAULT_SETTINGS = {
   autoCheckOnOpen: true,
-  warnOnUntrusted: true,
+  warnOnUntrusted: false,
   theme: "dark",
   language: "ru",
   historyRetentionDays: 30,
   compactMode: false,
-  blockOnUntrusted: true,
-  systemNotifyOnRisk: true
+  blockOnUntrusted: false,
+  systemNotifyOnRisk: false
 };
 
 export const HISTORY_LIMIT = 50;

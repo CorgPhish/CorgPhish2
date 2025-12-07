@@ -1,6 +1,6 @@
 // Сервис-воркер: показывает системные уведомления и может закрыть вкладку по запросу.
 const DEFAULT_SETTINGS = {
-  systemNotifyOnRisk: true
+  systemNotifyOnRisk: false
 };
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";

@@ -2,7 +2,7 @@
 (async () => {
   const DEFAULT_SETTINGS = {
     blockOnUntrusted: false,
-    systemNotifyOnRisk: true,
+    systemNotifyOnRisk: false,
     warnOnUntrusted: false
   };
 
@@ -205,7 +205,10 @@
       if (isForm || looksLikeDownload) {
         event.preventDefault();
         event.stopPropagation();
-        alert("Ввод и загрузка заблокированы на этом сайте CorgPhish.");
+        console.warn("CorgPhish: blocked form/download on untrusted site", {
+          href,
+          domain: blockedRef.domain
+        });
       }
     };
     const blockNavigation = (event) => {
@@ -219,7 +222,7 @@
     const originalOpen = window.open;
     window.open = (...args) => {
       if (blockedRef.active) {
-        alert("Открытие новых вкладок заблокировано CorgPhish для этого сайта.");
+        console.warn("CorgPhish: blocked window.open on untrusted site", { domain: blockedRef.domain });
         return null;
       }
       return originalOpen.apply(window, args);
@@ -236,24 +239,34 @@
   const hostname = resolveHostname(window.location.href);
   if (!hostname || !/^https?:/i.test(window.location.href)) return;
 
-  // Если пользователь отключил предупреждения и блокировку — ничего не делаем.
-  if (!settings.blockOnUntrusted && !settings.warnOnUntrusted && !settings.systemNotifyOnRisk) {
+  const wantsUiOverlay = settings.blockOnUntrusted || settings.warnOnUntrusted;
+  const wantsNotify = settings.systemNotifyOnRisk;
+
+  // Если пользователь отключил предупреждения/блокировки/уведомления — ничего не делаем.
+  if (!wantsUiOverlay && !wantsNotify) {
     return;
   }
 
-  // Стартуем в заблокированном состоянии, пока не узнаем вердикт.
-  const overlayController = createOverlay();
-  overlayController.setState({ mode: "pending" });
-  let blockedState = { active: true };
-  const teardown = preventDangerousActions(blockedState);
+  let overlayController = null;
+  let blockedState = { active: false, domain: hostname };
+  let teardown = () => {};
+
+  if (wantsUiOverlay) {
+    overlayController = createOverlay();
+    overlayController.setState({ mode: "pending" });
+    blockedState = { active: true, domain: hostname };
+    teardown = preventDangerousActions(blockedState);
+  }
 
   const [trustedList, whitelist] = await Promise.all([loadTrustedList(), loadWhitelist()]);
   const merged = [...new Set([...trustedList, ...whitelist])];
   if (!merged.length) {
     console.warn("CorgPhish: trusted list is empty, skipping block.");
-    blockedState.active = false;
-    overlayController.setState({ mode: "safe" });
-    teardown();
+    if (overlayController) {
+      blockedState.active = false;
+      overlayController.setState({ mode: "safe" });
+      teardown();
+    }
     return;
   }
 
@@ -261,26 +274,30 @@
   const isTrusted = isTrustedDomain(cleanDomain, merged);
 
   if (isTrusted) {
-    blockedState.active = false;
-    overlayController.setState({ mode: "safe" });
-    teardown();
+    if (overlayController) {
+      blockedState.active = false;
+      overlayController.setState({ mode: "safe" });
+      teardown();
+    }
     return;
   }
 
   const spoofTarget = findSpoofCandidate(cleanDomain, merged);
 
-  overlayController.setState({ mode: "blocked", domain: cleanDomain, spoofTarget });
-
-  if (settings.warnOnUntrusted) {
-    alert(`Внимание: сайт ${cleanDomain} не в списке доверенных. Не вводите данные и не скачивайте файлы.`);
+  if (overlayController) {
+    overlayController.setState({ mode: "blocked", domain: cleanDomain, spoofTarget });
   }
 
-  if (settings.systemNotifyOnRisk) {
+  if (wantsNotify) {
     chrome.runtime.sendMessage({
       type: "riskNotification",
       domain: cleanDomain,
       url: window.location.href
     });
+  }
+
+  if (!overlayController) {
+    return;
   }
 
   if (settings.blockOnUntrusted) {
