@@ -236,6 +236,11 @@
   const hostname = resolveHostname(window.location.href);
   if (!hostname || !/^https?:/i.test(window.location.href)) return;
 
+  // Если пользователь отключил предупреждения и блокировку — ничего не делаем.
+  if (!settings.blockOnUntrusted && !settings.warnOnUntrusted && !settings.systemNotifyOnRisk) {
+    return;
+  }
+
   // Стартуем в заблокированном состоянии, пока не узнаем вердикт.
   const overlayController = createOverlay();
   overlayController.setState({ mode: "pending" });

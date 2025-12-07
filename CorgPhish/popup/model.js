@@ -59,7 +59,8 @@ const ensureSession = async () => {
     ort.env.wasm.numThreads = 1;
     return ort.InferenceSession.create(MODEL_PATH, {
       executionProviders: ["wasm"],
-      graphOptimizationLevel: "all"
+      graphOptimizationLevel: "all",
+      preferredOutputType: "float32"
     });
   })();
   return sessionPromise;
@@ -136,8 +137,8 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
     FEATURE_COLUMNS.forEach((name) => {
       const value = Number(features[name]) || 0;
-      // Модель ожидает double для числовых фичей
-      feeds[name] = new ort.Tensor("float64", new Float64Array([value]), [1, 1]);
+      // Подаём float32, а выводу даём preferredOutputType float32
+      feeds[name] = new ort.Tensor("float32", new Float32Array([value]), [1, 1]);
     });
 
     const output = await session.run(feeds);
