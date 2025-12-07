@@ -135,7 +135,9 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
       url: new ort.Tensor("string", [url], [1, 1])
     };
     FEATURE_COLUMNS.forEach((name) => {
-      feeds[name] = new ort.Tensor("float32", [Number(features[name]) || 0], [1, 1]);
+      const value = Number(features[name]) || 0;
+      // модель ожидает double, поэтому подаём float64
+      feeds[name] = new ort.Tensor("float64", new Float64Array([value]), [1, 1]);
     });
 
     const output = await session.run(feeds);
