@@ -23,8 +23,8 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
     verdict = "mlSafe";
     sourceKey = "status.sourceValue.ml";
   } else if (mlResult?.label === 1) {
-    verdict = "untrusted";
-    sourceKey = "status.sourceValue.ml";
+    verdict = "mlRisky";
+    sourceKey = "status.sourceValue.mlRisk";
   }
 
   const spoofTarget = verdict === "trusted" ? null : findSpoofCandidate(cleanDomain, trustedList);

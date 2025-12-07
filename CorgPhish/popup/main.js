@@ -105,6 +105,8 @@ const refreshHistory = async () => {
 const applyInspectionResult = async (result, options = {}) => {
   const { shouldAlert = false, source = "active" } = options;
   const t = getTranslator();
+  const isMlTrusted = result.verdict === "mlSafe";
+  const isMlRisk = result.verdict === "mlRisky" || result.verdict === "untrusted";
   applyState(dom, t, result.verdict, {
     domain: result.domain,
     checkedAt: new Date(),
@@ -125,7 +127,7 @@ const applyInspectionResult = async (result, options = {}) => {
     },
     currentSettings.historyRetentionDays
   );
-  if (shouldAlert && result.verdict === "untrusted") {
+  if (shouldAlert && isMlRisk) {
     warnAboutUntrusted(result.domain);
   }
   refreshHistory();

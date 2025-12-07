@@ -136,7 +136,7 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
     FEATURE_COLUMNS.forEach((name) => {
       const value = Number(features[name]) || 0;
-      // модель ожидает double, поэтому подаём float64
+      // Модель ожидает double для числовых фичей
       feeds[name] = new ort.Tensor("float64", new Float64Array([value]), [1, 1]);
     });
 
@@ -148,11 +148,9 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
 
     let probability = null;
     if (probTensor?.data?.length) {
-      if (probTensor.data.length >= 2) {
-        probability = Number(probTensor.data[probTensor.data.length - 1]);
-      } else {
-        probability = Number(probTensor.data[0]);
-      }
+      const data = probTensor.data;
+      // допускаем формат [p_legit, p_phish] или [p_phish]
+      probability = data.length >= 2 ? Number(data[data.length - 1]) : Number(data[0]);
     }
 
     let label = null;

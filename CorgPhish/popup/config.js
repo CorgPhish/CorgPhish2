@@ -53,6 +53,18 @@ export const VIEW_STATES = {
       "status.trusted.recommendations.1"
     ]
   },
+  mlRisky: {
+    theme: "untrusted",
+    badgeKey: "status.mlRisky.badge",
+    titleKey: "status.mlRisky.title",
+    hintKey: "status.mlRisky.hint",
+    riskKey: "status.mlRisky.risk",
+    recommendationsKeys: [
+      "status.untrusted.recommendations.0",
+      "status.untrusted.recommendations.1",
+      "status.untrusted.recommendations.2"
+    ]
+  },
   unsupported: {
     theme: "warning",
     badgeKey: "status.unsupported.badge",
@@ -90,6 +102,7 @@ export const translations = {
     "status.sourceValue": "trusted.json + ML + whitelist",
     "status.sourceValue.ml": "ML-модель",
     "status.sourceValue.list": "Белый список + trusted.json",
+    "status.sourceValue.mlRisk": "ML-модель (высокий риск)",
     "status.lastCheck": "Последняя проверка:",
     "status.pending.badge": "Проверяем...",
     "status.pending.title": "Анализируем активную вкладку",
@@ -115,6 +128,10 @@ export const translations = {
     "status.mlSafe.title": "ML считает {domain} безопасным",
     "status.mlSafe.hint": "Домен не в списке, но модель оценила его как легитимный.",
     "status.mlSafe.risk": "низкий риск (ML)",
+    "status.mlRisky.badge": "ML: риск",
+    "status.mlRisky.title": "ML считает {domain} рискованным",
+    "status.mlRisky.hint": "Домен не в списке, модель видит высокий риск фишинга.",
+    "status.mlRisky.risk": "высокий риск (ML)",
     "status.unsupported.badge": "Нельзя проверить",
     "status.unsupported.title": "Поддерживаются только сайты HTTP/HTTPS",
     "status.unsupported.hint": "Системные страницы браузера и локальные файлы пропускаются.",
@@ -206,6 +223,7 @@ export const translations = {
     "status.sourceValue": "trusted.json + ML + whitelist",
     "status.sourceValue.ml": "ML model",
     "status.sourceValue.list": "Whitelist + trusted.json",
+    "status.sourceValue.mlRisk": "ML model (high risk)",
     "status.lastCheck": "Last check:",
     "status.pending.badge": "Scanning...",
     "status.pending.title": "Analyzing active tab",
@@ -231,6 +249,10 @@ export const translations = {
     "status.mlSafe.title": "ML thinks {domain} is safe",
     "status.mlSafe.hint": "Not in the list, but the model marked it as legitimate.",
     "status.mlSafe.risk": "low risk (ML)",
+    "status.mlRisky.badge": "ML: risk",
+    "status.mlRisky.title": "ML flags {domain}",
+    "status.mlRisky.hint": "Domain is not listed and ML sees high phishing risk.",
+    "status.mlRisky.risk": "high risk (ML)",
     "status.unsupported.badge": "Cannot scan",
     "status.unsupported.title": "Only HTTP/HTTPS sites are supported",
     "status.unsupported.hint": "Browser pages and local files are skipped.",
