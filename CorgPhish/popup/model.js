@@ -31,6 +31,7 @@ const FEATURE_COLUMNS = [
 
 let ortScriptPromise = null;
 let sessionPromise = null;
+let forceFallback = false;
 
 const loadOrt = () => {
   if (globalThis.ort) {
@@ -50,6 +51,9 @@ const loadOrt = () => {
 };
 
 const ensureSession = async () => {
+  if (forceFallback) {
+    throw new Error("fallback_forced");
+  }
   if (sessionPromise) {
     return sessionPromise;
   }
@@ -64,6 +68,7 @@ const ensureSession = async () => {
     });
   })();
   sessionPromise = sessionPromise.catch((error) => {
+    forceFallback = true;
     sessionPromise = null;
     throw error;
   });
@@ -127,6 +132,26 @@ const extractFeatures = (rawUrl = "") => {
   return { url, features };
 };
 
+const heuristicProbability = (features) => {
+  // Simple, deterministic heuristic to avoid blocking when ONNX is unavailable.
+  const riskyChars =
+    features.qty_at_url +
+    features.qty_questionmark_url +
+    features.qty_equal_url +
+    features.qty_percent_url +
+    features.qty_hashtag_url +
+    features.qty_dollar_url +
+    features.qty_exclamation_url +
+    features.qty_space_url;
+  const lenScore = Math.min(features.length_url / 120, 2);
+  const hyphenScore = features.qty_hyphen_domain * 0.4;
+  const dotScore = features.qty_dot_domain * 0.25;
+  const ipScore = features.domain_in_ip ? 2.5 : 0;
+  const raw = riskyChars * 0.35 + lenScore + hyphenScore + dotScore + ipScore;
+  const probability = 1 / (1 + Math.exp(-raw)); // sigmoid
+  return Math.max(0, Math.min(1, probability));
+};
+
 export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   try {
     const { url, features } = extractFeatures(rawUrl);
@@ -174,7 +199,22 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
   } catch (error) {
     console.warn("ML predict failed", error);
-    return { status: "error", error: error?.message || String(error), probability: null, label: null, threshold };
+    // Fallback heuristic: still return a probability to keep UX working offline.
+    try {
+      const { url, features } = extractFeatures(rawUrl);
+      if (!url) throw new Error("invalid_url");
+      const probability = heuristicProbability(features);
+      const label = probability >= threshold ? 1 : 0;
+      return { status: "fallback", error: error?.message || String(error), probability, label, threshold };
+    } catch (inner) {
+      return {
+        status: "error",
+        error: error?.message || String(error),
+        probability: null,
+        label: null,
+        threshold
+      };
+    }
   }
 };
 

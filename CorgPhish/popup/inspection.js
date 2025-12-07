@@ -22,9 +22,10 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
   );
   const mlResult = fullUrl ? await predictUrl(fullUrl) : { probability: null, label: null, status: "skipped" };
   const mlStatus = mlResult?.status || "ok";
-  const mlProbability = mlStatus === "ok" ? mlResult?.probability ?? null : null;
+  const mlProbability =
+    mlStatus === "ok" || mlStatus === "fallback" ? mlResult?.probability ?? null : null;
   const mlVerdict =
-    mlStatus === "ok" && typeof mlResult?.label === "number"
+    (mlStatus === "ok" || mlStatus === "fallback") && typeof mlResult?.label === "number"
       ? mlResult.label === 1
         ? "risky"
         : "safe"
@@ -35,10 +36,10 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
   if (isTrusted) {
     verdict = "trusted";
     sourceKey = "status.sourceValue.list";
-  } else if (mlStatus === "ok" && mlResult?.label === 0 && mlResult?.probability !== null) {
+  } else if ((mlStatus === "ok" || mlStatus === "fallback") && mlResult?.label === 0 && mlResult?.probability !== null) {
     verdict = "mlSafe";
     sourceKey = "status.sourceValue.ml";
-  } else if (mlStatus === "ok" && mlResult?.label === 1) {
+  } else if ((mlStatus === "ok" || mlStatus === "fallback") && mlResult?.label === 1) {
     verdict = "mlRisky";
     sourceKey = "status.sourceValue.mlRisk";
   }
