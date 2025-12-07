@@ -1,30 +1,36 @@
 :root {
     color-scheme: dark;
     font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --color-bg: #020617;
-    --color-text: #f8fafc;
-    --color-card: #0f172a;
-    --color-card-border: rgba(148, 163, 184, 0.1);
-    --color-muted: #94a3b8;
-    --color-muted-strong: #cbd5f5;
-    --color-tag-bg: rgba(148, 163, 184, 0.2);
-    --color-list-bg: rgba(148, 163, 184, 0.08);
-    --color-link: #38bdf8;
-    --color-link-hover: #7dd3fc;
+    --color-bg: #0b1021;
+    --color-bg-accent: #111936;
+    --color-text: #e6edf7;
+    --color-card: rgba(14, 22, 41, 0.85);
+    --color-card-border: rgba(255, 255, 255, 0.05);
+    --color-muted: #9fb2c8;
+    --color-muted-strong: #d2dcf3;
+    --color-tag-bg: rgba(82, 170, 255, 0.18);
+    --color-list-bg: rgba(255, 255, 255, 0.05);
+    --color-link: #4fc3f7;
+    --color-link-hover: #8ae2ff;
+    --color-pill: rgba(255, 255, 255, 0.08);
+    --color-pill-strong: rgba(78, 205, 196, 0.2);
 }
 
 body[data-theme="light"] {
     color-scheme: light;
-    --color-bg: #f8fafc;
+    --color-bg: #f7f9fc;
+    --color-bg-accent: #e5ecff;
     --color-text: #0f172a;
-    --color-card: #ffffff;
+    --color-card: rgba(255, 255, 255, 0.9);
     --color-card-border: rgba(15, 23, 42, 0.08);
     --color-muted: #475569;
     --color-muted-strong: #1e293b;
-    --color-tag-bg: rgba(15, 23, 42, 0.08);
+    --color-tag-bg: rgba(37, 99, 235, 0.1);
     --color-list-bg: rgba(15, 23, 42, 0.05);
     --color-link: #2563eb;
     --color-link-hover: #1d4ed8;
+    --color-pill: rgba(15, 23, 42, 0.06);
+    --color-pill-strong: rgba(16, 185, 129, 0.15);
 }
 
 *,
@@ -33,12 +39,22 @@ body[data-theme="light"] {
     box-sizing: border-box;
 }
 
+.is-hidden {
+    display: none !important;
+}
+
 body {
     margin: 0;
     width: 360px;
     min-height: 520px;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--color-bg) 90%, #0f172a), var(--color-bg));
+    background: radial-gradient(circle at 20% 20%, rgba(80, 118, 255, 0.14), transparent 30%),
+    radial-gradient(circle at 80% 0%, rgba(16, 185, 129, 0.18), transparent 28%),
+    linear-gradient(135deg, var(--color-bg-accent), var(--color-bg));
     color: var(--color-text);
+}
+
+.is-hidden {
+    display: none !important;
 }
 
 .app {
@@ -96,6 +112,60 @@ body {
     justify-content: space-between;
 }
 
+.hero {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 20px;
+    background: linear-gradient(120deg, rgba(80, 118, 255, 0.25), rgba(16, 185, 129, 0.15));
+    border: 1px solid var(--color-card-border);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+}
+
+.hero__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hero__cta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.hero__hint {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 13px;
+    flex: 1;
+}
+
+.status-banner {
+    margin: 2px 0 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--color-card-border);
+    color: var(--color-muted-strong);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.status-banner[data-tone="warn"] {
+    background: rgba(248, 180, 0, 0.12);
+    border-color: rgba(248, 180, 0, 0.35);
+    color: #fcd34d;
+}
+
+.status-banner[data-tone="error"] {
+    background: rgba(239, 68, 68, 0.14);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fecdd3;
+}
+
 .brand {
     display: flex;
     gap: 12px;
@@ -133,12 +203,12 @@ body {
 .button {
     border: none;
     border-radius: 14px;
-    padding: 11px 18px;
+    padding: 12px 18px;
     font-weight: 600;
     cursor: pointer;
-    background: linear-gradient(120deg, #2563eb, #38bdf8);
+    background: linear-gradient(120deg, #5e8bff, #3dd7c4);
     color: #f8fafc;
-    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+    box-shadow: 0 10px 24px rgba(61, 180, 242, 0.25);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -154,8 +224,41 @@ body {
 .button--ghost {
     background: transparent;
     color: var(--color-link);
-    border: 1px solid rgba(148, 163, 184, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.4);
     box-shadow: none;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--color-pill);
+    color: var(--color-text);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+
+.pill--ghost {
+    border: 1px solid var(--color-card-border);
+    background: transparent;
+}
+
+.pill--muted {
+    color: var(--color-muted);
+}
+
+.pill--glass {
+    background: var(--color-pill-strong);
+    color: var(--color-text);
+}
+
+.pill[data-tone="warn"],
+.tag[data-tone="warn"] {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fecdd3;
+    border-color: rgba(239, 68, 68, 0.4);
 }
 
 .status-card__badge {
@@ -181,6 +284,20 @@ body {
     color: var(--color-muted-strong);
 }
 
+.status-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.status-chips {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+}
+
 .status-card__meta {
     margin: 18px 0 12px;
     display: grid;
@@ -202,10 +319,29 @@ body {
     font-weight: 600;
 }
 
+.status-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--color-muted);
+}
+
 .status-card__timestamp {
     margin: 0;
     font-size: 12px;
     color: var(--color-muted);
+}
+
+.status-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.status-actions .button {
+    width: 100%;
 }
 
 .card__header {
@@ -340,6 +476,72 @@ body {
     color: #fecdd3;
 }
 
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.stat {
+    padding: 12px;
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(14, 165, 233, 0.08));
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.stat__label {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-muted);
+}
+
+.stat__value {
+    margin: 6px 0 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.stat--trust .stat__value {
+    color: #34d399;
+}
+
+.stat--alert .stat__value {
+    color: #f87171;
+}
+
+.stat--whitelist .stat__value {
+    color: #38bdf8;
+}
+
+.manual-card__hint {
+    margin: 0 0 10px;
+    color: var(--color-muted-strong);
+    font-size: 14px;
+}
+
+.manual-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.manual-form input {
+    flex: 1;
+    border-radius: 12px;
+    border: 1px solid var(--color-card-border);
+    padding: 11px 12px;
+    background: transparent;
+    color: var(--color-text);
+}
+
+.manual-form input::placeholder {
+    color: var(--color-muted);
+}
+
+.manual-form .button {
+    white-space: nowrap;
+}
+
 .whitelist-form {
     display: flex;
     gap: 8px;
@@ -428,6 +630,14 @@ body {
     font-size: 13px;
 }
 
+.setting-item select {
+    border-radius: 12px;
+    border: 1px solid var(--color-card-border);
+    background: transparent;
+    color: var(--color-text);
+    padding: 8px 10px;
+}
+
 .switch {
     position: relative;
     width: 38px;
@@ -483,6 +693,12 @@ input:checked + .slider::before {
     margin: 0;
 }
 
+@media (max-width: 360px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 [data-state="trusted"] .status-card__badge {
     background: rgba(16, 185, 129, 0.18);
     color: #6ee7b7;
@@ -523,4 +739,21 @@ input:checked + .slider::before {
 [data-state="pending"] .tag {
     background: rgba(59, 130, 246, 0.2);
     color: #bfdbfe;
+}
+
+body[data-density="compact"] .app {
+    padding: 12px;
+    gap: 12px;
+}
+
+body[data-density="compact"] .card {
+    padding: 12px;
+}
+
+body[data-density="compact"] .view {
+    gap: 12px;
+}
+
+body[data-density="compact"] .button {
+    padding: 10px 14px;
 }

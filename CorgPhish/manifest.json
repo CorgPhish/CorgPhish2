@@ -3,8 +3,34 @@
   "description": "Ai powered phishing detection extension",
   "version": "1.0",
   "manifest_version": 3,
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "action": {
     "default_popup": "popup.html"
   },
-  "permissions": ["storage", "tabs"]
+  "permissions": ["storage", "tabs", "notifications"],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "trusted.json",
+        "models/hybrid_tfidf_num.onnx",
+        "vendor/ort/ort.min.js",
+        "vendor/ort/ort-wasm-simd.wasm",
+        "vendor/ort/ort-wasm.wasm"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
 }

@@ -9,43 +9,58 @@
 <div class="app" id="app" data-state="pending" data-view="main">
     <div class="view-container">
         <section class="view view--main" id="viewMain">
-            <header class="app__header">
-                <div class="brand">
+            <header class="hero">
+                <div class="hero__brand">
                     <div class="brand__logo">CP</div>
                     <div>
                         <p class="brand__title">CorgPhish</p>
                         <p class="brand__subtitle" data-i18n="main.subtitle">Главная панель защиты</p>
                     </div>
                 </div>
-                <button class="button" id="refreshBtn" type="button" data-i18n="actions.refresh">
-                    Перепроверить
-                </button>
+                <div class="hero__cta">
+                    <p class="hero__hint" data-i18n="recommendations.initial">Держите вкладку открытой, чтобы мы могли её проанализировать.</p>
+                    <button class="button" id="refreshBtn" type="button" data-i18n="actions.refresh">
+                        Перепроверить
+                    </button>
+                </div>
+                <div class="status-banner is-hidden" id="statusBanner"></div>
             </header>
 
             <section class="card status-card">
-                <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
+                <div class="status-top">
+                    <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
+                    <span class="pill" id="riskLevel">—</span>
+                </div>
                 <h2 class="status-card__title" id="statusTitle" data-i18n="status.pending.title">Анализируем активную вкладку</h2>
                 <p class="status-card__hint" id="statusHint" data-i18n="status.pending.hint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
+
+                <div class="status-chips">
+                    <span class="pill pill--ghost" id="domainValue">—</span>
+                    <span class="pill pill--muted" id="sourceValue">trusted.json + ML</span>
+                    <span class="pill pill--ghost is-hidden" id="mlScore">ML —</span>
+                </div>
 
                 <dl class="status-card__meta">
                     <div>
                         <dt data-i18n="status.domainLabel">Домен</dt>
-                        <dd id="domainValue">—</dd>
+                        <dd id="domainValueMeta">—</dd>
                     </div>
                     <div>
-                        <dt data-i18n="status.sourceLabel">Источник проверки</dt>
-                        <dd>trusted.json</dd>
+                        <dt data-i18n="status.lastCheck">Последняя проверка:</dt>
+                        <dd id="checkedAt">—</dd>
                     </div>
                 </dl>
-                <p class="status-card__timestamp">
-                    <span data-i18n="status.lastCheck">Последняя проверка:</span> <span id="checkedAt">—</span>
-                </p>
+                <div class="status-actions" id="statusActions">
+                    <button class="button button--ghost is-hidden" id="quickAddBtn" type="button" data-i18n="actions.whitelist.addQuick">
+                        Добавить в белый список
+                    </button>
+                </div>
             </section>
 
             <section class="card recommendations">
                 <div class="card__header">
                     <h3 data-i18n="recommendations.title">Рекомендации</h3>
-                    <span class="tag" id="riskLevel">—</span>
+                    <span class="tag" id="riskTag">—</span>
                 </div>
                 <ul class="recommendations__list" id="recommendationsList">
                     <li data-i18n="recommendations.initial">Держите вкладку открытой, чтобы мы могли её проанализировать.</li>
@@ -60,6 +75,41 @@
                     <button class="button button--ghost" id="openHistoryBtn" type="button" data-i18n="actions.history">История проверок</button>
                     <button class="button button--ghost" id="openSettingsBtn" type="button" data-i18n="actions.settings">Настройки</button>
                 </div>
+            </section>
+
+            <section class="card stats-card">
+                <div class="card__header">
+                    <h4 data-i18n="stats.title">Обзор</h4>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat stat--trust">
+                        <p class="stat__label" data-i18n="stats.trusted">Доверенных</p>
+                        <p class="stat__value" id="statsTrusted">0</p>
+                    </div>
+                    <div class="stat stat--alert">
+                        <p class="stat__label" data-i18n="stats.alerts">Подозрительных</p>
+                        <p class="stat__value" id="statsAlert">0</p>
+                    </div>
+                    <div class="stat stat--whitelist">
+                        <p class="stat__label" data-i18n="stats.whitelist">В белом списке</p>
+                        <p class="stat__value" id="statsWhitelist">0</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card manual-card">
+                <div class="card__header">
+                    <h4 data-i18n="manual.title">Проверить домен вручную</h4>
+                    <span class="tag">NEW</span>
+                </div>
+                <p class="manual-card__hint" data-i18n="manual.description">
+                    Проверьте любой домен без перехода на сайт. Полезно для ссылок из писем или чатов.
+                </p>
+                <form class="manual-form" id="manualForm">
+                    <input type="text" id="manualInput" autocomplete="off" placeholder="example.com" />
+                    <button class="button" id="manualSubmit" type="submit" data-i18n="manual.action">Проверить</button>
+                </form>
+                <p class="note" id="manualHint" data-i18n="manual.hint.default">Укажите домен или полный URL, например https://bank.com.</p>
             </section>
 
             <p class="footer-note" data-i18n="footer.note">
@@ -140,6 +190,48 @@
                             <span class="slider"></span>
                         </div>
                     </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="settings.block.title">Блокировка ввода</h4>
+                            <p data-i18n="settings.block.desc">На подозрительных сайтах запретить ввод и загрузки.</p>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="blockInputToggle" />
+                            <span class="slider"></span>
+                        </div>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="settings.notify.title">Системные уведомления</h4>
+                            <p data-i18n="settings.notify.desc">Показывать уведомление при подозрительном сайте.</p>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="systemNotifyToggle" />
+                            <span class="slider"></span>
+                        </div>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="settings.retention.title">Автоочистка истории</h4>
+                            <p data-i18n="settings.retention.desc">Ограничивайте давность записей в истории проверок.</p>
+                        </div>
+                        <select id="historyRetentionSelect">
+                            <option value="0" data-i18n="settings.retention.never">Не очищать</option>
+                            <option value="7" data-i18n="settings.retention.days7">7 дней</option>
+                            <option value="30" data-i18n="settings.retention.days30">30 дней</option>
+                            <option value="90" data-i18n="settings.retention.days90">90 дней</option>
+                        </select>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="settings.compact.title">Компактный режим</h4>
+                            <p data-i18n="settings.compact.desc">Меньше отступов и плотнее карточки.</p>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="compactModeToggle" />
+                            <span class="slider"></span>
+                        </div>
+                    </label>
                 </div>
                 <p class="note" id="settingsStatus" data-i18n="settings.status.default">Изменения сохраняются автоматически.</p>
             </section>
@@ -156,6 +248,6 @@
         </section>
     </div>
 </div>
-<script src="popup.js"></script>
+<script type="module" src="popup/main.js"></script>
 </body>
 </html>
