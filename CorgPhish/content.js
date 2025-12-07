@@ -61,6 +61,11 @@
   const loadTrustedList = async () =>
     new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn("CorgPhish: trusted list via background failed", chrome.runtime.lastError);
+          resolve([]);
+          return;
+        }
         const list = Array.isArray(response?.trusted) ? response.trusted : [];
         resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
       });
