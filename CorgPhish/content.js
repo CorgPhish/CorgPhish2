@@ -1,9 +1,9 @@
 // Контент-скрипт: ранний чек домена и блокировка ввода/скачиваний на подозрительных сайтах.
 (async () => {
   const DEFAULT_SETTINGS = {
-    blockOnUntrusted: true,
+    blockOnUntrusted: false,
     systemNotifyOnRisk: true,
-    warnOnUntrusted: true
+    warnOnUntrusted: false
   };
 
   const normalizeHost = (hostname = "") =>

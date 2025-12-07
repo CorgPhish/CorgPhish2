@@ -3,6 +3,22 @@ const DEFAULT_SETTINGS = {
   systemNotifyOnRisk: true
 };
 
+const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
+
+const cacheTrustedList = async () => {
+  try {
+    const response = await fetch(chrome.runtime.getURL("trusted.json"));
+    if (!response.ok) return [];
+    const payload = await response.json();
+    const list = Array.isArray(payload?.trusted) ? payload.trusted : [];
+    chrome.storage.local.set({ [TRUSTED_STORAGE_KEY]: list });
+    return list;
+  } catch (error) {
+    console.warn("CorgPhish: failed to preload trusted.json", error);
+    return [];
+  }
+};
+
 const loadSettings = () =>
   new Promise((resolve) => {
     chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
@@ -38,13 +54,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "getTrustedDomains") {
     (async () => {
       try {
-        const response = await fetch(chrome.runtime.getURL("trusted.json"));
-        if (!response.ok) {
-          sendResponse?.({ ok: false, trusted: [] });
-          return;
-        }
-        const payload = await response.json();
-        const list = Array.isArray(payload?.trusted) ? payload.trusted : [];
+        const stored = await new Promise((resolve) =>
+          chrome.storage.local.get({ [TRUSTED_STORAGE_KEY]: [] }, (res) =>
+            resolve(Array.isArray(res[TRUSTED_STORAGE_KEY]) ? res[TRUSTED_STORAGE_KEY] : [])
+          )
+        );
+        const list = stored.length ? stored : await cacheTrustedList();
         sendResponse?.({ ok: true, trusted: list });
       } catch (error) {
         console.warn("CorgPhish: failed to serve trusted.json", error);
@@ -61,4 +76,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   return false;
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  cacheTrustedList();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  cacheTrustedList();
 });
