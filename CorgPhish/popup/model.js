@@ -31,7 +31,6 @@ const FEATURE_COLUMNS = [
 
 let ortScriptPromise = null;
 let sessionPromise = null;
-let forceFallback = false;
 
 const loadOrt = () => {
   if (globalThis.ort) {
@@ -51,9 +50,6 @@ const loadOrt = () => {
 };
 
 const ensureSession = async () => {
-  if (forceFallback) {
-    throw new Error("fallback_forced");
-  }
   if (sessionPromise) {
     return sessionPromise;
   }
@@ -64,11 +60,10 @@ const ensureSession = async () => {
     return ort.InferenceSession.create(MODEL_PATH, {
       executionProviders: ["wasm"],
       graphOptimizationLevel: "disabled",
-      preferredOutputType: "float64"
+      preferredOutputType: "float32"
     });
   })();
   sessionPromise = sessionPromise.catch((error) => {
-    forceFallback = true;
     sessionPromise = null;
     throw error;
   });
@@ -166,8 +161,8 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
     FEATURE_COLUMNS.forEach((name) => {
       const value = Number(features[name]) || 0;
-      // Модель экспортирована в double, подаём float64 чтобы исключить ошибки типов.
-      feeds[name] = new ort.Tensor("float64", new Float64Array([value]), [1, 1]);
+      // Подавать float32 чтобы совпадать с текущим ONNX-экспортом.
+      feeds[name] = new ort.Tensor("float32", new Float32Array([value]), [1, 1]);
     });
 
     const output = await session.run(feeds);
