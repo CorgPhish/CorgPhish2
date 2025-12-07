@@ -139,21 +139,30 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     });
 
     const output = await session.run(feeds);
-    const probTensor = output.probabilities || output.proba || output.output_probability || Object.values(output)[0];
-    const labelTensor = output.label || output.output_label || Object.values(output)[1];
+    const ordered = Object.values(output || {});
+    const probTensor =
+      output.probabilities || output.proba || output.output_probability || ordered.find((t) => t?.data);
+    const labelTensor = output.label || output.output_label || ordered.find((t, idx) => idx !== ordered.indexOf(probTensor));
 
-    const probability = Array.isArray(probTensor?.data)
-      ? probTensor.data[probTensor.data.length - 1]
-      : probTensor?.data?.[1] ?? 0;
-    const label =
-      typeof labelTensor?.data?.[0] === "number"
-        ? Number(labelTensor.data[0])
-        : probability >= threshold
-          ? 1
-          : 0;
+    let probability = null;
+    if (probTensor?.data?.length) {
+      if (probTensor.data.length >= 2) {
+        probability = Number(probTensor.data[probTensor.data.length - 1]);
+      } else {
+        probability = Number(probTensor.data[0]);
+      }
+    }
+
+    let label = null;
+    if (probability !== null && !Number.isNaN(probability)) {
+      label = probability >= threshold ? 1 : 0;
+    } else if (typeof labelTensor?.data?.[0] === "number") {
+      label = Number(labelTensor.data[0]);
+      probability = label; // fallback
+    }
 
     return {
-      probability: Number(probability) || 0,
+      probability: probability !== null && !Number.isNaN(probability) ? probability : null,
       label,
       threshold
     };
