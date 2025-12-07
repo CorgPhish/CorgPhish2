@@ -9,7 +9,13 @@
   "permissions": ["storage", "tabs", "notifications"],
   "web_accessible_resources": [
     {
-      "resources": ["models/*.onnx", "vendor/ort/*", "trusted.json"],
+      "resources": [
+        "trusted.json",
+        "models/hybrid_tfidf_num.onnx",
+        "vendor/ort/ort.min.js",
+        "vendor/ort/ort-wasm-simd.wasm",
+        "vendor/ort/ort-wasm.wasm"
+      ],
       "matches": ["<all_urls>"]
     }
   ],
