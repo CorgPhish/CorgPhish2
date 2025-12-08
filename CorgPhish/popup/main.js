@@ -320,7 +320,7 @@ const init = async () => {
   updateSettingsControls();
   refreshHistory();
 
-  if (currentSettings.autoCheckOnOpen) {
+  if (currentSettings.autoCheckOnOpen !== false) {
     checkActiveTab();
   } else {
     applyState(dom, getTranslator(), "pending", { language: currentSettings.language });

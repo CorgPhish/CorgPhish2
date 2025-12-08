@@ -180,11 +180,21 @@
         alert(DOWNLOAD_ALERT);
       }
     };
+    const onBeforeRequest = (event) => {
+      if (!state.active) return;
+      const url = event?.target?.url || "";
+      if (/\\.((exe)|(msi)|(scr)|(zip)|(rar)|(7z)|(tar)|(gz)|(dmg)|(apk))$/i.test(url)) {
+        event.preventDefault?.();
+        alert(DOWNLOAD_ALERT);
+      }
+    };
     document.addEventListener("submit", onSubmit, true);
     document.addEventListener("click", onClick, true);
+    document.addEventListener("beforeload", onBeforeRequest, true);
     return () => {
       document.removeEventListener("submit", onSubmit, true);
       document.removeEventListener("click", onClick, true);
+      document.removeEventListener("beforeload", onBeforeRequest, true);
     };
   };
 
