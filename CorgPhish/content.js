@@ -1,97 +1,18 @@
-// Контент-скрипт: ранний чек домена и блокировка ввода/скачиваний на подозрительных сайтах.
-(async () => {
-  const DEFAULT_SETTINGS = {
-    blockOnUntrusted: false,
-    systemNotifyOnRisk: false,
-    warnOnUntrusted: false
-  };
+// Контент-скрипт: реагирует на вердикт ML/ЧС, блокирует страницу, формы и загрузки.
+(() => {
+  const BLACKLIST_KEY = "customBlockedDomains";
+  const TEMP_ALLOW_KEY = "tempAllowDomains";
+  const EXIT_ALERT = "Вы вышли с потенциально опасного сайта";
+  const FORM_ALERT = "Не вводите личные данные: сайт может быть фишинговым.";
+  const DOWNLOAD_ALERT = "Скачивание заблокировано: сайт может быть фишинговым.";
 
+  // RU: Нормализуем хостнейм (без www, точек на конце, в нижний регистр).
+  // EN: Normalize hostname (strip www/trailing dot, lowercase).
   const normalizeHost = (hostname = "") =>
     hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
 
-  const levenshteinDistance = (a = "", b = "") => {
-    if (a === b) return 0;
-    const rows = a.length + 1;
-    const cols = b.length + 1;
-    const matrix = Array.from({ length: rows }, () => new Array(cols).fill(0));
-    for (let i = 0; i < rows; i++) matrix[i][0] = i;
-    for (let j = 0; j < cols; j++) matrix[0][j] = j;
-    for (let i = 1; i < rows; i++) {
-      for (let j = 1; j < cols; j++) {
-        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j - 1] + cost
-        );
-      }
-    }
-    return matrix[rows - 1][cols - 1];
-  };
-
-  const findSpoofCandidate = (target, trustedList) => {
-    let closest = null;
-    let distance = Infinity;
-    trustedList.forEach((domain) => {
-      if (Math.abs(target.length - domain.length) > 2) return;
-      const currentDistance = levenshteinDistance(target, domain);
-      if (currentDistance < distance) {
-        distance = currentDistance;
-        closest = domain;
-      }
-    });
-    return distance <= 2 ? closest : null;
-  };
-
-  const loadSettings = () =>
-    new Promise((resolve) => {
-      chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
-        resolve({ ...DEFAULT_SETTINGS, ...settings });
-      });
-    });
-
-  const loadWhitelist = () =>
-    new Promise((resolve) => {
-      chrome.storage.local.get({ customTrustedDomains: [] }, (result) => {
-        const list = Array.isArray(result.customTrustedDomains) ? result.customTrustedDomains : [];
-        resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
-      });
-    });
-
-  const loadTrustedList = async () => {
-    // 1) пробуем через сервис-воркер
-    const fromSw = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.warn("CorgPhish: trusted via SW error", chrome.runtime.lastError);
-          resolve([]);
-          return;
-        }
-        const list = Array.isArray(response?.trusted) ? response.trusted : [];
-        resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
-      });
-      setTimeout(() => resolve([]), 1200);
-    });
-    if (fromSw.length) {
-      return fromSw;
-    }
-
-    // 2) fallback: прямой fetch, должен работать благодаря web_accessible_resources
-    try {
-      const response = await fetch(chrome.runtime.getURL("trusted.json"));
-      if (!response.ok) throw new Error(`status ${response.status}`);
-      const payload = await response.json();
-      if (!Array.isArray(payload?.trusted)) return [];
-      return payload.trusted.map((d) => normalizeHost(d)).filter(Boolean);
-    } catch (error) {
-      console.warn("Не удалось загрузить trusted.json", error);
-      return [];
-    }
-  };
-
-  const isTrustedDomain = (domain, trustedList) =>
-    trustedList.some((item) => domain === item || domain.endsWith(`.${item}`));
-
+  // RU: Безопасно получаем hostname из URL или строки.
+  // EN: Safely extract hostname from URL or plain string.
   const resolveHostname = (input = "") => {
     try {
       const url = new URL(input);
@@ -101,219 +22,291 @@
     }
   };
 
-  const createOverlay = () => {
-    const overlay = document.createElement("div");
-    overlay.style.position = "fixed";
-    overlay.style.inset = "0";
-    overlay.style.zIndex = "2147483647";
-    overlay.style.background =
-      "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.92))";
-    overlay.style.backdropFilter = "blur(3px)";
-    overlay.style.color = "#e2e8f0";
-    overlay.style.display = "flex";
-    overlay.style.flexDirection = "column";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
-    overlay.style.padding = "24px";
-    overlay.style.textAlign = "center";
-    overlay.style.fontFamily = "Inter, system-ui, -apple-system, sans-serif";
+  // RU: Читаем чёрный список из local storage.
+  // EN: Load blacklist from local storage.
+  const loadBlacklist = () =>
+    new Promise((resolve) => {
+      chrome.storage.local.get({ [BLACKLIST_KEY]: [] }, (result) => {
+        const list = Array.isArray(result[BLACKLIST_KEY]) ? result[BLACKLIST_KEY] : [];
+        resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
+      });
+    });
+
+  // RU: Сохраняем чёрный список.
+  // EN: Persist blacklist.
+  const saveBlacklist = (domains) =>
+    new Promise((resolve) => {
+      chrome.storage.local.set({ [BLACKLIST_KEY]: domains }, resolve);
+    });
+
+  // RU: Загружаем временные разрешения (домены, разблокированные на N минут).
+  // EN: Load temporary allow map (domains unblocked for N minutes).
+  const loadTempAllow = () =>
+    new Promise((resolve) => {
+      chrome.storage.local.get({ [TEMP_ALLOW_KEY]: {} }, (result) => {
+        const map = result[TEMP_ALLOW_KEY] && typeof result[TEMP_ALLOW_KEY] === "object" ? result[TEMP_ALLOW_KEY] : {};
+        resolve(map);
+      });
+    });
+
+  // RU: Сохраняем временные разрешения.
+  // EN: Persist temporary allow map.
+  const saveTempAllow = (map) =>
+    new Promise((resolve) => {
+      chrome.storage.local.set({ [TEMP_ALLOW_KEY]: map }, resolve);
+    });
+
+  // RU: Проверяем, разрешён ли домен временно.
+  // EN: Check if domain is temporarily allowed.
+  const isTemporarilyAllowed = async (domain) => {
+    const map = await loadTempAllow();
+    const expiry = Number(map[domain] || 0);
+    if (expiry > Date.now()) {
+      return true;
+    }
+    if (expiry) {
+      delete map[domain];
+      await saveTempAllow(map);
+    }
+    return false;
+  };
+
+  // RU: Разрешаем домен на заданное количество минут.
+  // EN: Temporarily allow domain for given minutes.
+  const allowTemporarily = async (domain, minutes = 5) => {
+    const map = await loadTempAllow();
+    map[domain] = Date.now() + minutes * 60 * 1000;
+    await saveTempAllow(map);
+  };
+
+  // RU: Добавляем домен в чёрный список (если его там нет).
+  // EN: Add domain to blacklist if not present.
+  const addToBlacklist = async (domain) => {
+    const current = await loadBlacklist();
+    if (current.includes(domain)) return;
+    await saveBlacklist([...current, domain]);
+  };
+
+  // RU: Читаем пользовательский whitelist (для автоинспекции на странице).
+  // EN: Read user whitelist for on-page auto inspection.
+  const loadWhitelist = () =>
+    new Promise((resolve) => {
+      chrome.storage.local.get({ customTrustedDomains: [] }, (result) => {
+        const list = Array.isArray(result.customTrustedDomains) ? result.customTrustedDomains : [];
+        resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
+      });
+    });
+
+  // RU: Создаём блокирующий оверлей с кнопками действий.
+  // EN: Create blocking overlay with action buttons.
+  const createOverlay = (domain, onExit, onBlacklist, onAllow) => {
+    const overlayEl = document.createElement("div");
+    overlayEl.style.position = "fixed";
+    overlayEl.style.inset = "0";
+    overlayEl.style.zIndex = "2147483647";
+    overlayEl.style.background = "rgba(10,16,40,0.9)";
+    overlayEl.style.backdropFilter = "blur(6px)";
+    overlayEl.style.display = "flex";
+    overlayEl.style.flexDirection = "column";
+    overlayEl.style.alignItems = "center";
+    overlayEl.style.justifyContent = "center";
+    overlayEl.style.gap = "12px";
+    overlayEl.style.fontFamily = "Inter, system-ui, -apple-system, sans-serif";
+    overlayEl.style.color = "#e2e8f0";
+    overlayEl.style.padding = "24px";
+    overlayEl.style.textAlign = "center";
+
+    const card = document.createElement("div");
+    card.style.background = "linear-gradient(135deg, rgba(239,68,68,0.15), rgba(59,130,246,0.12))";
+    card.style.border = "1px solid rgba(255,255,255,0.08)";
+    card.style.borderRadius = "16px";
+    card.style.padding = "18px 20px";
+    card.style.minWidth = "280px";
+    card.style.maxWidth = "420px";
+    card.style.boxShadow = "0 25px 45px rgba(0,0,0,0.35)";
 
     const title = document.createElement("h2");
-    title.style.margin = "0 0 12px";
+    title.textContent = "Этот сайт может быть фишинговым";
+    title.style.margin = "0 0 8px";
+
     const subtitle = document.createElement("p");
-    subtitle.style.margin = "0 0 12px";
-    const details = document.createElement("p");
-    details.style.margin = "0 0 16px";
-    details.style.color = "#94a3b8";
+    subtitle.textContent = domain;
+    subtitle.style.margin = "0 0 6px";
+    subtitle.style.fontWeight = "600";
+
+    const hint = document.createElement("p");
+    hint.textContent = "Данные и скачивания заблокированы.";
+    hint.style.margin = "0 0 12px";
+    hint.style.color = "#cbd5f5";
+
     const buttons = document.createElement("div");
     buttons.style.display = "flex";
     buttons.style.gap = "10px";
+    buttons.style.justifyContent = "center";
+
+    const exitBtn = document.createElement("button");
+    exitBtn.textContent = "Выйти";
+    exitBtn.style.padding = "10px 14px";
+    exitBtn.style.borderRadius = "12px";
+    exitBtn.style.border = "none";
+    exitBtn.style.cursor = "pointer";
+    exitBtn.style.background = "linear-gradient(120deg, #ef4444, #f97316)";
+    exitBtn.style.color = "#fff";
+
+    const blacklistBtn = document.createElement("button");
+    blacklistBtn.textContent = "Добавить в ЧС";
+    blacklistBtn.style.padding = "10px 14px";
+    blacklistBtn.style.borderRadius = "12px";
+    blacklistBtn.style.border = "1px solid rgba(255,255,255,0.3)";
+    blacklistBtn.style.background = "transparent";
+    blacklistBtn.style.color = "#e2e8f0";
+    blacklistBtn.style.cursor = "pointer";
 
     const allowBtn = document.createElement("button");
-    allowBtn.textContent = "Разблокировать на 5 минут";
-    allowBtn.style.padding = "10px 16px";
+    allowBtn.textContent = "Разрешить на 5 минут";
+    allowBtn.style.padding = "10px 14px";
     allowBtn.style.borderRadius = "12px";
-    allowBtn.style.border = "none";
+    allowBtn.style.border = "1px solid rgba(255,255,255,0.3)";
+    allowBtn.style.background = "transparent";
+    allowBtn.style.color = "#e2e8f0";
     allowBtn.style.cursor = "pointer";
-    allowBtn.style.background = "linear-gradient(120deg, #2563eb, #38bdf8)";
-    allowBtn.style.color = "#fff";
 
-    const closeBtn = document.createElement("button");
-    closeBtn.textContent = "Закрыть вкладку";
-    closeBtn.style.padding = "10px 16px";
-    closeBtn.style.borderRadius = "12px";
-    closeBtn.style.border = "1px solid rgba(148,163,184,0.4)";
-    closeBtn.style.background = "transparent";
-    closeBtn.style.color = "#e2e8f0";
-    closeBtn.style.cursor = "pointer";
-
+    buttons.appendChild(exitBtn);
+    buttons.appendChild(blacklistBtn);
     buttons.appendChild(allowBtn);
-    buttons.appendChild(closeBtn);
-    overlay.appendChild(title);
-    overlay.appendChild(subtitle);
-    overlay.appendChild(details);
-    overlay.appendChild(buttons);
+    card.appendChild(title);
+    card.appendChild(subtitle);
+    card.appendChild(hint);
+    card.appendChild(buttons);
+    overlayEl.appendChild(card);
+    document.documentElement.appendChild(overlayEl);
 
-    document.documentElement.appendChild(overlay);
+    exitBtn.addEventListener("click", () => onExit?.());
+    blacklistBtn.addEventListener("click", () => onBlacklist?.());
+    allowBtn.addEventListener("click", () => onAllow?.());
 
-    const setState = ({ mode, domain, spoofTarget }) => {
-      if (mode === "pending") {
-        title.textContent = "CorgPhish проверяет страницу";
-        subtitle.textContent = "Ожидайте завершения проверки домена…";
-        details.textContent = "Ввод и загрузки временно заблокированы.";
-        buttons.style.display = "none";
-      } else if (mode === "blocked") {
-        title.textContent = "CorgPhish заблокировал страницу";
-        subtitle.textContent = `Домен ${domain} не в списке доверенных.`;
-        details.textContent = spoofTarget
-          ? `Похоже на: ${spoofTarget}. Ввод и загрузки отключены.`
-          : "Ввод и загрузки отключены. Разблокируйте на 5 минут, если доверяете.";
-        buttons.style.display = "flex";
-      } else if (mode === "safe") {
-        overlay.remove();
-      }
-    };
-
-    return { overlay, allowBtn, closeBtn, setState };
+    return { overlay: overlayEl, hint, subtitle, allowBtn };
   };
 
-  const preventDangerousActions = (blockedRef) => {
-    const blockEvent = (event) => {
-      if (!blockedRef.active) return;
+  // RU: Блокируем формы и скачивания, пока блокировка активна.
+  // EN: Block forms and downloads while blocking is active.
+  const blockInteractions = (state) => {
+    const onSubmit = (event) => {
+      if (!state.active) return;
+      event.preventDefault();
+      event.stopPropagation();
+      alert(FORM_ALERT);
+    };
+    const onClick = (event) => {
+      if (!state.active) return;
       const target = event.target;
-      const isForm = event.type === "submit" || target?.closest?.("form");
-      const href = target?.closest?.("a")?.getAttribute?.("href") || "";
+      const link = target?.closest?.("a");
+      const href = link?.getAttribute?.("href") || "";
       const downloadLink =
-        target?.closest &&
-        target.closest(
-          [
-            "a[download]",
-            'a[href$=".exe"]',
-            'a[href$=".msi"]',
-            'a[href$=".scr"]',
-            'a[href$=".zip"]',
-            'a[href$=".rar"]',
-            'a[href$=".7z"]',
-            'a[href$=".tar"]',
-            'a[href$=".tar.gz"]',
-            'a[href$=".gz"]',
-            'a[href$=".dmg"]',
-            'a[href$=".apk"]'
-          ].join(",")
-        );
-      const looksLikeDownload = downloadLink || /download/i.test(href);
-      if (isForm || looksLikeDownload) {
+        link &&
+        (link.hasAttribute("download") ||
+          /\.((exe)|(msi)|(scr)|(zip)|(rar)|(7z)|(tar)|(gz)|(dmg)|(apk))$/i.test(href));
+      if (downloadLink) {
         event.preventDefault();
         event.stopPropagation();
-        console.warn("CorgPhish: blocked form/download on untrusted site", {
-          href,
-          domain: blockedRef.domain
-        });
+        alert(DOWNLOAD_ALERT);
       }
     };
-    const blockNavigation = (event) => {
-      if (!blockedRef.active) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    document.addEventListener("submit", blockEvent, true);
-    document.addEventListener("click", blockEvent, true);
-    window.addEventListener("beforeunload", blockNavigation, true);
-    const originalOpen = window.open;
-    window.open = (...args) => {
-      if (blockedRef.active) {
-        console.warn("CorgPhish: blocked window.open on untrusted site", { domain: blockedRef.domain });
-        return null;
+    const onBeforeRequest = (event) => {
+      if (!state.active) return;
+      const url = event?.target?.url || "";
+      if (/\\.((exe)|(msi)|(scr)|(zip)|(rar)|(7z)|(tar)|(gz)|(dmg)|(apk))$/i.test(url)) {
+        event.preventDefault?.();
+        alert(DOWNLOAD_ALERT);
       }
-      return originalOpen.apply(window, args);
     };
+    document.addEventListener("submit", onSubmit, true);
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("beforeload", onBeforeRequest, true);
     return () => {
-      document.removeEventListener("submit", blockEvent, true);
-      document.removeEventListener("click", blockEvent, true);
-      window.removeEventListener("beforeunload", blockNavigation, true);
-      window.open = originalOpen;
+      document.removeEventListener("submit", onSubmit, true);
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("beforeload", onBeforeRequest, true);
     };
   };
 
-  const settings = await loadSettings();
   const hostname = resolveHostname(window.location.href);
   if (!hostname || !/^https?:/i.test(window.location.href)) return;
 
-  const wantsUiOverlay = settings.blockOnUntrusted || settings.warnOnUntrusted;
-  const wantsNotify = settings.systemNotifyOnRisk;
-
-  // Если пользователь отключил предупреждения/блокировки/уведомления — ничего не делаем.
-  if (!wantsUiOverlay && !wantsNotify) {
-    return;
-  }
-
-  let overlayController = null;
-  let blockedState = { active: false, domain: hostname };
+  const state = { active: false, domain: hostname };
   let teardown = () => {};
+  let overlayRef = null;
 
-  if (wantsUiOverlay) {
-    overlayController = createOverlay();
-    overlayController.setState({ mode: "pending" });
-    blockedState = { active: true, domain: hostname };
-    teardown = preventDangerousActions(blockedState);
-  }
-
-  const [trustedList, whitelist] = await Promise.all([loadTrustedList(), loadWhitelist()]);
-  const merged = [...new Set([...trustedList, ...whitelist])];
-  if (!merged.length) {
-    console.warn("CorgPhish: trusted list is empty, skipping block.");
-    if (overlayController) {
-      blockedState.active = false;
-      overlayController.setState({ mode: "safe" });
-      teardown();
-    }
-    return;
-  }
-
-  const cleanDomain = normalizeHost(hostname);
-  const isTrusted = isTrustedDomain(cleanDomain, merged);
-
-  if (isTrusted) {
-    if (overlayController) {
-      blockedState.active = false;
-      overlayController.setState({ mode: "safe" });
-      teardown();
-    }
-    return;
-  }
-
-  const spoofTarget = findSpoofCandidate(cleanDomain, merged);
-
-  if (overlayController) {
-    overlayController.setState({ mode: "blocked", domain: cleanDomain, spoofTarget });
-  }
-
-  if (wantsNotify) {
-    chrome.runtime.sendMessage({
-      type: "riskNotification",
-      domain: cleanDomain,
-      url: window.location.href
-    });
-  }
-
-  if (!overlayController) {
-    return;
-  }
-
-  if (settings.blockOnUntrusted) {
-    overlayController.allowBtn.addEventListener("click", () => {
-      blockedState.active = false;
-      overlayController.setState({ mode: "safe" });
-      setTimeout(() => {
-        blockedState.active = true;
-      }, 5 * 60 * 1000);
-    });
-    overlayController.closeBtn.addEventListener("click", () => {
+  // RU: Включаем блокировку страницы (оверлей + ограничения).
+  // EN: Enable page blocking (overlay + restrictions).
+  const activateBlock = async (reason = "phishing") => {
+    if (state.active) return;
+    state.active = true;
+    teardown = blockInteractions(state);
+    const overlay = createOverlay(hostname, () => {
+      alert(EXIT_ALERT);
+      if (history.length > 1) {
+        history.back();
+      } else {
+        chrome.runtime.sendMessage({ type: "closeTab" });
+      }
+    }, async () => {
+      await addToBlacklist(hostname);
       chrome.runtime.sendMessage({ type: "closeTab" });
+    }, async () => {
+      await allowTemporarily(hostname, 5);
+      state.active = false;
+      if (overlay.overlay) overlay.overlay.remove();
+      teardown();
     });
-  } else {
-    blockedState.active = false;
-    overlayController.setState({ mode: "safe" });
-    teardown();
-  }
+    overlayRef = overlay;
+    if (reason === "blacklist") {
+      overlay.hint.textContent = "Домен в вашем чёрном списке. Страница заблокирована.";
+    } else if (reason === "phishing") {
+      overlay.hint.textContent = "Модель подтвердила высокий риск. Данные и загрузки заблокированы.";
+    }
+  };
+
+  // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
+  // EN: Init: auto inspection, temp allow handling, blacklist check.
+  const init = async () => {
+    if (await isTemporarilyAllowed(hostname)) {
+      return;
+    }
+    const blacklist = await loadBlacklist();
+    if (blacklist.includes(hostname)) {
+      activateBlock("blacklist");
+      return;
+    }
+    try {
+      const { inspectDomain } = await import(chrome.runtime.getURL("popup/inspection.js"));
+      const whitelist = await loadWhitelist();
+      const result = await inspectDomain(hostname, whitelist, window.location.href);
+      if (await isTemporarilyAllowed(hostname)) {
+        return;
+      }
+      if (result.verdict === "phishing" || result.verdict === "blacklisted") {
+        activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing");
+      }
+    } catch (error) {
+      console.warn("CorgPhish: auto inspect failed in content", error);
+    }
+  };
+
+  // RU: Слушаем сообщения о фишинге от попапа и блокируем сразу.
+  // EN: Listen for phishing messages from popup and block instantly.
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
+      isTemporarilyAllowed(hostname).then((allowed) => {
+        if (!allowed) {
+          activateBlock("phishing");
+        }
+      });
+      sendResponse?.({ ok: true });
+      return true;
+    }
+    return false;
+  });
+
+  init();
 })();

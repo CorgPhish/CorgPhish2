@@ -1,4 +1,5 @@
-// Локальный инференс ONNX-модели (onnxruntime-web, wasm) без сети.
+// RU: Локальный инференс ONNX-модели (onnxruntime-web, wasm) с бинарным вердиктом.
+// EN: Local ONNX inference (onnxruntime-web, wasm) with binary verdict only.
 const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
 const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
 const DEFAULT_THRESHOLD = 0.5;
@@ -32,6 +33,8 @@ const FEATURE_COLUMNS = [
 let ortScriptPromise = null;
 let sessionPromise = null;
 
+// RU: Ленивая загрузка onnxruntime скрипта.
+// EN: Lazy-load onnxruntime script.
 const loadOrt = () => {
   if (globalThis.ort) {
     return Promise.resolve(globalThis.ort);
@@ -49,6 +52,8 @@ const loadOrt = () => {
   return ortScriptPromise;
 };
 
+// RU: Создаём/кешируем сессию ORT.
+// EN: Create/cache ORT session.
 const ensureSession = async () => {
   if (sessionPromise) {
     return sessionPromise;
@@ -70,6 +75,8 @@ const ensureSession = async () => {
   return sessionPromise;
 };
 
+// RU: Проверка IP-домена и безопасный URL.
+// EN: IP-domain check and safe URL builder.
 const isIpDomain = (domain = "") => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(domain);
 const safeUrl = (input = "") => {
   if (!input) return "";
@@ -80,6 +87,8 @@ const safeUrl = (input = "") => {
   }
 };
 
+// RU: Извлечение числовых признаков для модели.
+// EN: Extract numeric features for the model.
 const extractFeatures = (rawUrl = "") => {
   const url = safeUrl(rawUrl);
   const features = {};
@@ -127,8 +136,9 @@ const extractFeatures = (rawUrl = "") => {
   return { url, features };
 };
 
-const heuristicProbability = (features) => {
-  // Simple, deterministic heuristic to avoid blocking when ONNX is unavailable.
+// RU: Простая эвристика, если ONNX недоступен.
+// EN: Simple heuristic if ONNX unavailable.
+const heuristicVerdict = (features) => {
   const riskyChars =
     features.qty_at_url +
     features.qty_questionmark_url +
@@ -144,9 +154,11 @@ const heuristicProbability = (features) => {
   const ipScore = features.domain_in_ip ? 2.5 : 0;
   const raw = riskyChars * 0.35 + lenScore + hyphenScore + dotScore + ipScore;
   const probability = 1 / (1 + Math.exp(-raw)); // sigmoid
-  return Math.max(0, Math.min(1, probability));
+  return probability >= DEFAULT_THRESHOLD ? "phishing" : "trusted";
 };
 
+// RU: Предсказать вердикт (trusted|phishing) по URL.
+// EN: Predict verdict (trusted|phishing) for URL.
 export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   try {
     const { url, features } = extractFeatures(rawUrl);
@@ -161,7 +173,6 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
     FEATURE_COLUMNS.forEach((name) => {
       const value = Number(features[name]) || 0;
-      // Подавать float32 чтобы совпадать с текущим ONNX-экспортом.
       feeds[name] = new ort.Tensor("float32", new Float32Array([value]), [1, 1]);
     });
 
@@ -169,50 +180,45 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     const ordered = Object.values(output || {});
     const probTensor =
       output.probabilities || output.proba || output.output_probability || ordered.find((t) => t?.data);
-    const labelTensor = output.label || output.output_label || ordered.find((t, idx) => idx !== ordered.indexOf(probTensor));
+    const labelTensor =
+      output.label || output.output_label || ordered.find((t, idx) => idx !== ordered.indexOf(probTensor));
 
     let probability = null;
     if (probTensor?.data?.length) {
       const data = probTensor.data;
-      // допускаем формат [p_legit, p_phish] или [p_phish]
       probability = data.length >= 2 ? Number(data[data.length - 1]) : Number(data[0]);
     }
 
-    let label = null;
+    let verdict = null;
     if (probability !== null && !Number.isNaN(probability)) {
-      label = probability >= threshold ? 1 : 0;
+      verdict = probability >= threshold ? "phishing" : "trusted";
     } else if (typeof labelTensor?.data?.[0] === "number") {
-      label = Number(labelTensor.data[0]);
-      probability = label; // fallback
+      verdict = Number(labelTensor.data[0]) === 1 ? "phishing" : "trusted";
     }
 
     return {
       status: "ok",
-      probability: probability !== null && !Number.isNaN(probability) ? probability : null,
-      label,
-      threshold
+      verdict
     };
   } catch (error) {
     console.warn("ML predict failed", error);
-    // Fallback heuristic: still return a probability to keep UX working offline.
     try {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");
-      const probability = heuristicProbability(features);
-      const label = probability >= threshold ? 1 : 0;
-      return { status: "fallback", error: error?.message || String(error), probability, label, threshold };
+      const verdict = heuristicVerdict(features);
+      return { status: "fallback", verdict, error: error?.message || String(error) };
     } catch (inner) {
       return {
         status: "error",
-        error: error?.message || String(error),
-        probability: null,
-        label: null,
-        threshold
+        verdict: null,
+        error: error?.message || String(error)
       };
     }
   }
 };
 
+// RU: Проверка готовности модели.
+// EN: Check model readiness.
 export const getModelStatus = async () => {
   try {
     await ensureSession();

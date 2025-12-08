@@ -1,4 +1,5 @@
-// Центральный реестр DOM-элементов и безопасное навешивание событий.
+// RU: Центральный реестр DOM-элементов и безопасное навешивание событий.
+// EN: Central registry of DOM elements and safe event binding.
 export const dom = {
   app: document.getElementById("app"),
   viewMain: document.getElementById("viewMain"),
@@ -37,6 +38,10 @@ export const dom = {
   whitelistInput: document.getElementById("whitelistInput"),
   whitelistList: document.getElementById("whitelistList"),
   quickAddBtn: document.getElementById("quickAddBtn"),
+  blacklistBtn: document.getElementById("blacklistBtn"),
+  blacklistForm: document.getElementById("blacklistForm"),
+  blacklistInput: document.getElementById("blacklistInput"),
+  blacklistList: document.getElementById("blacklistList"),
   manualForm: document.getElementById("manualForm"),
   manualInput: document.getElementById("manualInput"),
   manualHint: document.getElementById("manualHint"),

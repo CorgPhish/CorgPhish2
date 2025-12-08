@@ -10,7 +10,9 @@ import {
   loadWhitelist,
   recordHistory,
   saveSettings,
-  saveWhitelist
+  saveWhitelist,
+  loadBlacklist,
+  saveBlacklist
 } from "./data.js";
 import {
   applyLanguage,
@@ -18,6 +20,7 @@ import {
   applyTheme,
   renderHistory,
   renderWhitelist,
+  renderBlacklist,
   setManualHint,
   updateStats
 } from "./ui.js";
@@ -25,10 +28,13 @@ import { getLocale, normalizeHost, resolveHostname } from "./utils.js";
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let customWhitelist = [];
+let customBlacklist = [];
 let lastHistory = [];
 
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
 
+// RU: Мини-тост о сохранении настроек.
+// EN: Small toast about settings persistence.
 const showSettingsStatus = (key, params = {}, isError = false) => {
   if (!dom.settingsStatus) return;
   const t = getTranslator();
@@ -54,6 +60,8 @@ const setStatusMessage = (text = "", tone = "info") => {
   dom.statusBanner.classList.remove("is-hidden");
 };
 
+// RU: Получаем активную вкладку.
+// EN: Fetch active tab.
 const queryActiveTab = () =>
   new Promise((resolve, reject) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -65,6 +73,8 @@ const queryActiveTab = () =>
     });
   });
 
+// RU: Переключение представления попапа.
+// EN: Switch popup view.
 const switchView = (view) => {
   if (view === "settings") {
     dom.app.dataset.view = "settings";
@@ -79,6 +89,8 @@ const switchView = (view) => {
   dom.app.dataset.view = "main";
 };
 
+// RU: Обновляем whitelist в UI/сторидже.
+// EN: Refresh whitelist in UI/storage.
 const refreshWhitelist = async () => {
   const stored = await loadWhitelist();
   customWhitelist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
@@ -86,6 +98,32 @@ const refreshWhitelist = async () => {
   updateStats(dom, lastHistory, customWhitelist);
 };
 
+// RU: Обновляем blacklist в UI/сторидже.
+// EN: Refresh blacklist in UI/storage.
+const refreshBlacklist = async () => {
+  const stored = await loadBlacklist();
+  customBlacklist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
+  renderBlacklist(dom, getTranslator(), customBlacklist);
+};
+
+// RU: Добавить домен в ЧС с валидацией.
+// EN: Add domain to blacklist with validation.
+const addDomainToBlacklist = async (rawDomain) => {
+  const clean = normalizeHost(rawDomain);
+  if (!clean) {
+    showSettingsStatus("blacklist.status.invalid", {}, true);
+    return;
+  }
+  if (customBlacklist.includes(clean)) {
+    showSettingsStatus("blacklist.status.exists", {}, true);
+    return;
+  }
+  await updateBlacklistStorage([...customBlacklist, clean]);
+  showSettingsStatus("blacklist.status.added", { domain: clean });
+};
+
+// RU: Сохранить whitelist и обновить UI/статистику.
+// EN: Save whitelist and refresh UI/stats.
 const updateWhitelistStorage = async (domains) => {
   customWhitelist = domains.map((domain) => normalizeHost(domain)).filter(Boolean);
   await saveWhitelist(customWhitelist);
@@ -93,6 +131,16 @@ const updateWhitelistStorage = async (domains) => {
   updateStats(dom, lastHistory, customWhitelist);
 };
 
+// RU: Сохранить blacklist и обновить UI.
+// EN: Save blacklist and refresh UI.
+const updateBlacklistStorage = async (domains) => {
+  customBlacklist = domains.map((domain) => normalizeHost(domain)).filter(Boolean);
+  await saveBlacklist(customBlacklist);
+  renderBlacklist(dom, getTranslator(), customBlacklist);
+};
+
+// RU: Добавить домен в whitelist.
+// EN: Add domain to whitelist.
 const addDomainToWhitelist = async (rawDomain) => {
   const clean = normalizeHost(rawDomain);
   if (!clean) {
@@ -113,6 +161,16 @@ const removeDomainFromWhitelist = async (domain) => {
   showSettingsStatus("whitelist.status.removed", { domain: clean });
 };
 
+// RU: Удалить домен из blacklist.
+// EN: Remove domain from blacklist.
+const removeDomainFromBlacklist = async (domain) => {
+  const clean = normalizeHost(domain);
+  await updateBlacklistStorage(customBlacklist.filter((entry) => entry !== clean));
+  showSettingsStatus("blacklist.status.removed", { domain: clean });
+};
+
+// RU: Обновляем историю и статистику.
+// EN: Refresh history and stats.
 const refreshHistory = async () => {
   const t = getTranslator();
   const items = await loadHistory(currentSettings.historyRetentionDays);
@@ -121,11 +179,21 @@ const refreshHistory = async () => {
   updateStats(dom, items, customWhitelist);
 };
 
+const sendPhishingBlock = (tabId, domain, verdict) => {
+  if (!tabId) return;
+  chrome.tabs.sendMessage(tabId, { type: "phishingBlock", domain, verdict }, () => {
+    if (chrome.runtime.lastError) {
+      console.warn("CorgPhish: failed to send block message", chrome.runtime.lastError);
+    }
+  });
+};
+
+// RU: Применяем результат инспекции к UI и истории.
+// EN: Apply inspection result to UI and history.
 const applyInspectionResult = async (result, options = {}) => {
-  const { shouldAlert = false, source = "active" } = options;
+  const { shouldAlert = false, source = "active", tabId } = options;
   const t = getTranslator();
-  const isMlTrusted = result.verdict === "mlSafe";
-  const isMlRisk = result.verdict === "mlRisky" || result.verdict === "untrusted";
+  const isRisk = result.verdict === "phishing" || result.verdict === "blacklisted";
   const mlUnavailable = result.mlStatus === "error";
   const fromCache = Boolean(result.cached);
   applyState(dom, t, result.verdict, {
@@ -133,7 +201,6 @@ const applyInspectionResult = async (result, options = {}) => {
     checkedAt: result.checkedAt ? new Date(result.checkedAt) : new Date(),
     spoofTarget: result.spoofTarget,
     language: currentSettings.language,
-    mlProbability: result.mlProbability,
     mlVerdict: result.mlVerdict,
     sourceKey: result.detectionSource
   });
@@ -145,7 +212,6 @@ const applyInspectionResult = async (result, options = {}) => {
         checkedAt: result.checkedAt ?? Date.now(),
         spoofTarget: result.spoofTarget,
         source,
-        mlProbability: result.mlProbability,
         detectionSource: result.detectionSource,
         mlVerdict: result.mlVerdict,
         mlStatus: result.mlStatus
@@ -153,8 +219,11 @@ const applyInspectionResult = async (result, options = {}) => {
       currentSettings.historyRetentionDays
     );
   }
-  if (!fromCache && shouldAlert && isMlRisk && currentSettings.warnOnUntrusted) {
-    setStatusMessage(t("alerts.untrusted", { domain: result.domain }), "warn");
+  if (isRisk) {
+    sendPhishingBlock(tabId, result.domain, result.verdict);
+  }
+  if (!fromCache && shouldAlert && isRisk && currentSettings.warnOnUntrusted) {
+    setStatusMessage(t("status.phishing.hint"), "warn");
     console.warn("CorgPhish: high risk verdict", { domain: result.domain, verdict: result.verdict });
   } else if (mlUnavailable) {
     setStatusMessage(t("status.ml.unavailable"), "warn");
@@ -185,7 +254,7 @@ const checkActiveTab = async () => {
     }
     const url = new URL(activeTab.url);
     const result = await inspectDomain(url.hostname, customWhitelist, activeTab.url);
-    await applyInspectionResult(result, { shouldAlert: true, source: "active" });
+    await applyInspectionResult(result, { shouldAlert: true, source: "active", tabId: activeTab.id });
   } catch (error) {
     console.error("Ошибка во время проверки", error);
     const errorKey = error?.message;
@@ -289,19 +358,35 @@ const handleQuickAddClick = async () => {
   await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
 };
 
+function handleBlacklistClick() {
+  (async () => {
+    const domain = dom.blacklistBtn?.dataset.domain;
+  if (!domain) return;
+  await addDomainToBlacklist(domain);
+  const result = await inspectDomain(domain, customWhitelist, domain);
+  await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
+  try {
+    const [tab] = await queryActiveTab();
+    if (tab?.id) {
+      chrome.tabs.remove(tab.id);
+    }
+  } catch (error) {
+    console.warn("CorgPhish: failed to close tab after blacklist", error);
+  }
+})();
+}
+
 const init = async () => {
   currentSettings = await loadSettings();
   applyTheme(currentSettings.theme, currentSettings.compactMode);
   applyLanguage(dom, getTranslator(), currentSettings.language);
   await refreshWhitelist();
+  await refreshBlacklist();
   updateSettingsControls();
   refreshHistory();
 
-  if (currentSettings.autoCheckOnOpen) {
-    checkActiveTab();
-  } else {
-    applyState(dom, getTranslator(), "pending", { language: currentSettings.language });
-  }
+  // Всегда запускаем проверку при открытии попапа, чтобы не требовать ручного клика.
+  checkActiveTab();
 };
 
 safeAddEvent(dom.refreshBtn, "click", checkActiveTab);
@@ -327,5 +412,17 @@ safeAddEvent(dom.manualInput, "input", () => setManualHint(dom, getTranslator()(
 safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
 safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
 safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
+safeAddEvent(dom.blacklistBtn, "click", handleBlacklistClick);
+safeAddEvent(dom.blacklistForm, "submit", async (event) => {
+  event.preventDefault();
+  if (!dom.blacklistInput) return;
+  await addDomainToBlacklist(dom.blacklistInput.value);
+  dom.blacklistInput.value = "";
+});
+safeAddEvent(dom.blacklistList, "click", async (event) => {
+  const target = event.target.closest(".whitelist-remove");
+  if (!target?.dataset.domain) return;
+  await removeDomainFromBlacklist(target.dataset.domain);
+});
 
 init();

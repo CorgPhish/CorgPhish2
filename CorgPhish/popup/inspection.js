@@ -1,5 +1,6 @@
-// Проверка домена против trusted.json и пользовательского whitelist.
-import { getTrustedDomains } from "./data.js";
+// RU: Проверка домена: trusted/whitelist → легитимный, похожие → подозрительные, остальное через ML.
+// EN: Domain inspection: trusted/whitelist → trusted, similar → suspicious, otherwise ML.
+import { getTrustedDomains, loadBlacklist } from "./data.js";
 import { findSpoofCandidate, normalizeHost } from "./utils.js";
 import { predictUrl } from "./model.js";
 
@@ -8,49 +9,78 @@ let lastInspection = null;
 
 export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = "") => {
   const trustedList = await getTrustedDomains(customWhitelist);
+  const blacklist = await loadBlacklist();
   const cleanDomain = normalizeHost(hostname);
   if (!cleanDomain) {
     throw new Error("errors.invalidDomain");
   }
-  const cacheKey = `${fullUrl || cleanDomain}::${customWhitelist.join("|")}`;
+
+  const cacheKey = `${fullUrl || cleanDomain}::${customWhitelist.join("|")}::${blacklist.join("|")}`;
   if (lastInspection && lastInspection.key === cacheKey && Date.now() - lastInspection.ts < CACHE_TTL_MS) {
     return { ...lastInspection.result, cached: true };
+  }
+
+  const inBlacklist = blacklist.some(
+    (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
+  );
+  if (inBlacklist) {
+    const result = {
+      domain: cleanDomain,
+      verdict: "blacklisted",
+      spoofTarget: null,
+      isTrusted: false,
+      mlVerdict: null,
+      mlStatus: "skipped",
+      checkedAt: Date.now(),
+      detectionSource: "status.sourceValue.blacklist",
+      cached: false
+    };
+    lastInspection = { key: cacheKey, ts: Date.now(), result };
+    return result;
   }
 
   const isTrusted = trustedList.some(
     (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
   );
-  const mlResult = fullUrl ? await predictUrl(fullUrl) : { probability: null, label: null, status: "skipped" };
-  const mlStatus = mlResult?.status || "ok";
-  const mlProbability =
-    mlStatus === "ok" || mlStatus === "fallback" ? mlResult?.probability ?? null : null;
-  const mlVerdict =
-    (mlStatus === "ok" || mlStatus === "fallback") && typeof mlResult?.label === "number"
-      ? mlResult.label === 1
-        ? "risky"
-        : "safe"
-      : null;
-
-  let verdict = "untrusted";
-  let sourceKey = mlStatus === "ok" ? "status.sourceValue" : "status.sourceValue.list";
   if (isTrusted) {
-    verdict = "trusted";
-    sourceKey = "status.sourceValue.list";
-  } else if ((mlStatus === "ok" || mlStatus === "fallback") && mlResult?.label === 0 && mlResult?.probability !== null) {
-    verdict = "mlSafe";
-    sourceKey = "status.sourceValue.ml";
-  } else if ((mlStatus === "ok" || mlStatus === "fallback") && mlResult?.label === 1) {
-    verdict = "mlRisky";
-    sourceKey = "status.sourceValue.mlRisk";
+    const result = {
+      domain: cleanDomain,
+      verdict: "trusted",
+      spoofTarget: null,
+      isTrusted: true,
+      mlVerdict: null,
+      mlStatus: "skipped",
+      checkedAt: Date.now(),
+      detectionSource: "status.sourceValue.list",
+      cached: false
+    };
+    lastInspection = { key: cacheKey, ts: Date.now(), result };
+    return result;
   }
 
-  const spoofTarget = verdict === "trusted" ? null : findSpoofCandidate(cleanDomain, trustedList);
+  const spoofTarget = findSpoofCandidate(cleanDomain, trustedList);
+  const mlResult = fullUrl ? await predictUrl(fullUrl) : { verdict: null, status: "error" };
+  const mlStatus = mlResult?.status || "error";
+  const mlVerdict = mlResult?.verdict ?? null;
+
+  let verdict = "suspicious";
+  let sourceKey = spoofTarget ? "status.sourceValue.levenshtein" : "status.sourceValue.ml";
+
+  if (mlStatus === "ok" || mlStatus === "fallback") {
+    if (mlVerdict === "phishing") {
+      verdict = "phishing";
+      sourceKey = "status.sourceValue.ml";
+    } else if (mlVerdict === "trusted") {
+      verdict = "trusted";
+      sourceKey = "status.sourceValue.ml";
+    }
+  }
+
   const result = {
     domain: cleanDomain,
     verdict,
     spoofTarget,
-    isTrusted,
-    mlProbability,
+    isTrusted: false,
     mlVerdict,
     mlStatus,
     mlError: mlResult?.error,

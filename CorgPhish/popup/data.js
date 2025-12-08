@@ -1,8 +1,16 @@
-// Работа с данными: trusted.json, настройки, история, whitelist.
-import { CUSTOM_WHITELIST_KEY, DEFAULT_SETTINGS, HISTORY_LIMIT } from "./config.js";
+// RU: Работа с данными: trusted.json, настройки, история, белый/чёрный списки.
+// EN: Data layer: trusted.json, settings, history, white/black lists.
+import {
+  CUSTOM_BLACKLIST_KEY,
+  CUSTOM_WHITELIST_KEY,
+  DEFAULT_SETTINGS,
+  HISTORY_LIMIT
+} from "./config.js";
 
 let trustedCache = null;
 
+// RU: Загружаем trusted через service worker.
+// EN: Load trusted domains via service worker.
 const loadFromBackground = () =>
   new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
@@ -16,6 +24,8 @@ const loadFromBackground = () =>
     setTimeout(() => resolve([]), 1000);
   });
 
+// RU: Загружаем trusted.json с кешированием.
+// EN: Load trusted.json with caching.
 export const loadTrustedList = async () => {
   if (trustedCache) {
     return trustedCache;
@@ -47,6 +57,8 @@ export const getTrustedDomains = async (customWhitelist = []) => {
   return [...new Set([...base, ...customWhitelist])];
 };
 
+// RU: Читаем настройки из sync storage.
+// EN: Read settings from sync storage.
 export const loadSettings = () =>
   new Promise((resolve) => {
     chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
@@ -54,11 +66,15 @@ export const loadSettings = () =>
     });
   });
 
+// RU: Сохраняем настройки в sync storage.
+// EN: Save settings to sync storage.
 export const saveSettings = (settings) =>
   new Promise((resolve) => {
     chrome.storage.sync.set(settings, () => resolve(settings));
   });
 
+// RU: Загружаем whitelist.
+// EN: Load whitelist.
 export const loadWhitelist = () =>
   new Promise((resolve) => {
     chrome.storage.local.get({ [CUSTOM_WHITELIST_KEY]: [] }, (result) => {
@@ -66,11 +82,31 @@ export const loadWhitelist = () =>
     });
   });
 
+// RU: Сохраняем whitelist.
+// EN: Save whitelist.
 export const saveWhitelist = (domains) =>
   new Promise((resolve) => {
     chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
   });
 
+// RU: Загружаем blacklist.
+// EN: Load blacklist.
+export const loadBlacklist = () =>
+  new Promise((resolve) => {
+    chrome.storage.local.get({ [CUSTOM_BLACKLIST_KEY]: [] }, (result) => {
+      resolve(Array.isArray(result[CUSTOM_BLACKLIST_KEY]) ? result[CUSTOM_BLACKLIST_KEY] : []);
+    });
+  });
+
+// RU: Сохраняем blacklist.
+// EN: Save blacklist.
+export const saveBlacklist = (domains) =>
+  new Promise((resolve) => {
+    chrome.storage.local.set({ [CUSTOM_BLACKLIST_KEY]: domains }, resolve);
+  });
+
+// RU: Ограничиваем историю по давности.
+// EN: Prune history by retention window.
 const pruneByRetention = (items = [], days = 0) => {
   const retentionDays = Number(days) || 0;
   if (retentionDays <= 0) {
@@ -88,11 +124,15 @@ export const loadHistory = (retentionDays) =>
     });
   });
 
+// RU: Очистить историю.
+// EN: Clear history.
 export const clearHistory = () =>
   new Promise((resolve) => {
     chrome.storage.local.set({ scanHistory: [] }, resolve);
   });
 
+// RU: Записать новую запись истории с нормализацией.
+// EN: Persist new history entry with normalization.
 export const recordHistory = (entry, retentionDays) =>
   new Promise((resolve) => {
     chrome.storage.local.get({ scanHistory: [] }, (result) => {
@@ -103,11 +143,7 @@ export const recordHistory = (entry, retentionDays) =>
         checkedAt: entry.checkedAt ?? Date.now(),
         spoofTarget: entry.spoofTarget,
         source: entry.source ?? "active",
-        mlProbability:
-          typeof entry.mlProbability === "number" && !Number.isNaN(entry.mlProbability)
-            ? entry.mlProbability
-            : null,
-        detectionSource: entry.detectionSource,
+        detectionSource: entry.detectionSource ?? null,
         mlVerdict: entry.mlVerdict ?? null,
         mlStatus: entry.mlStatus ?? null
       };

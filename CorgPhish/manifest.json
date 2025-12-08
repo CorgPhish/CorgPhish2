@@ -17,7 +17,12 @@
         "models/hybrid_tfidf_num.onnx",
         "vendor/ort/ort.min.js",
         "vendor/ort/ort-wasm-simd.wasm",
-        "vendor/ort/ort-wasm.wasm"
+        "vendor/ort/ort-wasm.wasm",
+        "popup/inspection.js",
+        "popup/model.js",
+        "popup/utils.js",
+        "popup/config.js",
+        "popup/data.js"
       ],
       "matches": ["<all_urls>"]
     }

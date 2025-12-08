@@ -1,4 +1,5 @@
-// Сервис-воркер: показывает системные уведомления и может закрыть вкладку по запросу.
+// RU: Сервис-воркер: системные уведомления, кэш trusted.json, закрытие вкладок.
+// EN: Service worker: system notifications, trusted.json cache, close tabs.
 const DEFAULT_SETTINGS = {
   systemNotifyOnRisk: false
 };
@@ -26,6 +27,8 @@ const loadSettings = () =>
     });
   });
 
+// RU: Обрабатываем сообщения попапа/контента.
+// EN: Handle messages from popup/content.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message) return;
 
