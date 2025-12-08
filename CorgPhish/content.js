@@ -226,6 +226,7 @@
       }
     }, async () => {
       await addToBlacklist(hostname);
+      chrome.runtime.sendMessage({ type: "closeTab" });
     }, async () => {
       await allowTemporarily(hostname, 5);
       state.active = false;

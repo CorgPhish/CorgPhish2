@@ -335,11 +335,19 @@ const handleQuickAddClick = async () => {
 function handleBlacklistClick() {
   (async () => {
     const domain = dom.blacklistBtn?.dataset.domain;
-    if (!domain) return;
-    await addDomainToBlacklist(domain);
-    const result = await inspectDomain(domain, customWhitelist, domain);
-    await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
-  })();
+  if (!domain) return;
+  await addDomainToBlacklist(domain);
+  const result = await inspectDomain(domain, customWhitelist, domain);
+  await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
+  try {
+    const [tab] = await queryActiveTab();
+    if (tab?.id) {
+      chrome.tabs.remove(tab.id);
+    }
+  } catch (error) {
+    console.warn("CorgPhish: failed to close tab after blacklist", error);
+  }
+})();
 }
 
 const init = async () => {
