@@ -312,6 +312,16 @@ const handleQuickAddClick = async () => {
   await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
 };
 
+function handleBlacklistClick() {
+  (async () => {
+    const domain = dom.blacklistBtn?.dataset.domain;
+    if (!domain) return;
+    await addDomainToBlacklist(domain);
+    const result = await inspectDomain(domain, customWhitelist, domain);
+    await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
+  })();
+}
+
 const init = async () => {
   currentSettings = await loadSettings();
   applyTheme(currentSettings.theme, currentSettings.compactMode);
@@ -350,10 +360,3 @@ safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
 safeAddEvent(dom.blacklistBtn, "click", handleBlacklistClick);
 
 init();
-const handleBlacklistClick = async () => {
-  const domain = dom.blacklistBtn?.dataset.domain;
-  if (!domain) return;
-  await addDomainToBlacklist(domain);
-  const result = await inspectDomain(domain, customWhitelist, domain);
-  await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
-};
