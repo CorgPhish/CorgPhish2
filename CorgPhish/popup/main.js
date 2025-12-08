@@ -320,11 +320,8 @@ const init = async () => {
   updateSettingsControls();
   refreshHistory();
 
-  if (currentSettings.autoCheckOnOpen !== false) {
-    checkActiveTab();
-  } else {
-    applyState(dom, getTranslator(), "pending", { language: currentSettings.language });
-  }
+  // Всегда запускаем проверку при открытии попапа, чтобы не требовать ручного клика.
+  checkActiveTab();
 };
 
 safeAddEvent(dom.refreshBtn, "click", checkActiveTab);
