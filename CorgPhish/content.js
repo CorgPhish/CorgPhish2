@@ -6,9 +6,13 @@
   const FORM_ALERT = "Не вводите личные данные: сайт может быть фишинговым.";
   const DOWNLOAD_ALERT = "Скачивание заблокировано: сайт может быть фишинговым.";
 
+  // RU: Нормализуем хостнейм (без www, точек на конце, в нижний регистр).
+  // EN: Normalize hostname (strip www/trailing dot, lowercase).
   const normalizeHost = (hostname = "") =>
     hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
 
+  // RU: Безопасно получаем hostname из URL или строки.
+  // EN: Safely extract hostname from URL or plain string.
   const resolveHostname = (input = "") => {
     try {
       const url = new URL(input);
@@ -18,6 +22,8 @@
     }
   };
 
+  // RU: Читаем чёрный список из local storage.
+  // EN: Load blacklist from local storage.
   const loadBlacklist = () =>
     new Promise((resolve) => {
       chrome.storage.local.get({ [BLACKLIST_KEY]: [] }, (result) => {
@@ -26,11 +32,15 @@
       });
     });
 
+  // RU: Сохраняем чёрный список.
+  // EN: Persist blacklist.
   const saveBlacklist = (domains) =>
     new Promise((resolve) => {
       chrome.storage.local.set({ [BLACKLIST_KEY]: domains }, resolve);
     });
 
+  // RU: Загружаем временные разрешения (домены, разблокированные на N минут).
+  // EN: Load temporary allow map (domains unblocked for N minutes).
   const loadTempAllow = () =>
     new Promise((resolve) => {
       chrome.storage.local.get({ [TEMP_ALLOW_KEY]: {} }, (result) => {
@@ -39,11 +49,15 @@
       });
     });
 
+  // RU: Сохраняем временные разрешения.
+  // EN: Persist temporary allow map.
   const saveTempAllow = (map) =>
     new Promise((resolve) => {
       chrome.storage.local.set({ [TEMP_ALLOW_KEY]: map }, resolve);
     });
 
+  // RU: Проверяем, разрешён ли домен временно.
+  // EN: Check if domain is temporarily allowed.
   const isTemporarilyAllowed = async (domain) => {
     const map = await loadTempAllow();
     const expiry = Number(map[domain] || 0);
@@ -57,18 +71,24 @@
     return false;
   };
 
+  // RU: Разрешаем домен на заданное количество минут.
+  // EN: Temporarily allow domain for given minutes.
   const allowTemporarily = async (domain, minutes = 5) => {
     const map = await loadTempAllow();
     map[domain] = Date.now() + minutes * 60 * 1000;
     await saveTempAllow(map);
   };
 
+  // RU: Добавляем домен в чёрный список (если его там нет).
+  // EN: Add domain to blacklist if not present.
   const addToBlacklist = async (domain) => {
     const current = await loadBlacklist();
     if (current.includes(domain)) return;
     await saveBlacklist([...current, domain]);
   };
 
+  // RU: Читаем пользовательский whitelist (для автоинспекции на странице).
+  // EN: Read user whitelist for on-page auto inspection.
   const loadWhitelist = () =>
     new Promise((resolve) => {
       chrome.storage.local.get({ customTrustedDomains: [] }, (result) => {
@@ -77,6 +97,8 @@
       });
     });
 
+  // RU: Создаём блокирующий оверлей с кнопками действий.
+  // EN: Create blocking overlay with action buttons.
   const createOverlay = (domain, onExit, onBlacklist, onAllow) => {
     const overlayEl = document.createElement("div");
     overlayEl.style.position = "fixed";
@@ -166,6 +188,8 @@
     return { overlay: overlayEl, hint, subtitle, allowBtn };
   };
 
+  // RU: Блокируем формы и скачивания, пока блокировка активна.
+  // EN: Block forms and downloads while blocking is active.
   const blockInteractions = (state) => {
     const onSubmit = (event) => {
       if (!state.active) return;
@@ -213,6 +237,8 @@
   let teardown = () => {};
   let overlayRef = null;
 
+  // RU: Включаем блокировку страницы (оверлей + ограничения).
+  // EN: Enable page blocking (overlay + restrictions).
   const activateBlock = async (reason = "phishing") => {
     if (state.active) return;
     state.active = true;
@@ -241,6 +267,8 @@
     }
   };
 
+  // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
+  // EN: Init: auto inspection, temp allow handling, blacklist check.
   const init = async () => {
     if (await isTemporarilyAllowed(hostname)) {
       return;
@@ -265,6 +293,8 @@
     }
   };
 
+  // RU: Слушаем сообщения о фишинге от попапа и блокируем сразу.
+  // EN: Listen for phishing messages from popup and block instantly.
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
       isTemporarilyAllowed(hostname).then((allowed) => {
