@@ -10,7 +10,9 @@ import {
   loadWhitelist,
   recordHistory,
   saveSettings,
-  saveWhitelist
+  saveWhitelist,
+  loadBlacklist,
+  saveBlacklist
 } from "./data.js";
 import {
   applyLanguage,
@@ -84,6 +86,18 @@ const refreshWhitelist = async () => {
   customWhitelist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
   renderWhitelist(dom, getTranslator(), customWhitelist);
   updateStats(dom, lastHistory, customWhitelist);
+};
+
+const addDomainToBlacklist = async (rawDomain) => {
+  const clean = normalizeHost(rawDomain);
+  if (!clean) {
+    return;
+  }
+  const current = await loadBlacklist();
+  if (current.includes(clean)) {
+    return;
+  }
+  await saveBlacklist([...current, clean]);
 };
 
 const updateWhitelistStorage = async (domains) => {
@@ -336,5 +350,13 @@ safeAddEvent(dom.manualInput, "input", () => setManualHint(dom, getTranslator()(
 safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
 safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
 safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
+safeAddEvent(dom.blacklistBtn, "click", handleBlacklistClick);
 
 init();
+const handleBlacklistClick = async () => {
+  const domain = dom.blacklistBtn?.dataset.domain;
+  if (!domain) return;
+  await addDomainToBlacklist(domain);
+  const result = await inspectDomain(domain, customWhitelist, domain);
+  await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
+};

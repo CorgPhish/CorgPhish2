@@ -46,6 +46,14 @@ export const setQuickAddState = (dom, domain, isTrusted) => {
   dom.quickAddBtn.classList.toggle("is-hidden", hidden);
 };
 
+export const setBlacklistState = (dom, domain, canBlacklist) => {
+  if (!dom.blacklistBtn) return;
+  const hidden = !domain || !canBlacklist;
+  dom.blacklistBtn.disabled = hidden;
+  dom.blacklistBtn.dataset.domain = hidden ? "" : domain;
+  dom.blacklistBtn.classList.toggle("is-hidden", hidden);
+};
+
 export const setManualHint = (dom, text, isError = false) => {
   if (!dom.manualHint) return;
   dom.manualHint.textContent = text;
@@ -62,7 +70,10 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   const riskText = translate(config.riskKey, context);
   [dom.riskLevel, dom.riskTag].filter(Boolean).forEach((node) => {
     node.textContent = riskText;
-    node.dataset.tone = stateKey === "phishing" || stateKey === "blacklisted" ? "warn" : "info";
+    node.dataset.tone =
+      stateKey === "phishing" || stateKey === "blacklisted" || stateKey === "suspicious"
+        ? "warn"
+        : "info";
   });
   if (dom.mlScore) {
     dom.mlScore.classList.add("is-hidden");
@@ -78,7 +89,10 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
     const sourceKey = context.sourceKey || "status.sourceValue";
     dom.sourceValue.textContent = translate(sourceKey, context);
   }
-  setQuickAddState(dom, context.domain, stateKey === "trusted" || stateKey === "blacklisted");
+  const isTrustedState = stateKey === "trusted";
+  const canBlacklist = stateKey === "phishing" || stateKey === "suspicious";
+  setQuickAddState(dom, context.domain, isTrustedState || stateKey === "blacklisted");
+  setBlacklistState(dom, context.domain, canBlacklist);
 
   const recKeys = config.recommendationsKeys || [];
   const recItems = recKeys.map((key) => translate(key, context)).filter(Boolean);

@@ -1,6 +1,7 @@
 // Контент-скрипт: реагирует на вердикт ML/ЧС, блокирует страницу, формы и загрузки.
 (() => {
   const BLACKLIST_KEY = "customBlockedDomains";
+  const TEMP_ALLOW_KEY = "tempAllowDomains";
   const EXIT_ALERT = "Вы вышли с потенциально опасного сайта";
   const FORM_ALERT = "Не вводите личные данные: сайт может быть фишинговым.";
   const DOWNLOAD_ALERT = "Скачивание заблокировано: сайт может быть фишинговым.";
@@ -30,28 +31,60 @@
       chrome.storage.local.set({ [BLACKLIST_KEY]: domains }, resolve);
     });
 
+  const loadTempAllow = () =>
+    new Promise((resolve) => {
+      chrome.storage.local.get({ [TEMP_ALLOW_KEY]: {} }, (result) => {
+        const map = result[TEMP_ALLOW_KEY] && typeof result[TEMP_ALLOW_KEY] === "object" ? result[TEMP_ALLOW_KEY] : {};
+        resolve(map);
+      });
+    });
+
+  const saveTempAllow = (map) =>
+    new Promise((resolve) => {
+      chrome.storage.local.set({ [TEMP_ALLOW_KEY]: map }, resolve);
+    });
+
+  const isTemporarilyAllowed = async (domain) => {
+    const map = await loadTempAllow();
+    const expiry = Number(map[domain] || 0);
+    if (expiry > Date.now()) {
+      return true;
+    }
+    if (expiry) {
+      delete map[domain];
+      await saveTempAllow(map);
+    }
+    return false;
+  };
+
+  const allowTemporarily = async (domain, minutes = 5) => {
+    const map = await loadTempAllow();
+    map[domain] = Date.now() + minutes * 60 * 1000;
+    await saveTempAllow(map);
+  };
+
   const addToBlacklist = async (domain) => {
     const current = await loadBlacklist();
     if (current.includes(domain)) return;
     await saveBlacklist([...current, domain]);
   };
 
-  const createOverlay = (domain, onExit, onBlacklist) => {
-    const overlay = document.createElement("div");
-    overlay.style.position = "fixed";
-    overlay.style.inset = "0";
-    overlay.style.zIndex = "2147483647";
-    overlay.style.background = "rgba(10,16,40,0.9)";
-    overlay.style.backdropFilter = "blur(6px)";
-    overlay.style.display = "flex";
-    overlay.style.flexDirection = "column";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
-    overlay.style.gap = "12px";
-    overlay.style.fontFamily = "Inter, system-ui, -apple-system, sans-serif";
-    overlay.style.color = "#e2e8f0";
-    overlay.style.padding = "24px";
-    overlay.style.textAlign = "center";
+  const createOverlay = (domain, onExit, onBlacklist, onAllow) => {
+    const overlayEl = document.createElement("div");
+    overlayEl.style.position = "fixed";
+    overlayEl.style.inset = "0";
+    overlayEl.style.zIndex = "2147483647";
+    overlayEl.style.background = "rgba(10,16,40,0.9)";
+    overlayEl.style.backdropFilter = "blur(6px)";
+    overlayEl.style.display = "flex";
+    overlayEl.style.flexDirection = "column";
+    overlayEl.style.alignItems = "center";
+    overlayEl.style.justifyContent = "center";
+    overlayEl.style.gap = "12px";
+    overlayEl.style.fontFamily = "Inter, system-ui, -apple-system, sans-serif";
+    overlayEl.style.color = "#e2e8f0";
+    overlayEl.style.padding = "24px";
+    overlayEl.style.textAlign = "center";
 
     const card = document.createElement("div");
     card.style.background = "linear-gradient(135deg, rgba(239,68,68,0.15), rgba(59,130,246,0.12))";
@@ -99,19 +132,30 @@
     blacklistBtn.style.color = "#e2e8f0";
     blacklistBtn.style.cursor = "pointer";
 
+    const allowBtn = document.createElement("button");
+    allowBtn.textContent = "Разрешить на 5 минут";
+    allowBtn.style.padding = "10px 14px";
+    allowBtn.style.borderRadius = "12px";
+    allowBtn.style.border = "1px solid rgba(255,255,255,0.3)";
+    allowBtn.style.background = "transparent";
+    allowBtn.style.color = "#e2e8f0";
+    allowBtn.style.cursor = "pointer";
+
     buttons.appendChild(exitBtn);
     buttons.appendChild(blacklistBtn);
+    buttons.appendChild(allowBtn);
     card.appendChild(title);
     card.appendChild(subtitle);
     card.appendChild(hint);
     card.appendChild(buttons);
-    overlay.appendChild(card);
-    document.documentElement.appendChild(overlay);
+    overlayEl.appendChild(card);
+    document.documentElement.appendChild(overlayEl);
 
     exitBtn.addEventListener("click", () => onExit?.());
     blacklistBtn.addEventListener("click", () => onBlacklist?.());
+    allowBtn.addEventListener("click", () => onAllow?.());
 
-    return { overlay, hint, subtitle };
+    return { overlay: overlayEl, hint, subtitle, allowBtn };
   };
 
   const blockInteractions = (state) => {
@@ -164,6 +208,11 @@
       }
     }, async () => {
       await addToBlacklist(hostname);
+    }, async () => {
+      await allowTemporarily(hostname, 5);
+      state.active = false;
+      if (overlay.overlay) overlay.overlay.remove();
+      teardown();
     });
     overlayRef = overlay;
     if (reason === "blacklist") {
@@ -172,6 +221,9 @@
   };
 
   const init = async () => {
+    if (await isTemporarilyAllowed(hostname)) {
+      return;
+    }
     const blacklist = await loadBlacklist();
     if (blacklist.includes(hostname)) {
       activateBlock("blacklist");
@@ -180,7 +232,11 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
-      activateBlock("phishing");
+      isTemporarilyAllowed(hostname).then((allowed) => {
+        if (!allowed) {
+          activateBlock("phishing");
+        }
+      });
       sendResponse?.({ ok: true });
       return true;
     }

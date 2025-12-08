@@ -37,6 +37,7 @@ export const dom = {
   whitelistInput: document.getElementById("whitelistInput"),
   whitelistList: document.getElementById("whitelistList"),
   quickAddBtn: document.getElementById("quickAddBtn"),
+  blacklistBtn: document.getElementById("blacklistBtn"),
   manualForm: document.getElementById("manualForm"),
   manualInput: document.getElementById("manualInput"),
   manualHint: document.getElementById("manualHint"),
