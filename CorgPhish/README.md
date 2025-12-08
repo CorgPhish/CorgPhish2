@@ -52,3 +52,9 @@
 - Temporary allow (content) stored in `tempAllowDomains` for 5 minutes.
 - History retention configurable (0/7/30/90 days).
 
+## UI refresh checklist / Чек-лист обновления UI
+- Keep IDs/data hooks intact: elements referenced in `popup/dom.js` and used by `ui.js`/`main.js` must remain (`statusBadge`, `statusTitle`, `statusHint`, `domainValue`, `sourceValue`, `riskLevel`, `recommendationsList`, buttons, forms).
+- Layout freedom: you can reorder/reshape markup, but preserve element IDs and form names; avoid removing whitelist/blacklist sections and manual check form.
+- Statuses are discrete (trusted / suspicious / phishing / blacklisted / unsupported / error); no percentages. Colors/themes can change.
+- Overlay/blocks live in `content.js` — UI there can be restyled with inline/CSS, but keep button labels/actions (exit, add to blacklist, allow 5 min).
+- CSS currently in `popup.css` only; no build step. Fonts: Inter/system stack; can extend palette but keep light/dark tokens.
