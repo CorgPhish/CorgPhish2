@@ -33,6 +33,8 @@ let lastHistory = [];
 
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
 
+// RU: Мини-тост о сохранении настроек.
+// EN: Small toast about settings persistence.
 const showSettingsStatus = (key, params = {}, isError = false) => {
   if (!dom.settingsStatus) return;
   const t = getTranslator();
@@ -58,6 +60,8 @@ const setStatusMessage = (text = "", tone = "info") => {
   dom.statusBanner.classList.remove("is-hidden");
 };
 
+// RU: Получаем активную вкладку.
+// EN: Fetch active tab.
 const queryActiveTab = () =>
   new Promise((resolve, reject) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -69,6 +73,8 @@ const queryActiveTab = () =>
     });
   });
 
+// RU: Переключение представления попапа.
+// EN: Switch popup view.
 const switchView = (view) => {
   if (view === "settings") {
     dom.app.dataset.view = "settings";
@@ -83,6 +89,8 @@ const switchView = (view) => {
   dom.app.dataset.view = "main";
 };
 
+// RU: Обновляем whitelist в UI/сторидже.
+// EN: Refresh whitelist in UI/storage.
 const refreshWhitelist = async () => {
   const stored = await loadWhitelist();
   customWhitelist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
@@ -90,12 +98,16 @@ const refreshWhitelist = async () => {
   updateStats(dom, lastHistory, customWhitelist);
 };
 
+// RU: Обновляем blacklist в UI/сторидже.
+// EN: Refresh blacklist in UI/storage.
 const refreshBlacklist = async () => {
   const stored = await loadBlacklist();
   customBlacklist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
   renderBlacklist(dom, getTranslator(), customBlacklist);
 };
 
+// RU: Добавить домен в ЧС с валидацией.
+// EN: Add domain to blacklist with validation.
 const addDomainToBlacklist = async (rawDomain) => {
   const clean = normalizeHost(rawDomain);
   if (!clean) {
@@ -110,6 +122,8 @@ const addDomainToBlacklist = async (rawDomain) => {
   showSettingsStatus("blacklist.status.added", { domain: clean });
 };
 
+// RU: Сохранить whitelist и обновить UI/статистику.
+// EN: Save whitelist and refresh UI/stats.
 const updateWhitelistStorage = async (domains) => {
   customWhitelist = domains.map((domain) => normalizeHost(domain)).filter(Boolean);
   await saveWhitelist(customWhitelist);
@@ -117,12 +131,16 @@ const updateWhitelistStorage = async (domains) => {
   updateStats(dom, lastHistory, customWhitelist);
 };
 
+// RU: Сохранить blacklist и обновить UI.
+// EN: Save blacklist and refresh UI.
 const updateBlacklistStorage = async (domains) => {
   customBlacklist = domains.map((domain) => normalizeHost(domain)).filter(Boolean);
   await saveBlacklist(customBlacklist);
   renderBlacklist(dom, getTranslator(), customBlacklist);
 };
 
+// RU: Добавить домен в whitelist.
+// EN: Add domain to whitelist.
 const addDomainToWhitelist = async (rawDomain) => {
   const clean = normalizeHost(rawDomain);
   if (!clean) {
@@ -143,12 +161,16 @@ const removeDomainFromWhitelist = async (domain) => {
   showSettingsStatus("whitelist.status.removed", { domain: clean });
 };
 
+// RU: Удалить домен из blacklist.
+// EN: Remove domain from blacklist.
 const removeDomainFromBlacklist = async (domain) => {
   const clean = normalizeHost(domain);
   await updateBlacklistStorage(customBlacklist.filter((entry) => entry !== clean));
   showSettingsStatus("blacklist.status.removed", { domain: clean });
 };
 
+// RU: Обновляем историю и статистику.
+// EN: Refresh history and stats.
 const refreshHistory = async () => {
   const t = getTranslator();
   const items = await loadHistory(currentSettings.historyRetentionDays);
@@ -166,6 +188,8 @@ const sendPhishingBlock = (tabId, domain, verdict) => {
   });
 };
 
+// RU: Применяем результат инспекции к UI и истории.
+// EN: Apply inspection result to UI and history.
 const applyInspectionResult = async (result, options = {}) => {
   const { shouldAlert = false, source = "active", tabId } = options;
   const t = getTranslator();

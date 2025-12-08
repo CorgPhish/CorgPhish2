@@ -1,4 +1,5 @@
-// Локальный инференс ONNX-модели (onnxruntime-web, wasm) без процентов и скорингов.
+// RU: Локальный инференс ONNX-модели (onnxruntime-web, wasm) с бинарным вердиктом.
+// EN: Local ONNX inference (onnxruntime-web, wasm) with binary verdict only.
 const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
 const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
 const DEFAULT_THRESHOLD = 0.5;
@@ -32,6 +33,8 @@ const FEATURE_COLUMNS = [
 let ortScriptPromise = null;
 let sessionPromise = null;
 
+// RU: Ленивая загрузка onnxruntime скрипта.
+// EN: Lazy-load onnxruntime script.
 const loadOrt = () => {
   if (globalThis.ort) {
     return Promise.resolve(globalThis.ort);
@@ -49,6 +52,8 @@ const loadOrt = () => {
   return ortScriptPromise;
 };
 
+// RU: Создаём/кешируем сессию ORT.
+// EN: Create/cache ORT session.
 const ensureSession = async () => {
   if (sessionPromise) {
     return sessionPromise;
@@ -70,6 +75,8 @@ const ensureSession = async () => {
   return sessionPromise;
 };
 
+// RU: Проверка IP-домена и безопасный URL.
+// EN: IP-domain check and safe URL builder.
 const isIpDomain = (domain = "") => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(domain);
 const safeUrl = (input = "") => {
   if (!input) return "";
@@ -80,6 +87,8 @@ const safeUrl = (input = "") => {
   }
 };
 
+// RU: Извлечение числовых признаков для модели.
+// EN: Extract numeric features for the model.
 const extractFeatures = (rawUrl = "") => {
   const url = safeUrl(rawUrl);
   const features = {};
@@ -127,6 +136,8 @@ const extractFeatures = (rawUrl = "") => {
   return { url, features };
 };
 
+// RU: Простая эвристика, если ONNX недоступен.
+// EN: Simple heuristic if ONNX unavailable.
 const heuristicVerdict = (features) => {
   const riskyChars =
     features.qty_at_url +
@@ -146,6 +157,8 @@ const heuristicVerdict = (features) => {
   return probability >= DEFAULT_THRESHOLD ? "phishing" : "trusted";
 };
 
+// RU: Предсказать вердикт (trusted|phishing) по URL.
+// EN: Predict verdict (trusted|phishing) for URL.
 export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   try {
     const { url, features } = extractFeatures(rawUrl);
@@ -204,6 +217,8 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   }
 };
 
+// RU: Проверка готовности модели.
+// EN: Check model readiness.
 export const getModelStatus = async () => {
   try {
     await ensureSession();

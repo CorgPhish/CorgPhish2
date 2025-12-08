@@ -1,4 +1,5 @@
-// Проверка домена: trusted/whitelist → легитимный, похожие → подозрительные, остальное через ML.
+// RU: Проверка домена: trusted/whitelist → легитимный, похожие → подозрительные, остальное через ML.
+// EN: Domain inspection: trusted/whitelist → trusted, similar → suspicious, otherwise ML.
 import { getTrustedDomains, loadBlacklist } from "./data.js";
 import { findSpoofCandidate, normalizeHost } from "./utils.js";
 import { predictUrl } from "./model.js";

@@ -1,9 +1,14 @@
 // Утилиты: нормализация доменов, время, похожесть.
+// Utilities: domain normalization, time formatting, similarity checks.
 import { DEFAULT_SETTINGS } from "./config.js";
 
+// RU: Нормализация доменного имени.
+// EN: Normalize hostname.
 export const normalizeHost = (hostname = "") =>
   hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
 
+// RU: Расстояние Левенштейна для похожести доменов.
+// EN: Levenshtein distance for domain similarity.
 export const levenshteinDistance = (a = "", b = "") => {
   if (a === b) return 0;
   const rows = a.length + 1;
@@ -54,6 +59,8 @@ export const resolveHostname = (input = "") => {
 
 export const getLocale = (language) => (language === "en" ? "en-US" : "ru-RU");
 
+// RU: Форматирование времени для UI.
+// EN: Format time for UI display.
 export const formatTime = (date, language) =>
   date?.toLocaleTimeString(getLocale(language || DEFAULT_SETTINGS.language), {
     hour: "2-digit",

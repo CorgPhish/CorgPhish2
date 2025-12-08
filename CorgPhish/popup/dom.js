@@ -1,4 +1,5 @@
-// Центральный реестр DOM-элементов и безопасное навешивание событий.
+// RU: Центральный реестр DOM-элементов и безопасное навешивание событий.
+// EN: Central registry of DOM elements and safe event binding.
 export const dom = {
   app: document.getElementById("app"),
   viewMain: document.getElementById("viewMain"),
