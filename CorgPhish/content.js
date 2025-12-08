@@ -69,6 +69,14 @@
     await saveBlacklist([...current, domain]);
   };
 
+  const loadWhitelist = () =>
+    new Promise((resolve) => {
+      chrome.storage.local.get({ customTrustedDomains: [] }, (result) => {
+        const list = Array.isArray(result.customTrustedDomains) ? result.customTrustedDomains : [];
+        resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
+      });
+    });
+
   const createOverlay = (domain, onExit, onBlacklist, onAllow) => {
     const overlayEl = document.createElement("div");
     overlayEl.style.position = "fixed";
@@ -227,6 +235,8 @@
     overlayRef = overlay;
     if (reason === "blacklist") {
       overlay.hint.textContent = "Домен в вашем чёрном списке. Страница заблокирована.";
+    } else if (reason === "phishing") {
+      overlay.hint.textContent = "Модель подтвердила высокий риск. Данные и загрузки заблокированы.";
     }
   };
 
@@ -237,6 +247,20 @@
     const blacklist = await loadBlacklist();
     if (blacklist.includes(hostname)) {
       activateBlock("blacklist");
+      return;
+    }
+    try {
+      const { inspectDomain } = await import(chrome.runtime.getURL("popup/inspection.js"));
+      const whitelist = await loadWhitelist();
+      const result = await inspectDomain(hostname, whitelist, window.location.href);
+      if (await isTemporarilyAllowed(hostname)) {
+        return;
+      }
+      if (result.verdict === "phishing" || result.verdict === "blacklisted") {
+        activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing");
+      }
+    } catch (error) {
+      console.warn("CorgPhish: auto inspect failed in content", error);
     }
   };
 
