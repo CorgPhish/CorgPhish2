@@ -88,16 +88,24 @@ const refreshWhitelist = async () => {
   updateStats(dom, lastHistory, customWhitelist);
 };
 
+const refreshBlacklist = async () => {
+  const stored = await loadBlacklist();
+  customBlacklist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
+  renderBlacklist(dom, getTranslator(), customBlacklist);
+};
+
 const addDomainToBlacklist = async (rawDomain) => {
   const clean = normalizeHost(rawDomain);
   if (!clean) {
+    showSettingsStatus("blacklist.status.invalid", {}, true);
     return;
   }
-  const current = await loadBlacklist();
-  if (current.includes(clean)) {
+  if (customBlacklist.includes(clean)) {
+    showSettingsStatus("blacklist.status.exists", {}, true);
     return;
   }
-  await saveBlacklist([...current, clean]);
+  await updateBlacklistStorage([...customBlacklist, clean]);
+  showSettingsStatus("blacklist.status.added", { domain: clean });
 };
 
 const updateWhitelistStorage = async (domains) => {
@@ -105,6 +113,12 @@ const updateWhitelistStorage = async (domains) => {
   await saveWhitelist(customWhitelist);
   renderWhitelist(dom, getTranslator(), customWhitelist);
   updateStats(dom, lastHistory, customWhitelist);
+};
+
+const updateBlacklistStorage = async (domains) => {
+  customBlacklist = domains.map((domain) => normalizeHost(domain)).filter(Boolean);
+  await saveBlacklist(customBlacklist);
+  renderBlacklist(dom, getTranslator(), customBlacklist);
 };
 
 const addDomainToWhitelist = async (rawDomain) => {
@@ -125,6 +139,12 @@ const removeDomainFromWhitelist = async (domain) => {
   const clean = normalizeHost(domain);
   await updateWhitelistStorage(customWhitelist.filter((entry) => entry !== clean));
   showSettingsStatus("whitelist.status.removed", { domain: clean });
+};
+
+const removeDomainFromBlacklist = async (domain) => {
+  const clean = normalizeHost(domain);
+  await updateBlacklistStorage(customBlacklist.filter((entry) => entry !== clean));
+  showSettingsStatus("blacklist.status.removed", { domain: clean });
 };
 
 const refreshHistory = async () => {
@@ -327,6 +347,7 @@ const init = async () => {
   applyTheme(currentSettings.theme, currentSettings.compactMode);
   applyLanguage(dom, getTranslator(), currentSettings.language);
   await refreshWhitelist();
+  await refreshBlacklist();
   updateSettingsControls();
   refreshHistory();
 
@@ -358,5 +379,16 @@ safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
 safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
 safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
 safeAddEvent(dom.blacklistBtn, "click", handleBlacklistClick);
+safeAddEvent(dom.blacklistForm, "submit", async (event) => {
+  event.preventDefault();
+  if (!dom.blacklistInput) return;
+  await addDomainToBlacklist(dom.blacklistInput.value);
+  dom.blacklistInput.value = "";
+});
+safeAddEvent(dom.blacklistList, "click", async (event) => {
+  const target = event.target.closest(".whitelist-remove");
+  if (!target?.dataset.domain) return;
+  await removeDomainFromBlacklist(target.dataset.domain);
+});
 
 init();

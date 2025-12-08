@@ -248,6 +248,16 @@
                 <ul class="whitelist-list" id="whitelistList"></ul>
                 <p class="note" data-i18n="whitelist.note">Добавленные домены проверяются вместе с локальным списком trusted.json.</p>
             </section>
+
+            <section class="card whitelist-card">
+                <h3 class="section__title" data-i18n="blacklist.title">Чёрный список</h3>
+                <form class="whitelist-form" id="blacklistForm">
+                    <input type="text" id="blacklistInput" placeholder="bad.com" autocomplete="off" />
+                    <button class="button" type="submit" data-i18n="blacklist.add">Добавить</button>
+                </form>
+                <ul class="whitelist-list" id="blacklistList"></ul>
+                <p class="note" data-i18n="blacklist.note">Домен будет блокироваться автоматически.</p>
+            </section>
         </section>
     </div>
 </div>

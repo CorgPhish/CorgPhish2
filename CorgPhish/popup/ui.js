@@ -60,6 +60,33 @@ export const setManualHint = (dom, text, isError = false) => {
   dom.manualHint.style.color = isError ? "#f87171" : "var(--color-muted-strong)";
 };
 
+export const renderBlacklist = (dom, translate, domains = []) => {
+  if (!dom.blacklistList) return;
+  dom.blacklistList.innerHTML = "";
+  if (!domains.length) {
+    const li = document.createElement("li");
+    li.className = "empty-state";
+    li.textContent = translate("blacklist.empty");
+    dom.blacklistList.appendChild(li);
+    return;
+  }
+  domains.forEach((domain) => {
+    const li = document.createElement("li");
+    li.className = "whitelist-item";
+    li.dataset.domain = domain;
+    li.innerHTML = `<span>${domain}</span>`;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "whitelist-remove";
+    removeBtn.dataset.domain = domain;
+    removeBtn.textContent = "✕";
+
+    li.appendChild(removeBtn);
+    dom.blacklistList.appendChild(li);
+  });
+};
+
 export const applyState = (dom, translate, stateKey, context = {}) => {
   const config = VIEW_STATES[stateKey] ?? VIEW_STATES.pending;
   dom.app.dataset.state = config.theme;
