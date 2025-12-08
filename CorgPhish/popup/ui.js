@@ -59,33 +59,13 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   dom.statusBadge.textContent = translate(config.badgeKey, context);
   dom.statusTitle.textContent = translate(config.titleKey, context);
   dom.statusHint.textContent = translate(config.hintKey, context);
-  const hasMl = context.mlProbability != null && !Number.isNaN(Number(context.mlProbability));
-  const mlPercent = hasMl ? (Number(context.mlProbability) * 100).toFixed(1) : null;
-  const mlLabel =
-    context.mlVerdict === "risky"
-      ? translate("status.ml.label.risk")
-      : context.mlVerdict === "safe"
-        ? translate("status.ml.label.safe")
-        : null;
-  const riskText =
-    hasMl && mlPercent ? `${mlLabel ?? "ML"} • ${mlPercent}%` : translate(config.riskKey, context);
-  [dom.riskLevel, dom.riskTag]
-    .filter(Boolean)
-    .forEach((node) => {
-      node.textContent = riskText;
-      node.dataset.tone =
-        context.mlVerdict === "risky" || stateKey === "untrusted" || stateKey === "mlRisky"
-          ? "warn"
-          : "info";
-    });
+  const riskText = translate(config.riskKey, context);
+  [dom.riskLevel, dom.riskTag].filter(Boolean).forEach((node) => {
+    node.textContent = riskText;
+    node.dataset.tone = stateKey === "phishing" || stateKey === "blacklisted" ? "warn" : "info";
+  });
   if (dom.mlScore) {
-    if (hasMl) {
-      dom.mlScore.textContent = `ML ${mlLabel ?? ""} ${mlPercent}%`.trim();
-      dom.mlScore.classList.remove("is-hidden");
-    } else {
-      dom.mlScore.textContent = "ML —";
-      dom.mlScore.classList.add("is-hidden");
-    }
+    dom.mlScore.classList.add("is-hidden");
   }
   dom.domainValue.textContent = context.domain ?? "—";
   if (dom.domainValueMeta) {
@@ -98,12 +78,12 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
     const sourceKey = context.sourceKey || "status.sourceValue";
     dom.sourceValue.textContent = translate(sourceKey, context);
   }
-  setQuickAddState(dom, context.domain, stateKey === "trusted");
+  setQuickAddState(dom, context.domain, stateKey === "trusted" || stateKey === "blacklisted");
 
   const recKeys = config.recommendationsKeys || [];
   const recItems = recKeys.map((key) => translate(key, context)).filter(Boolean);
-  if (stateKey === "untrusted" && context.spoofTarget) {
-    recItems.unshift(translate("status.untrusted.spoofWarning", context));
+  if (stateKey === "suspicious" && context.spoofTarget) {
+    recItems.unshift(translate("status.suspicious.hint", context));
   }
   const finalRec = recItems.length ? recItems : [translate("recommendations.empty")];
   updateRecommendations(dom, finalRec);
@@ -163,26 +143,15 @@ export const renderHistory = (dom, translate, items = [], locale) => {
     });
     const sourceText =
       item.source === "manual" ? translate("history.source.manual") : translate("history.source.active");
-    const mlText = (() => {
-      if (typeof item.mlProbability !== "number") return "";
-      const percent = (item.mlProbability * 100).toFixed(1);
-      const mlLabel =
-        item.mlVerdict === "risky"
-          ? translate("status.ml.label.risk")
-          : item.mlVerdict === "safe"
-            ? translate("status.ml.label.safe")
-            : "ML";
-      return ` • ML ${mlLabel} ${percent}%`;
-    })();
-    subtitle.textContent = `${dateText} • ${sourceText}${mlText}${
-      item.spoofTarget ? ` • ${item.spoofTarget}` : ""
-    }`;
+    subtitle.textContent = `${dateText} • ${sourceText}${item.spoofTarget ? ` • ${item.spoofTarget}` : ""}`;
 
     info.appendChild(title);
     info.appendChild(subtitle);
 
     const badge = document.createElement("span");
-    const isTrustedVerdict = item.verdict === "trusted" || item.verdict === "mlSafe";
+    const isTrustedVerdict = item.verdict === "trusted";
+    const isAlert =
+      item.verdict === "phishing" || item.verdict === "blacklisted" || item.verdict === "suspicious";
     badge.className = `chip ${isTrustedVerdict ? "chip--trusted" : "chip--untrusted"}`;
     badge.textContent = isTrustedVerdict
       ? translate("history.badge.trusted")
@@ -196,10 +165,10 @@ export const renderHistory = (dom, translate, items = [], locale) => {
 
 export const updateStats = (dom, items = [], whitelist = []) => {
   if (dom.statsTrusted) {
-    dom.statsTrusted.textContent = items.filter((item) => item.verdict === "trusted" || item.verdict === "mlSafe").length;
+    dom.statsTrusted.textContent = items.filter((item) => item.verdict === "trusted").length;
   }
   if (dom.statsAlert) {
-    dom.statsAlert.textContent = items.filter((item) => item.verdict === "untrusted" || item.verdict === "mlRisky").length;
+    dom.statsAlert.textContent = items.filter((item) => item.verdict !== "trusted").length;
   }
   if (dom.statsWhitelist) {
     dom.statsWhitelist.textContent = whitelist.length;

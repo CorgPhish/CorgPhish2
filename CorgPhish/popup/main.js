@@ -121,11 +121,19 @@ const refreshHistory = async () => {
   updateStats(dom, items, customWhitelist);
 };
 
+const sendPhishingBlock = (tabId, domain, verdict) => {
+  if (!tabId) return;
+  chrome.tabs.sendMessage(tabId, { type: "phishingBlock", domain, verdict }, () => {
+    if (chrome.runtime.lastError) {
+      console.warn("CorgPhish: failed to send block message", chrome.runtime.lastError);
+    }
+  });
+};
+
 const applyInspectionResult = async (result, options = {}) => {
-  const { shouldAlert = false, source = "active" } = options;
+  const { shouldAlert = false, source = "active", tabId } = options;
   const t = getTranslator();
-  const isMlTrusted = result.verdict === "mlSafe";
-  const isMlRisk = result.verdict === "mlRisky" || result.verdict === "untrusted";
+  const isRisk = result.verdict === "phishing" || result.verdict === "blacklisted";
   const mlUnavailable = result.mlStatus === "error";
   const fromCache = Boolean(result.cached);
   applyState(dom, t, result.verdict, {
@@ -133,7 +141,6 @@ const applyInspectionResult = async (result, options = {}) => {
     checkedAt: result.checkedAt ? new Date(result.checkedAt) : new Date(),
     spoofTarget: result.spoofTarget,
     language: currentSettings.language,
-    mlProbability: result.mlProbability,
     mlVerdict: result.mlVerdict,
     sourceKey: result.detectionSource
   });
@@ -145,7 +152,6 @@ const applyInspectionResult = async (result, options = {}) => {
         checkedAt: result.checkedAt ?? Date.now(),
         spoofTarget: result.spoofTarget,
         source,
-        mlProbability: result.mlProbability,
         detectionSource: result.detectionSource,
         mlVerdict: result.mlVerdict,
         mlStatus: result.mlStatus
@@ -153,8 +159,11 @@ const applyInspectionResult = async (result, options = {}) => {
       currentSettings.historyRetentionDays
     );
   }
-  if (!fromCache && shouldAlert && isMlRisk && currentSettings.warnOnUntrusted) {
-    setStatusMessage(t("alerts.untrusted", { domain: result.domain }), "warn");
+  if (isRisk) {
+    sendPhishingBlock(tabId, result.domain, result.verdict);
+  }
+  if (!fromCache && shouldAlert && isRisk && currentSettings.warnOnUntrusted) {
+    setStatusMessage(t("status.phishing.hint"), "warn");
     console.warn("CorgPhish: high risk verdict", { domain: result.domain, verdict: result.verdict });
   } else if (mlUnavailable) {
     setStatusMessage(t("status.ml.unavailable"), "warn");
@@ -185,7 +194,7 @@ const checkActiveTab = async () => {
     }
     const url = new URL(activeTab.url);
     const result = await inspectDomain(url.hostname, customWhitelist, activeTab.url);
-    await applyInspectionResult(result, { shouldAlert: true, source: "active" });
+    await applyInspectionResult(result, { shouldAlert: true, source: "active", tabId: activeTab.id });
   } catch (error) {
     console.error("Ошибка во время проверки", error);
     const errorKey = error?.message;

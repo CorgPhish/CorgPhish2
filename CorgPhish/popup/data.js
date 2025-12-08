@@ -1,5 +1,10 @@
 // Работа с данными: trusted.json, настройки, история, whitelist.
-import { CUSTOM_WHITELIST_KEY, DEFAULT_SETTINGS, HISTORY_LIMIT } from "./config.js";
+import {
+  CUSTOM_BLACKLIST_KEY,
+  CUSTOM_WHITELIST_KEY,
+  DEFAULT_SETTINGS,
+  HISTORY_LIMIT
+} from "./config.js";
 
 let trustedCache = null;
 
@@ -71,6 +76,18 @@ export const saveWhitelist = (domains) =>
     chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
   });
 
+export const loadBlacklist = () =>
+  new Promise((resolve) => {
+    chrome.storage.local.get({ [CUSTOM_BLACKLIST_KEY]: [] }, (result) => {
+      resolve(Array.isArray(result[CUSTOM_BLACKLIST_KEY]) ? result[CUSTOM_BLACKLIST_KEY] : []);
+    });
+  });
+
+export const saveBlacklist = (domains) =>
+  new Promise((resolve) => {
+    chrome.storage.local.set({ [CUSTOM_BLACKLIST_KEY]: domains }, resolve);
+  });
+
 const pruneByRetention = (items = [], days = 0) => {
   const retentionDays = Number(days) || 0;
   if (retentionDays <= 0) {
@@ -103,11 +120,7 @@ export const recordHistory = (entry, retentionDays) =>
         checkedAt: entry.checkedAt ?? Date.now(),
         spoofTarget: entry.spoofTarget,
         source: entry.source ?? "active",
-        mlProbability:
-          typeof entry.mlProbability === "number" && !Number.isNaN(entry.mlProbability)
-            ? entry.mlProbability
-            : null,
-        detectionSource: entry.detectionSource,
+        detectionSource: entry.detectionSource ?? null,
         mlVerdict: entry.mlVerdict ?? null,
         mlStatus: entry.mlStatus ?? null
       };
