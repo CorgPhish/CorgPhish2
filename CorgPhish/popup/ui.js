@@ -16,6 +16,9 @@ export const applyLanguage = (dom, translate, language) => {
   if (dom.whitelistInput) {
     dom.whitelistInput.placeholder = translate("whitelist.placeholder");
   }
+  if (dom.blacklistInput) {
+    dom.blacklistInput.placeholder = translate("blacklist.placeholder");
+  }
   if (dom.manualInput) {
     dom.manualInput.placeholder = translate("manual.placeholder");
   }

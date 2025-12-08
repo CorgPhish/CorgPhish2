@@ -20,6 +20,7 @@ import {
   applyTheme,
   renderHistory,
   renderWhitelist,
+  renderBlacklist,
   setManualHint,
   updateStats
 } from "./ui.js";
@@ -27,6 +28,7 @@ import { getLocale, normalizeHost, resolveHostname } from "./utils.js";
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let customWhitelist = [];
+let customBlacklist = [];
 let lastHistory = [];
 
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
