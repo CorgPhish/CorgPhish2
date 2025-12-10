@@ -44,7 +44,23 @@ const loadOrt = () => {
       const script = document.createElement("script");
       script.src = chrome.runtime.getURL("vendor/ort/ort.min.js");
       script.async = true;
-      script.onload = () => resolve(globalThis.ort);
+      script.onload = () => {
+        const checkReady = () => {
+          if (globalThis.ort) {
+            resolve(globalThis.ort);
+            return true;
+          }
+          return false;
+        };
+        if (checkReady()) return;
+        const timeout = setTimeout(() => reject(new Error("ort_load_failed")), 1200);
+        const interval = setInterval(() => {
+          if (checkReady()) {
+            clearTimeout(timeout);
+            clearInterval(interval);
+          }
+        }, 30);
+      };
       script.onerror = () => reject(new Error("ort_load_failed"));
       document.head.appendChild(script);
     });
@@ -60,6 +76,9 @@ const ensureSession = async () => {
   }
   sessionPromise = (async () => {
     const ort = await loadOrt();
+    if (!ort?.env?.wasm) {
+      throw new Error("ort_env_unavailable");
+    }
     ort.env.wasm.wasmPaths = ORT_BASE;
     ort.env.wasm.numThreads = 1;
     return ort.InferenceSession.create(MODEL_PATH, {

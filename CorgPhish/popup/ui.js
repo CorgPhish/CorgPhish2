@@ -91,30 +91,37 @@ export const renderBlacklist = (dom, translate, domains = []) => {
 };
 
 export const applyState = (dom, translate, stateKey, context = {}) => {
+  const resolveTone = (key) => {
+    if (key === "phishing" || key === "blacklisted") return "bad";
+    if (key === "suspicious" || key === "warning" || key === "error") return "warn";
+    if (key === "trusted") return "ok";
+    if (key === "pending") return "info";
+    return "info";
+  };
   const config = VIEW_STATES[stateKey] ?? VIEW_STATES.pending;
   dom.app.dataset.state = config.theme;
+  const tone = resolveTone(stateKey);
 
   dom.statusBadge.textContent = translate(config.badgeKey, context);
+  dom.statusBadge.dataset.tone = tone;
   dom.statusTitle.textContent = translate(config.titleKey, context);
   dom.statusHint.textContent = translate(config.hintKey, context);
   const riskText = translate(config.riskKey, context);
   [dom.riskLevel, dom.riskTag].filter(Boolean).forEach((node) => {
     node.textContent = riskText;
-    node.dataset.tone =
-      stateKey === "phishing" || stateKey === "blacklisted" || stateKey === "suspicious"
-        ? "warn"
-        : "info";
+    node.dataset.tone = tone;
   });
   if (dom.mlScore) {
     dom.mlScore.classList.add("is-hidden");
   }
-  dom.domainValue.textContent = context.domain ?? "—";
-  if (dom.domainValueMeta) {
-    dom.domainValueMeta.textContent = context.domain ?? "—";
+  if (dom.domainValue) {
+    dom.domainValue.textContent = context.domain ?? "—";
   }
-  dom.checkedAt.textContent = context.checkedAt
-    ? formatTime(context.checkedAt, context.language)
-    : "—";
+  if (dom.checkedAt) {
+    dom.checkedAt.textContent = context.checkedAt
+      ? formatTime(context.checkedAt, context.language)
+      : "—";
+  }
   if (dom.sourceValue) {
     const sourceKey = context.sourceKey || "status.sourceValue";
     dom.sourceValue.textContent = translate(sourceKey, context);

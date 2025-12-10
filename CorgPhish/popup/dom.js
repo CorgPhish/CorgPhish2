@@ -10,7 +10,6 @@ export const dom = {
   statusHint: document.getElementById("statusHint"),
   statusBanner: document.getElementById("statusBanner"),
   domainValue: document.getElementById("domainValue"),
-  domainValueMeta: document.getElementById("domainValueMeta"),
   sourceValue: document.getElementById("sourceValue"),
   mlScore: document.getElementById("mlScore"),
   checkedAt: document.getElementById("checkedAt"),
