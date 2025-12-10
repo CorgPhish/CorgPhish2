@@ -184,6 +184,13 @@ body {
     box-shadow: var(--shadow-card);
 }
 
+.brand__logo-img {
+    width: 44px;
+    height: 44px;
+    display: block;
+    object-fit: contain;
+}
+
 .brand__logo svg {
     width: 42px;
     height: 42px;
