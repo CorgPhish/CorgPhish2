@@ -4,7 +4,20 @@
   const TEMP_ALLOW_KEY = "tempAllowDomains";
   const EXIT_ALERT = "Вы вышли с потенциально опасного сайта";
   const FORM_ALERT = "Не вводите личные данные: сайт может быть фишинговым.";
-  const DOWNLOAD_ALERT = "Скачивание заблокировано: сайт может быть фишинговым.";
+  const DOWNLOAD_ALERT = "Загрузка файлов заблокирована: сайт может быть фишинговым.";
+  const BLOCKED_FILE_EXT = /\.((exe)|(msi)|(scr)|(zip)|(rar)|(7z)|(tar)|(gz)|(dmg)|(apk))$/i;
+  const BRAND_COLORS = {
+    bg: "#FFF8F1",
+    surface: "#FFFFFF",
+    surfaceAlt: "#F7EFE6",
+    border: "#E7D7C7",
+    text: "#2B2A28",
+    muted: "#6B645C",
+    accent: "#F29A4A",
+    accentStrong: "#D9772C",
+    bad: "#D65A5A",
+    overlay: "rgba(43, 42, 40, 0.45)"
+  };
 
   // RU: Нормализуем хостнейм (без www, точек на конце, в нижний регистр).
   // EN: Normalize hostname (strip www/trailing dot, lowercase).
@@ -104,45 +117,67 @@
     overlayEl.style.position = "fixed";
     overlayEl.style.inset = "0";
     overlayEl.style.zIndex = "2147483647";
-    overlayEl.style.background = "rgba(10,16,40,0.9)";
-    overlayEl.style.backdropFilter = "blur(6px)";
+    overlayEl.style.background = `radial-gradient(circle at 15% 20%, rgba(242,154,74,0.16), transparent 38%), radial-gradient(circle at 80% 20%, rgba(217,119,44,0.18), transparent 32%), ${BRAND_COLORS.overlay}`;
+    overlayEl.style.backdropFilter = "blur(4px)";
     overlayEl.style.display = "flex";
     overlayEl.style.flexDirection = "column";
     overlayEl.style.alignItems = "center";
     overlayEl.style.justifyContent = "center";
     overlayEl.style.gap = "12px";
-    overlayEl.style.fontFamily = "Inter, system-ui, -apple-system, sans-serif";
-    overlayEl.style.color = "#e2e8f0";
+    overlayEl.style.fontFamily = '"Nunito","Manrope","Inter",system-ui,-apple-system,sans-serif';
+    overlayEl.style.color = BRAND_COLORS.text;
     overlayEl.style.padding = "24px";
     overlayEl.style.textAlign = "center";
 
     const card = document.createElement("div");
-    card.style.background = "linear-gradient(135deg, rgba(239,68,68,0.15), rgba(59,130,246,0.12))";
-    card.style.border = "1px solid rgba(255,255,255,0.08)";
-    card.style.borderRadius = "16px";
+    card.style.background = `${BRAND_COLORS.surface}`;
+    card.style.border = `1px solid ${BRAND_COLORS.border}`;
+    card.style.borderRadius = "18px";
     card.style.padding = "18px 20px";
     card.style.minWidth = "280px";
     card.style.maxWidth = "420px";
-    card.style.boxShadow = "0 25px 45px rgba(0,0,0,0.35)";
+    card.style.boxShadow = "0 14px 40px rgba(43,42,40,0.14), inset 0 1px 0 rgba(255,255,255,0.65)";
+    card.style.display = "flex";
+    card.style.flexDirection = "column";
+    card.style.gap = "6px";
+
+    const badge = document.createElement("div");
+    badge.textContent = "CorgPhish — защита";
+    badge.style.display = "inline-flex";
+    badge.style.alignItems = "center";
+    badge.style.justifyContent = "center";
+    badge.style.alignSelf = "center";
+    badge.style.padding = "6px 12px";
+    badge.style.borderRadius = "999px";
+    badge.style.fontSize = "12px";
+    badge.style.letterSpacing = "0.04em";
+    badge.style.textTransform = "uppercase";
+    badge.style.fontWeight = "800";
+    badge.style.background = "#F7DEDE";
+    badge.style.color = BRAND_COLORS.bad;
+    badge.style.border = `1px solid ${BRAND_COLORS.bad}20`;
 
     const title = document.createElement("h2");
     title.textContent = "Этот сайт может быть фишинговым";
-    title.style.margin = "0 0 8px";
+    title.style.margin = "2px 0 4px";
+    title.style.color = BRAND_COLORS.text;
 
     const subtitle = document.createElement("p");
     subtitle.textContent = domain;
     subtitle.style.margin = "0 0 6px";
-    subtitle.style.fontWeight = "600";
+    subtitle.style.fontWeight = "700";
+    subtitle.style.color = BRAND_COLORS.accentStrong;
 
     const hint = document.createElement("p");
-    hint.textContent = "Данные и скачивания заблокированы.";
-    hint.style.margin = "0 0 12px";
-    hint.style.color = "#cbd5f5";
+    hint.textContent = "Данные, формы и загрузки заблокированы.";
+    hint.style.margin = "0 0 14px";
+    hint.style.color = BRAND_COLORS.muted;
 
     const buttons = document.createElement("div");
     buttons.style.display = "flex";
     buttons.style.gap = "10px";
     buttons.style.justifyContent = "center";
+    buttons.style.flexWrap = "wrap";
 
     const exitBtn = document.createElement("button");
     exitBtn.textContent = "Выйти";
@@ -150,30 +185,33 @@
     exitBtn.style.borderRadius = "12px";
     exitBtn.style.border = "none";
     exitBtn.style.cursor = "pointer";
-    exitBtn.style.background = "linear-gradient(120deg, #ef4444, #f97316)";
-    exitBtn.style.color = "#fff";
+    exitBtn.style.background = `linear-gradient(120deg, ${BRAND_COLORS.accent}, ${BRAND_COLORS.accentStrong})`;
+    exitBtn.style.color = BRAND_COLORS.text;
+    exitBtn.style.fontWeight = "800";
+    exitBtn.style.boxShadow = "0 10px 26px rgba(242,154,74,0.28)";
 
     const blacklistBtn = document.createElement("button");
     blacklistBtn.textContent = "Добавить в ЧС";
     blacklistBtn.style.padding = "10px 14px";
     blacklistBtn.style.borderRadius = "12px";
-    blacklistBtn.style.border = "1px solid rgba(255,255,255,0.3)";
-    blacklistBtn.style.background = "transparent";
-    blacklistBtn.style.color = "#e2e8f0";
+    blacklistBtn.style.border = `1px solid ${BRAND_COLORS.border}`;
+    blacklistBtn.style.background = BRAND_COLORS.surfaceAlt;
+    blacklistBtn.style.color = BRAND_COLORS.text;
     blacklistBtn.style.cursor = "pointer";
 
     const allowBtn = document.createElement("button");
     allowBtn.textContent = "Разрешить на 5 минут";
     allowBtn.style.padding = "10px 14px";
     allowBtn.style.borderRadius = "12px";
-    allowBtn.style.border = "1px solid rgba(255,255,255,0.3)";
-    allowBtn.style.background = "transparent";
-    allowBtn.style.color = "#e2e8f0";
+    allowBtn.style.border = `1px solid ${BRAND_COLORS.accent}50`;
+    allowBtn.style.background = `${BRAND_COLORS.accent}14`;
+    allowBtn.style.color = BRAND_COLORS.accentStrong;
     allowBtn.style.cursor = "pointer";
 
     buttons.appendChild(exitBtn);
     buttons.appendChild(blacklistBtn);
     buttons.appendChild(allowBtn);
+    card.appendChild(badge);
     card.appendChild(title);
     card.appendChild(subtitle);
     card.appendChild(hint);
@@ -203,9 +241,7 @@
       const link = target?.closest?.("a");
       const href = link?.getAttribute?.("href") || "";
       const downloadLink =
-        link &&
-        (link.hasAttribute("download") ||
-          /\.((exe)|(msi)|(scr)|(zip)|(rar)|(7z)|(tar)|(gz)|(dmg)|(apk))$/i.test(href));
+        link && (link.hasAttribute("download") || BLOCKED_FILE_EXT.test(href));
       if (downloadLink) {
         event.preventDefault();
         event.stopPropagation();
@@ -215,18 +251,42 @@
     const onBeforeRequest = (event) => {
       if (!state.active) return;
       const url = event?.target?.url || "";
-      if (/\\.((exe)|(msi)|(scr)|(zip)|(rar)|(7z)|(tar)|(gz)|(dmg)|(apk))$/i.test(url)) {
+      if (BLOCKED_FILE_EXT.test(url)) {
         event.preventDefault?.();
         alert(DOWNLOAD_ALERT);
       }
     };
+    const onFileInput = (event) => {
+      if (!state.active) return;
+      const input = event.target?.closest?.('input[type="file"]');
+      if (input) {
+        event.preventDefault();
+        event.stopPropagation();
+        input.value = "";
+        alert(DOWNLOAD_ALERT);
+      }
+    };
+
+    const nativeSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function patchedSubmit(...args) {
+      if (state.active) {
+        alert(FORM_ALERT);
+        return;
+      }
+      return nativeSubmit.apply(this, args);
+    };
     document.addEventListener("submit", onSubmit, true);
     document.addEventListener("click", onClick, true);
     document.addEventListener("beforeload", onBeforeRequest, true);
+    document.addEventListener("change", onFileInput, true);
+    document.addEventListener("click", onFileInput, true);
     return () => {
       document.removeEventListener("submit", onSubmit, true);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("beforeload", onBeforeRequest, true);
+      document.removeEventListener("change", onFileInput, true);
+      document.removeEventListener("click", onFileInput, true);
+      HTMLFormElement.prototype.submit = nativeSubmit;
     };
   };
 
@@ -263,7 +323,8 @@
     if (reason === "blacklist") {
       overlay.hint.textContent = "Домен в вашем чёрном списке. Страница заблокирована.";
     } else if (reason === "phishing") {
-      overlay.hint.textContent = "Модель подтвердила высокий риск. Данные и загрузки заблокированы.";
+      overlay.hint.textContent =
+        "Модель подтвердила высокий риск. Данные, формы и загрузки заблокированы.";
     }
   };
 
