@@ -1,6 +1,4 @@
 // Lightweight predictor for service worker/offscreen/worker contexts (no DOM).
-const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
-const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
 const DEFAULT_THRESHOLD = 0.5;
 
 const FEATURE_COLUMNS = [
@@ -29,7 +27,6 @@ const FEATURE_COLUMNS = [
   "domain_in_ip"
 ];
 
-let sessionPromise = null;
 
 const normalizeHost = (hostname = "") =>
   hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
@@ -111,67 +108,15 @@ const heuristicVerdict = (features) => {
   return { verdict: probability >= DEFAULT_THRESHOLD ? "phishing" : "trusted", probability };
 };
 
-const ensureSession = async () => {
-  if (sessionPromise) return sessionPromise;
-  sessionPromise = (async () => {
-    // background is classic script, ort already loaded via importScripts in background.
-    const ort = globalThis.ort;
-    if (!ort?.env?.wasm) {
-      throw new Error("ort_env_unavailable");
-    }
-    ort.env.wasm.wasmPaths = ORT_BASE;
-    ort.env.wasm.numThreads = 1;
-    return ort.InferenceSession.create(MODEL_PATH, {
-      executionProviders: ["wasm"],
-      graphOptimizationLevel: "disabled",
-      preferredOutputType: "float32"
-    });
-  })();
-  sessionPromise = sessionPromise.catch((error) => {
-    sessionPromise = null;
-    throw error;
-  });
-  return sessionPromise;
-};
-
 const predictUrlWorker = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   const { url, features } = extractFeatures(rawUrl);
   if (!url) {
     throw new Error("invalid_url");
   }
-  try {
-    const session = await ensureSession();
-    const ort = globalThis.ort;
-    const feeds = {
-      url: new ort.Tensor("string", [url], [1, 1])
-    };
-    FEATURE_COLUMNS.forEach((name) => {
-      const value = Number(features[name]) || 0;
-      feeds[name] = new ort.Tensor("float32", new Float32Array([value]), [1, 1]);
-    });
-    const output = await session.run(feeds);
-    const ordered = Object.values(output || {});
-    const probTensor =
-      output.probabilities || output.proba || output.output_probability || ordered.find((t) => t?.data);
-    const labelTensor =
-      output.label || output.output_label || ordered.find((t, idx) => idx !== ordered.indexOf(probTensor));
-
-    let probability = null;
-    if (probTensor?.data?.length) {
-      const data = probTensor.data;
-      probability = data.length >= 2 ? Number(data[data.length - 1]) : Number(data[0]);
-    }
-    let verdict = null;
-    if (probability !== null && !Number.isNaN(probability)) {
-      verdict = probability >= threshold ? "phishing" : "trusted";
-    } else if (typeof labelTensor?.data?.[0] === "number") {
-      verdict = Number(labelTensor.data[0]) === 1 ? "phishing" : "trusted";
-    }
-    return { status: "ok", verdict, probability, threshold };
-  } catch (error) {
-    const fallback = heuristicVerdict(features);
-    return { status: "fallback", verdict: fallback.verdict, probability: fallback.probability, error: error?.message || String(error) };
-  }
+  // Worker без ORT: используем эвристику, чтобы всегда вернуть вердикт.
+  const fallback = heuristicVerdict(features);
+  const probability = fallback.verdict === "phishing" ? 0.8 : 0.2;
+  return { status: "fallback", verdict: fallback.verdict, probability, threshold };
 };
 
 // expose to global

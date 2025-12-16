@@ -33,18 +33,16 @@ const loadSettings = () =>
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 if (!message) return;
 
-if (message.type === "predictUrlBg") {
-  (async () => {
-    try {
-      if (!predictorLoaded) {
-        const ortUrl = chrome.runtime.getURL("vendor/ort/ort.min.js");
-        const workerUrl = chrome.runtime.getURL("worker/predict.js");
-        importScripts(ortUrl);
-        importScripts(workerUrl);
-        predictorLoaded = true;
-      }
-      const result = await globalThis.predictUrlWorker(message.url, message.threshold);
-      sendResponse?.({ ok: true, result });
+  if (message.type === "predictUrlBg") {
+    (async () => {
+      try {
+        if (!predictorLoaded) {
+          const workerUrl = chrome.runtime.getURL("worker/predict.js");
+          importScripts(workerUrl);
+          predictorLoaded = true;
+        }
+        const result = await globalThis.predictUrlWorker(message.url, message.threshold);
+        sendResponse?.({ ok: true, result });
     } catch (error) {
       sendResponse?.({ ok: false, error: error?.message || String(error) });
       }

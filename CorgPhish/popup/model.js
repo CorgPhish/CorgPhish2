@@ -248,7 +248,7 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   try {
     const bgResult = await predictViaBackground(rawUrl, threshold);
     if (bgResult?.verdict) {
-      return { ...bgResult, status: bgResult.status || "bg" };
+      return { ...bgResult, status: bgResult.status || "ok" };
     }
   } catch (error) {
     console.warn("CorgPhish: bg predict failed", error);
