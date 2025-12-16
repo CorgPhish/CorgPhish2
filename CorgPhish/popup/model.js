@@ -40,7 +40,6 @@ const loadOrt = () => {
     return Promise.resolve(globalThis.ort);
   }
   if (!ortScriptPromise) {
-    const isExtensionPage = location.protocol === "chrome-extension:";
     const waitForOrt = (timeoutMs = 8000) =>
       new Promise((resolve, reject) => {
         const started = Date.now();
@@ -59,7 +58,7 @@ const loadOrt = () => {
       });
 
     ortScriptPromise = (async () => {
-      // Сначала пытаемся динамически импортировать модуль (без eval, не зависит от CSP страницы).
+      // 1) Пробуем динамический import модуля (без eval).
       try {
         const mod = await import(chrome.runtime.getURL("vendor/ort/ort.module.js"));
         if (mod?.default || globalThis.ort) {
@@ -71,8 +70,8 @@ const loadOrt = () => {
 
       const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
 
-      // Попап/extension-страницы: обычный <script>, соответствует CSP расширения.
-      if (isExtensionPage) {
+      // 2) Пытаемся просто подключить как <script src="chrome-extension://..."> (CSP страницы часто разрешает расширение).
+      try {
         await new Promise((resolve, reject) => {
           const script = document.createElement("script");
           script.src = url;
@@ -82,33 +81,31 @@ const loadOrt = () => {
           document.head.appendChild(script);
         });
         return waitForOrt();
+      } catch (error) {
+        // ignore, попробуем blob если разрешено
       }
 
-      // Контент-скрипт: загружаем текст и создаём Blob+script, чтобы не использовать eval/new Function.
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("ort_fetch_failed");
-        const code = await response.text();
-        const blob = new Blob([code], { type: "text/javascript" });
-        const blobUrl = URL.createObjectURL(blob);
-        await new Promise((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = blobUrl;
-          script.async = true;
-          script.onload = () => {
-            URL.revokeObjectURL(blobUrl);
-            resolve();
-          };
-          script.onerror = () => {
-            URL.revokeObjectURL(blobUrl);
-            reject(new Error("ort_load_failed"));
-          };
-          document.head.appendChild(script);
-        });
-        return waitForOrt();
-      } catch (error) {
-        throw new Error("ort_load_failed");
-      }
+      // 3) Фоллбек: blob + <script> (может быть заблокирован CSP, но лучше попытаться как последний вариант).
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("ort_load_failed");
+      const code = await response.text();
+      const blob = new Blob([code], { type: "text/javascript" });
+      const blobUrl = URL.createObjectURL(blob);
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = blobUrl;
+        script.async = true;
+        script.onload = () => {
+          URL.revokeObjectURL(blobUrl);
+          resolve();
+        };
+        script.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          reject(new Error("ort_load_failed"));
+        };
+        document.head.appendChild(script);
+      });
+      return waitForOrt();
     })();
   }
   return ortScriptPromise;
