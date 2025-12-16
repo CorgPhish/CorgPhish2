@@ -183,7 +183,11 @@ const sendPhishingBlock = (tabId, domain, verdict) => {
   if (!tabId) return;
   chrome.tabs.sendMessage(tabId, { type: "phishingBlock", domain, verdict }, () => {
     if (chrome.runtime.lastError) {
-      console.warn("CorgPhish: failed to send block message", chrome.runtime.lastError);
+      const msg = chrome.runtime.lastError?.message || "";
+      // Мягко игнорируем отсутствие content script (например, сервисные страницы/другой контекст).
+      if (!/Receiving end does not exist/i.test(msg)) {
+        console.warn("CorgPhish: failed to send block message", msg);
+      }
     }
   });
 };
