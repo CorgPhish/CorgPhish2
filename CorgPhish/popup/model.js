@@ -216,7 +216,8 @@ const heuristicVerdict = (features) => {
   const hyphenScore = features.qty_hyphen_domain * 0.2;
   const dotScore = features.qty_dot_domain * 0.12;
   const ipScore = features.domain_in_ip ? 3 : 0;
-  const raw = riskyChars * 0.25 + lenScore + hyphenScore + dotScore + ipScore;
+  const brandPenalty = features.qty_dot_domain >= 2 ? 0.3 : 0; // субдоменов много — чуть выше риск
+  const raw = riskyChars * 0.25 + lenScore + hyphenScore + dotScore + ipScore + brandPenalty;
   const probability = 1 / (1 + Math.exp(-raw)); // sigmoid
   return probability >= DEFAULT_THRESHOLD ? "phishing" : "trusted";
 };
