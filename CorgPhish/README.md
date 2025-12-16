@@ -1,60 +1,68 @@
-# CorgPhish
+# CorgPhish — локальное расширение против фишинга (MV3)
 
-## Overview (English)
-- Chrome/Chromium MV3 extension for phishing detection.
-- Flow: trusted.json + user whitelist → Levenshtein similarity → ONNX ML (binary: trusted/phishing) → content script overlay/block.
-- Offline by design: model and trusted data ship with the extension.
-- Bilingual UI (ru/en), light/dark themes, compact mode.
-- History (up to 50), manual domain check, whitelist/blacklist management.
-- Content script blocks forms/downloads on phishing and shows a full-screen overlay with actions.
+Chrome/Chromium extension that scans every page on open, blocks risky sites with a full-screen overlay, and lets you manage trusted/blocked domains locally. Works offline: model, heuristics, and trusted catalog are bundled.
 
-## Обзор (Русский)
-- Расширение MV3 для Chrome/Chromium: проверка по trusted.json, вашему белому списку, похожести (Левенштейн) и ML (бинарный вердикт).
-- Работает локально: модель и trusted.json внутри расширения.
-- Двуязычный UI, светлая/тёмная темы, компактный режим.
-- История (до 50 записей), ручная проверка домена, управление белым/чёрным списками.
-- Контент-скрипт при фишинге блокирует формы/загрузки и показывает полноэкранный оверлей с действиями.
+## Что умеет
+- Авто‑проверка страниц без открытия попапа: trusted list → пользовательский whitelist → blacklist → похожесть (Левенштейн) → ML/эвристика.
+- Оверлей на подозрительных сайтах: блок форм и загрузок, кнопки “Выйти”, “Добавить в ЧС”, “Разрешить на 5 минут”.
+- Попап: статус активной вкладки, история (50 записей), ручная проверка URL, управление белым/чёрным списками, настройки (тема, язык, авто‑проверка, retention).
+- Локальные данные: `trusted.json` внутри расширения, пользовательские списки и история в chrome.storage.
+- Фоллбеки: если ORT/ONNX заблокирован CSP, работает встроенная эвристика; вердикт всё равно будет.
 
-## Structure / Структура
-- `manifest.json` — MV3 declaration; permissions, WER for model/runtime, content/background wiring.
-- `background.js` — сервис-воркер: кеш trusted.json, системные уведомления, закрытие вкладки.
-- `content.js` — автоинспекция на странице, оверлей при phishing/ЧС, блок форм/скачиваний, временное разрешение (5 мин).
-- `trusted.json` — каталог доверенных доменов (обновляемый).
+## Как это работает
+1. **Trusted / whitelist / blacklist** — мгновенная классификация.
+2. **Похожесть** — поиск доменов, близких к trusted (Левенштейн ≤ 2).
+3. **ML / эвристика** — бинарный вердикт “trusted | phishing”. В контенте сначала пробуется локальный ORT, затем фон (эвристика) на случай жёсткого CSP.
+4. **Блокировка** — оверлей + запрет форм/скачиваний. Можно временно разрешить домен на 5 минут.
+
+## Установка (unpacked)
+1) Откройте `chrome://extensions`, включите *Developer mode*.  
+2) Нажмите *Load unpacked* и выберите папку `CorgPhish/`.  
+3) Убедитесь, что расширение активно, и перезагрузите открытые вкладки.
+
+## Использование
+- **Автозащита**: при открытии HTTP/HTTPS страницы контент‑скрипт сам запускает инспекцию и покажет баннер при риске.
+- **Попап**: клик по иконке — карточка статуса, история, ручная проверка, списки, настройки.
+- **Списки**:  
+  - Whitelist / Blacklist в настройках, либо кнопки на карточке статуса.  
+  - Добавление в ЧС закрывает текущую вкладку и блокирует домен в будущем.  
+  - Временное разрешение — кнопка “Разрешить на 5 минут” в оверлее.
+- **История**: хранится до 50 записей; автоочистка настраивается (0/7/30/90 дней).
+
+## Настройки (popup → Settings)
+- Язык (ru/en), тема (light/dark), компактный режим.
+- Авто‑проверка при открытии попапа.
+- Уведомления о рисках.
+- Блокировка ввода/загрузок на подозрительных сайтах.
+- Retention истории.
+
+## Структура
+- `manifest.json` — MV3, ресурсы модели/ORT, WER.
+- `background.js` — кеш trusted.json, уведомления, эвристический предикт в фоне, закрытие вкладок.
+- `content.js` — автоинспекция страницы, оверлей, блок форм/скачивания, временные разрешения.
+- `trusted.json` — встроенный каталог доверенных доменов.
+- `popup/` — UI, логика попапа:  
+  - `inspection.js` — цепочка доверенный/ЧС/похожесть/ML.  
+  - `model.js` — предикт (фон → локальный ORT → эвристика).  
+  - `config.js`, `data.js`, `ui.js`, `dom.js`, `main.js`, `i18n.js`.  
+- `vendor/ort/` — onnxruntime-web (JS + wasm).  
+- `icons/` — иконки расширения (16/32/48/128 png).  
 - `models/` — ONNX модель (binary verdict).
-- `vendor/ort/` — onnxruntime-web (JS + wasm).
-- `popup/`
-  - `config.js` — настройки по умолчанию, переводы, статусы UI.
-  - `data.js` — trusted/whitelist/blacklist/history/settings storage helpers.
-  - `utils.js` — нормализация хоста, Левенштейн, время.
-  - `inspection.js` — инспекция домена: trusted/ЧС → Левенштейн → ML.
-  - `model.js` — загрузка ORT, фичи из URL, бинарный вердикт.
-  - `dom.js` — реестр DOM и безопасное навешивание событий.
-  - `ui.js` — применение статусов, рендер списков/истории/списков.
-  - `main.js` — точка входа попапа, события UI, история, сообщения в content script.
-  - `i18n.js` — переводчик по ключам.
-  - `popup.html/css` — разметка и стили попапа.
 
-## Usage / Использование
-1. Load unpacked: `chrome://extensions` → Developer mode → Load unpacked → `CorgPhish/`.
-2. Open popup on any HTTP/HTTPS page:
-   - Trusted/whitelist domain → “Легитимный сайт” / safe.
-   - Similar domain (<=2 Levenshtein) → “Подозрительный, похож на доверенный”, ML runs.
-   - ML phishing → “Опасный сайт”, страница блокируется (оверлей, формы/скачивания запрещены).
-3. Manage lists:
-   - Whitelist/Blacklist sections in Settings.
-   - “Добавить в ЧС”/“Белый список” на карточке статуса.
-   - Добавление в ЧС закрывает вкладку и блокирует дальнейшие заходы.
-4. Manual check card: enter domain or full URL without visiting it.
+## Обновление trusted каталога
+Отредактируйте `trusted.json` и перезагрузите расширение. Пользовательские списки хранятся отдельно в `chrome.storage.local` (`customTrustedDomains`, `customBlockedDomains`).
 
-## Dev notes
-- Auto scan runs on popup open; content script also auto-inspects pages to show overlay without opening popup.
-- Trusted additions live in `trusted.json`; lists in storage: `customTrustedDomains`, `customBlockedDomains`.
-- Temporary allow (content) stored in `tempAllowDomains` for 5 minutes.
-- History retention configurable (0/7/30/90 days).
+## Dev / Debug
+- Нет сборки, только статические файлы. Любые изменения → `chrome://extensions` → *Reload*.
+- Логи:
+  - Попап: DevTools попапа (Inspect).
+  - Контент: DevTools вкладки (вкладка Console).
+  - Background: `chrome://extensions` → Service Worker → *Inspect*.
+- Если видите `ort_load_failed`, срабатывает эвристика — предупреждение всё равно должно показаться.
 
-## UI refresh checklist / Чек-лист обновления UI
-- Keep IDs/data hooks intact: elements referenced in `popup/dom.js` and used by `ui.js`/`main.js` must remain (`statusBadge`, `statusTitle`, `statusHint`, `domainValue`, `sourceValue`, `riskLevel`, `recommendationsList`, buttons, forms).
-- Layout freedom: you can reorder/reshape markup, but preserve element IDs and form names; avoid removing whitelist/blacklist sections and manual check form.
-- Statuses are discrete (trusted / suspicious / phishing / blacklisted / unsupported / error); no percentages. Colors/themes can change.
-- Overlay/blocks live in `content.js` — UI there can be restyled with inline/CSS, but keep button labels/actions (exit, add to blacklist, allow 5 min).
-- CSS currently in `popup.css` only; no build step. Fonts: Inter/system stack; can extend palette but keep light/dark tokens.
+## Ограничения и фоллбеки
+- Жёсткий CSP на сайтах может блокировать загрузку ORT в контенте; фон даёт эвристику.
+- Модель бинарная (trusted/phishing) и лёгкая; для чувствительной среды добавляйте свои домены в whitelist/blacklist.
+
+## Лицензия
+Локальное использование в текущем виде; модель и trusted данные входят в поставку расширения.
