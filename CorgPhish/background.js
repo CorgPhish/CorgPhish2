@@ -5,6 +5,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
+let predictWorkerReady = false;
 
 const cacheTrustedList = async () => {
   try {
@@ -31,6 +32,20 @@ const loadSettings = () =>
 // EN: Handle messages from popup/content.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message) return;
+
+  if (message.type === "predictUrlBg") {
+    (async () => {
+      try {
+        const { predictUrlWorker } = await import(chrome.runtime.getURL("worker/predict.js"));
+        predictWorkerReady = true;
+        const result = await predictUrlWorker(message.url, message.threshold);
+        sendResponse?.({ ok: true, result });
+      } catch (error) {
+        sendResponse?.({ ok: false, error: error?.message || String(error) });
+      }
+    })();
+    return true;
+  }
 
   if (message.type === "riskNotification") {
     loadSettings().then((settings) => {
