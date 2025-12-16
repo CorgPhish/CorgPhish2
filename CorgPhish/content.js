@@ -314,22 +314,26 @@
     if (state.active) return;
     state.active = true;
     teardown = blockInteractions(state);
-    const overlay = createOverlay(hostname, () => {
-      alert(EXIT_ALERT);
-      if (history.length > 1) {
-        history.back();
-      } else {
+    const overlay = createOverlay(
+      hostname,
+      () => {
+        alert(EXIT_ALERT);
+        if (history.length > 1) {
+          history.back();
+        } else {
+          chrome.runtime.sendMessage({ type: "closeTab" });
+        }
+      },
+      async () => {
+        await addToBlacklist(hostname);
         chrome.runtime.sendMessage({ type: "closeTab" });
+      },
+      async () => {
+        // Разрешаем на 5 минут, убираем оверлей, но блокировка форм/скачивания остаётся активной на этой вкладке.
+        await allowTemporarily(hostname, 5);
+        if (overlay.overlay) overlay.overlay.remove();
       }
-    }, async () => {
-      await addToBlacklist(hostname);
-      chrome.runtime.sendMessage({ type: "closeTab" });
-    }, async () => {
-      await allowTemporarily(hostname, 5);
-      state.active = false;
-      if (overlay.overlay) overlay.overlay.remove();
-      teardown();
-    });
+    );
     overlayRef = overlay;
     if (reason === "blacklist") {
       overlay.hint.textContent = "Домен в вашем чёрном списке. Страница заблокирована.";
