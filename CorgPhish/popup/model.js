@@ -2,7 +2,7 @@
 // EN: Local ONNX inference (onnxruntime-web, wasm) with binary verdict only.
 const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
 const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
-const DEFAULT_THRESHOLD = 0.5;
+const DEFAULT_THRESHOLD = 0.7;
 
 const FEATURE_COLUMNS = [
   "length_url",
@@ -210,11 +210,11 @@ const heuristicVerdict = (features) => {
     features.qty_dollar_url +
     features.qty_exclamation_url +
     features.qty_space_url;
-  const lenScore = Math.min(features.length_url / 120, 2);
-  const hyphenScore = features.qty_hyphen_domain * 0.4;
-  const dotScore = features.qty_dot_domain * 0.25;
-  const ipScore = features.domain_in_ip ? 2.5 : 0;
-  const raw = riskyChars * 0.35 + lenScore + hyphenScore + dotScore + ipScore;
+  const lenScore = Math.min(features.length_url / 160, 2);
+  const hyphenScore = features.qty_hyphen_domain * 0.2;
+  const dotScore = features.qty_dot_domain * 0.12;
+  const ipScore = features.domain_in_ip ? 3 : 0;
+  const raw = riskyChars * 0.25 + lenScore + hyphenScore + dotScore + ipScore;
   const probability = 1 / (1 + Math.exp(-raw)); // sigmoid
   return probability >= DEFAULT_THRESHOLD ? "phishing" : "trusted";
 };
