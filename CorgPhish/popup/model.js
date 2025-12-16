@@ -33,35 +33,31 @@ const FEATURE_COLUMNS = [
 let ortScriptPromise = null;
 let sessionPromise = null;
 
-// RU: Ленивая загрузка onnxruntime скрипта.
-// EN: Lazy-load onnxruntime script.
+// RU: Ленивая загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
+// EN: Lazy-load onnxruntime via classic `<script>` so `ort` lands on global scope.
 const loadOrt = () => {
   if (globalThis.ort) {
     return Promise.resolve(globalThis.ort);
   }
   if (!ortScriptPromise) {
     ortScriptPromise = new Promise((resolve, reject) => {
+      const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
       const script = document.createElement("script");
-      script.src = chrome.runtime.getURL("vendor/ort/ort.min.js");
+      script.src = url;
       script.async = true;
+      const timeout = setTimeout(() => reject(new Error("ort_load_failed")), 6000);
       script.onload = () => {
-        const checkReady = () => {
-          if (globalThis.ort) {
-            resolve(globalThis.ort);
-            return true;
-          }
-          return false;
-        };
-        if (checkReady()) return;
-        const timeout = setTimeout(() => reject(new Error("ort_load_failed")), 1200);
-        const interval = setInterval(() => {
-          if (checkReady()) {
-            clearTimeout(timeout);
-            clearInterval(interval);
-          }
-        }, 30);
+        clearTimeout(timeout);
+        if (globalThis.ort) {
+          resolve(globalThis.ort);
+        } else {
+          reject(new Error("ort_load_failed"));
+        }
       };
-      script.onerror = () => reject(new Error("ort_load_failed"));
+      script.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error("ort_load_failed"));
+      };
       document.head.appendChild(script);
     });
   }
