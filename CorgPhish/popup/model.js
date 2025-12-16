@@ -1,8 +1,10 @@
 // RU: Локальный инференс ONNX-модели (onnxruntime-web, wasm) с бинарным вердиктом.
 // EN: Local ONNX inference (onnxruntime-web, wasm) with binary verdict only.
+import { MODEL_THRESHOLD } from "./config.js";
+
 const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
 const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
-const DEFAULT_THRESHOLD = 0.7;
+const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
 
 const FEATURE_COLUMNS = [
   "length_url",

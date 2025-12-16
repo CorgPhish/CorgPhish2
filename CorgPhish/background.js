@@ -1,11 +1,13 @@
 // RU: Сервис-воркер: системные уведомления, кэш trusted.json, закрытие вкладок.
 // EN: Service worker: system notifications, trusted.json cache, close tabs.
+import { MODEL_THRESHOLD } from "./popup/config.js";
+
 const DEFAULT_SETTINGS = {
   systemNotifyOnRisk: false
 };
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
-const DEFAULT_THRESHOLD = 0.7;
+const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
 
 // Lightweight heuristic predictor (без ORT) прямо в background.
 const FEATURE_COLUMNS = [
@@ -165,7 +167,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   reject(chrome.runtime.lastError);
                   return;
                 }
-                if (response?.ok) {
+                if (response?.ok && response.result) {
                   resolve(response.result);
                 } else {
                   reject(new Error(response?.error || "offscreen_failed"));
