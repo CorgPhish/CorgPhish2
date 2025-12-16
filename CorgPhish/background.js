@@ -136,18 +136,57 @@ const loadSettings = () =>
 // RU: Обрабатываем сообщения попапа/контента.
 // EN: Handle messages from popup/content.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-if (!message) return;
+  if (!message) return;
 
   if (message.type === "predictUrlBg") {
     (async () => {
       try {
-        const { url, features } = extractFeatures(message.url);
-        if (!url) {
-          sendResponse?.({ ok: false, error: "invalid_url" });
-          return;
+        // Попытка маршрутизировать в offscreen-документ (ORT в чистой среде расширения).
+        const ensureOffscreen = async () => {
+          const reasons = ["DOM_SCRAPING"];
+          const offscreenUrl = chrome.runtime.getURL("offscreen.html");
+          const existing = await chrome.offscreen.hasDocument?.();
+          if (existing) return;
+          await chrome.offscreen.createDocument({
+            url: offscreenUrl,
+            reasons,
+            justification: "Phishing ML inference in extension context (avoid page CSP)"
+          });
+        };
+
+        let result = null;
+        try {
+          await ensureOffscreen();
+          result = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              { type: "predictOffscreen", url: message.url, threshold: message.threshold },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  reject(chrome.runtime.lastError);
+                  return;
+                }
+                if (response?.ok) {
+                  resolve(response.result);
+                } else {
+                  reject(new Error(response?.error || "offscreen_failed"));
+                }
+              }
+            );
+          });
+        } catch (offscreenError) {
+          console.warn("CorgPhish: offscreen predict failed", offscreenError);
         }
-        const result = heuristicVerdict(features, message.threshold || DEFAULT_THRESHOLD);
-        sendResponse?.({ ok: true, result: { ...result, status: "ok", threshold: message.threshold } });
+
+        if (!result) {
+          const { url, features } = extractFeatures(message.url);
+          if (!url) {
+            sendResponse?.({ ok: false, error: "invalid_url" });
+            return;
+          }
+          const fallback = heuristicVerdict(features, message.threshold || DEFAULT_THRESHOLD);
+          result = { ...fallback, status: "fallback", threshold: message.threshold };
+        }
+        sendResponse?.({ ok: true, result });
       } catch (error) {
         sendResponse?.({ ok: false, error: error?.message || String(error) });
       }
