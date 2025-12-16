@@ -40,37 +40,47 @@ const loadOrt = () => {
     return Promise.resolve(globalThis.ort);
   }
   if (!ortScriptPromise) {
+    const isExtensionPage = location.protocol === "chrome-extension:";
     ortScriptPromise = new Promise(async (resolve, reject) => {
       const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
-      const timeout = setTimeout(() => {
-        reject(new Error("ort_load_failed"));
-      }, 8000);
+      const bail = () => reject(new Error("ort_load_failed"));
+      const waitForOrt = (timeoutMs = 8000) => {
+        const started = Date.now();
+        const tick = () => {
+          if (globalThis.ort) {
+            resolve(globalThis.ort);
+            return;
+          }
+          if (Date.now() - started > timeoutMs) {
+            bail();
+            return;
+          }
+          setTimeout(tick, 50);
+        };
+        tick();
+      };
+
+      // Попап/extension-страницы: обычный <script>, соответствует CSP расширения.
+      if (isExtensionPage) {
+        const script = document.createElement("script");
+        script.src = url;
+        script.async = true;
+        script.onload = () => waitForOrt();
+        script.onerror = bail;
+        document.head.appendChild(script);
+        return;
+      }
+
+      // Контент-скрипт: исполняем код в изолированном мире, не завися от CSP страницы.
       try {
         const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error("ort_fetch_failed");
-        }
+        if (!response.ok) throw new Error("ort_fetch_failed");
         const code = await response.text();
-        // Выполняем код напрямую, чтобы не зависеть от CSP страницы.
+        // eslint-disable-next-line no-new-func
         new Function(`${code}\n//# sourceURL=ort.min.js`)();
-        const started = Date.now();
-        const waitForOrt = () => {
-          if (globalThis.ort) {
-            clearTimeout(timeout);
-            resolve(globalThis.ort);
-            return true;
-          }
-          if (Date.now() - started > 2000) {
-            reject(new Error("ort_load_failed"));
-            return true;
-          }
-          setTimeout(waitForOrt, 50);
-          return false;
-        };
         waitForOrt();
       } catch (error) {
-        clearTimeout(timeout);
-        reject(new Error("ort_load_failed"));
+        bail();
       }
     });
   }
