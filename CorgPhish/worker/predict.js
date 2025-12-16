@@ -114,8 +114,8 @@ const heuristicVerdict = (features) => {
 const ensureSession = async () => {
   if (sessionPromise) return sessionPromise;
   sessionPromise = (async () => {
-    const mod = await import(chrome.runtime.getURL("vendor/ort/ort.module.js"));
-    const ort = mod?.default || globalThis.ort;
+    // background is classic script, ort already loaded via importScripts in background.
+    const ort = globalThis.ort;
     if (!ort?.env?.wasm) {
       throw new Error("ort_env_unavailable");
     }
@@ -134,7 +134,7 @@ const ensureSession = async () => {
   return sessionPromise;
 };
 
-export const predictUrlWorker = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
+const predictUrlWorker = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   const { url, features } = extractFeatures(rawUrl);
   if (!url) {
     throw new Error("invalid_url");
@@ -173,3 +173,6 @@ export const predictUrlWorker = async (rawUrl, threshold = DEFAULT_THRESHOLD) =>
     return { status: "fallback", verdict: fallback.verdict, probability: fallback.probability, error: error?.message || String(error) };
   }
 };
+
+// expose to global
+globalThis.predictUrlWorker = predictUrlWorker;

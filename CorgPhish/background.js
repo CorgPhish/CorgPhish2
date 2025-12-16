@@ -5,7 +5,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
-let predictWorkerReady = false;
+let predictorLoaded = false;
 
 const cacheTrustedList = async () => {
   try {
@@ -36,9 +36,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "predictUrlBg") {
     (async () => {
       try {
-        const { predictUrlWorker } = await import(chrome.runtime.getURL("worker/predict.js"));
-        predictWorkerReady = true;
-        const result = await predictUrlWorker(message.url, message.threshold);
+        if (!predictorLoaded) {
+          importScripts(
+            chrome.runtime.getURL("vendor/ort/ort.min.js"),
+            chrome.runtime.getURL("worker/predict.js")
+          );
+          predictorLoaded = true;
+        }
+        const result = await globalThis.predictUrlWorker(message.url, message.threshold);
         sendResponse?.({ ok: true, result });
       } catch (error) {
         sendResponse?.({ ok: false, error: error?.message || String(error) });
