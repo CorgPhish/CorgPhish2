@@ -113,6 +113,15 @@
   // RU: Создаём блокирующий оверлей с кнопками действий.
   // EN: Create blocking overlay with action buttons.
   const createOverlay = (domain, onExit, onBlacklist, onAllow) => {
+    const overlayHost = document.createElement("div");
+    const shadow = overlayHost.attachShadow({ mode: "open" });
+
+    const style = document.createElement("style");
+    style.textContent = `
+      :host { all: initial; }
+      *, *::before, *::after { box-sizing: border-box; }
+      button { all: unset; font: inherit; }
+    `;
     const overlayEl = document.createElement("div");
     overlayEl.style.position = "fixed";
     overlayEl.style.inset = "0";
@@ -217,13 +226,15 @@
     card.appendChild(hint);
     card.appendChild(buttons);
     overlayEl.appendChild(card);
-    document.documentElement.appendChild(overlayEl);
+    shadow.appendChild(style);
+    shadow.appendChild(overlayEl);
+    document.documentElement.appendChild(overlayHost);
 
     exitBtn.addEventListener("click", () => onExit?.());
     blacklistBtn.addEventListener("click", () => onBlacklist?.());
     allowBtn.addEventListener("click", () => onAllow?.());
 
-    return { overlay: overlayEl, hint, subtitle, allowBtn };
+    return { overlay: overlayHost, hint, subtitle, allowBtn };
   };
 
   // RU: Блокируем формы и скачивания, пока блокировка активна.
