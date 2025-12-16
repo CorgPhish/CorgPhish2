@@ -16,6 +16,7 @@
         "trusted.json",
         "models/hybrid_tfidf_num.onnx",
         "vendor/ort/ort.min.js",
+        "vendor/ort/ort.module.js",
         "vendor/ort/ort-wasm-simd.wasm",
         "vendor/ort/ort-wasm.wasm",
         "popup/inspection.js",

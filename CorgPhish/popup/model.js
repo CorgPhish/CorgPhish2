@@ -41,10 +41,8 @@ const loadOrt = () => {
   }
   if (!ortScriptPromise) {
     const isExtensionPage = location.protocol === "chrome-extension:";
-    ortScriptPromise = new Promise(async (resolve, reject) => {
-      const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
-      const bail = () => reject(new Error("ort_load_failed"));
-      const waitForOrt = (timeoutMs = 8000) => {
+    const waitForOrt = (timeoutMs = 8000) =>
+      new Promise((resolve, reject) => {
         const started = Date.now();
         const tick = () => {
           if (globalThis.ort) {
@@ -52,37 +50,66 @@ const loadOrt = () => {
             return;
           }
           if (Date.now() - started > timeoutMs) {
-            bail();
+            reject(new Error("ort_load_failed"));
             return;
           }
           setTimeout(tick, 50);
         };
         tick();
-      };
+      });
+
+    ortScriptPromise = (async () => {
+      // Сначала пытаемся динамически импортировать модуль (без eval, не зависит от CSP страницы).
+      try {
+        const mod = await import(chrome.runtime.getURL("vendor/ort/ort.module.js"));
+        if (mod?.default || globalThis.ort) {
+          return mod.default || globalThis.ort;
+        }
+      } catch (error) {
+        // ignore, попробуем резервный путь
+      }
+
+      const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
 
       // Попап/extension-страницы: обычный <script>, соответствует CSP расширения.
       if (isExtensionPage) {
-        const script = document.createElement("script");
-        script.src = url;
-        script.async = true;
-        script.onload = () => waitForOrt();
-        script.onerror = bail;
-        document.head.appendChild(script);
-        return;
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = url;
+          script.async = true;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error("ort_load_failed"));
+          document.head.appendChild(script);
+        });
+        return waitForOrt();
       }
 
-      // Контент-скрипт: исполняем код в изолированном мире, не завися от CSP страницы.
+      // Контент-скрипт: загружаем текст и создаём Blob+script, чтобы не использовать eval/new Function.
       try {
         const response = await fetch(url);
         if (!response.ok) throw new Error("ort_fetch_failed");
         const code = await response.text();
-        // eslint-disable-next-line no-new-func
-        new Function(`${code}\n//# sourceURL=ort.min.js`)();
-        waitForOrt();
+        const blob = new Blob([code], { type: "text/javascript" });
+        const blobUrl = URL.createObjectURL(blob);
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = blobUrl;
+          script.async = true;
+          script.onload = () => {
+            URL.revokeObjectURL(blobUrl);
+            resolve();
+          };
+          script.onerror = () => {
+            URL.revokeObjectURL(blobUrl);
+            reject(new Error("ort_load_failed"));
+          };
+          document.head.appendChild(script);
+        });
+        return waitForOrt();
       } catch (error) {
-        bail();
+        throw new Error("ort_load_failed");
       }
-    });
+    })();
   }
   return ortScriptPromise;
 };
