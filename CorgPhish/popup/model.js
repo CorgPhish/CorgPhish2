@@ -40,38 +40,38 @@ const loadOrt = () => {
     return Promise.resolve(globalThis.ort);
   }
   if (!ortScriptPromise) {
-    ortScriptPromise = new Promise((resolve, reject) => {
+    ortScriptPromise = new Promise(async (resolve, reject) => {
       const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
-      const script = document.createElement("script");
-      script.src = url;
-      script.async = true;
-      const cleanup = () => {
-        script.onload = null;
-        script.onerror = null;
-      };
       const timeout = setTimeout(() => {
-        cleanup();
-        clearInterval(checkInterval);
         reject(new Error("ort_load_failed"));
       }, 8000);
-      const checkReady = () => {
-        if (globalThis.ort) {
-          cleanup();
-          clearTimeout(timeout);
-          clearInterval(checkInterval);
-          resolve(globalThis.ort);
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error("ort_fetch_failed");
         }
-      };
-      const checkInterval = setInterval(checkReady, 50);
-      script.onload = checkReady;
-      script.onerror = () => {
-        cleanup();
+        const code = await response.text();
+        // Выполняем код напрямую, чтобы не зависеть от CSP страницы.
+        new Function(`${code}\n//# sourceURL=ort.min.js`)();
+        const started = Date.now();
+        const waitForOrt = () => {
+          if (globalThis.ort) {
+            clearTimeout(timeout);
+            resolve(globalThis.ort);
+            return true;
+          }
+          if (Date.now() - started > 2000) {
+            reject(new Error("ort_load_failed"));
+            return true;
+          }
+          setTimeout(waitForOrt, 50);
+          return false;
+        };
+        waitForOrt();
+      } catch (error) {
         clearTimeout(timeout);
-        clearInterval(checkInterval);
         reject(new Error("ort_load_failed"));
-      };
-      checkReady();
-      document.head.appendChild(script);
+      }
     });
   }
   return ortScriptPromise;
