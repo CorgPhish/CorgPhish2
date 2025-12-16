@@ -219,9 +219,42 @@ const heuristicVerdict = (features) => {
   return probability >= DEFAULT_THRESHOLD ? "phishing" : "trusted";
 };
 
+const predictViaBackground = (rawUrl, threshold) =>
+  new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendMessage(
+        { type: "predictUrlBg", url: rawUrl, threshold },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          if (response?.ok) {
+            resolve(response.result);
+          } else {
+            reject(new Error(response?.error || "bg_predict_failed"));
+          }
+        }
+      );
+    } catch (err) {
+      reject(err);
+    }
+  });
+
 // RU: Предсказать вердикт (trusted|phishing) по URL.
 // EN: Predict verdict (trusted|phishing) for URL.
 export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
+  // 1) Сначала пробуем предсказание в сервис-воркере (не зависит от CSP страницы).
+  try {
+    const bgResult = await predictViaBackground(rawUrl, threshold);
+    if (bgResult?.verdict) {
+      return { ...bgResult, status: bgResult.status || "bg" };
+    }
+  } catch (error) {
+    console.warn("CorgPhish: bg predict failed", error);
+  }
+
+  // 2) Пытаемся локальный ORT (если не заблокирован CSP).
   try {
     const { url, features } = extractFeatures(rawUrl);
     if (!url) {
@@ -260,37 +293,12 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
 
     return {
       status: "ok",
-      verdict
+      verdict,
+      probability,
+      threshold
     };
   } catch (error) {
     console.warn("ML predict failed", error);
-    try {
-      const bgResult = await new Promise((resolve, reject) => {
-        try {
-          chrome.runtime.sendMessage(
-            { type: "predictUrlBg", url: rawUrl, threshold },
-            (response) => {
-              if (chrome.runtime.lastError) {
-                reject(chrome.runtime.lastError);
-                return;
-              }
-              if (response?.ok) {
-                resolve(response.result);
-              } else {
-                reject(new Error(response?.error || "bg_predict_failed"));
-              }
-            }
-          );
-        } catch (err) {
-          reject(err);
-        }
-      });
-      if (bgResult?.verdict) {
-        return { ...bgResult, status: bgResult.status || "bg" };
-      }
-    } catch (bgError) {
-      console.warn("CorgPhish: bg predict failed", bgError);
-    }
     try {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");
