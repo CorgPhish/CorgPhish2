@@ -45,19 +45,32 @@ const loadOrt = () => {
       const script = document.createElement("script");
       script.src = url;
       script.async = true;
-      const timeout = setTimeout(() => reject(new Error("ort_load_failed")), 6000);
-      script.onload = () => {
-        clearTimeout(timeout);
+      const cleanup = () => {
+        script.onload = null;
+        script.onerror = null;
+      };
+      const timeout = setTimeout(() => {
+        cleanup();
+        clearInterval(checkInterval);
+        reject(new Error("ort_load_failed"));
+      }, 8000);
+      const checkReady = () => {
         if (globalThis.ort) {
+          cleanup();
+          clearTimeout(timeout);
+          clearInterval(checkInterval);
           resolve(globalThis.ort);
-        } else {
-          reject(new Error("ort_load_failed"));
         }
       };
+      const checkInterval = setInterval(checkReady, 50);
+      script.onload = checkReady;
       script.onerror = () => {
+        cleanup();
         clearTimeout(timeout);
+        clearInterval(checkInterval);
         reject(new Error("ort_load_failed"));
       };
+      checkReady();
       document.head.appendChild(script);
     });
   }
