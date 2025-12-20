@@ -19,21 +19,22 @@
     overlay: "rgba(43, 42, 40, 0.45)"
   };
 
-  // RU: Нормализуем хостнейм (без www, точек на конце, в нижний регистр).
-  // EN: Normalize hostname (strip www/trailing dot, lowercase).
-  const normalizeHost = (hostname = "") =>
-    hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
+  // RU: Нормализуем хостнейм (URL/пути → домен, без www/точек, в нижний регистр).
+  // EN: Normalize hostname (URL/paths → domain, strip www/trailing dot, lowercase).
+  const normalizeHost = (hostname = "") => {
+    const trimmed = hostname.trim();
+    if (!trimmed) return "";
+    try {
+      const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+      return url.hostname.replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
+    } catch (error) {
+      return trimmed.replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
+    }
+  };
 
   // RU: Безопасно получаем hostname из URL или строки.
   // EN: Safely extract hostname from URL or plain string.
-  const resolveHostname = (input = "") => {
-    try {
-      const url = new URL(input);
-      return url.hostname;
-    } catch (error) {
-      return normalizeHost(input);
-    }
-  };
+  const resolveHostname = (input = "") => normalizeHost(input);
 
   // RU: Читаем чёрный список из local storage.
   // EN: Load blacklist from local storage.

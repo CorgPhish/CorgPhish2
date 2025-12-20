@@ -2,10 +2,18 @@
 // Utilities: domain normalization, time formatting, similarity checks.
 import { DEFAULT_SETTINGS } from "./config.js";
 
-// RU: Нормализация доменного имени.
-// EN: Normalize hostname.
-export const normalizeHost = (hostname = "") =>
-  hostname.trim().replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
+// RU: Нормализация доменного имени (поддерживает URL/пути).
+// EN: Normalize hostname (supports URL/paths).
+export const normalizeHost = (hostname = "") => {
+  const trimmed = hostname.trim();
+  if (!trimmed) return "";
+  try {
+    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    return url.hostname.replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
+  } catch (error) {
+    return trimmed.replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
+  }
+};
 
 // RU: Расстояние Левенштейна для похожести доменов.
 // EN: Levenshtein distance for domain similarity.
@@ -46,16 +54,7 @@ export const findSpoofCandidate = (target, trustedList) => {
   return distance <= 2 ? closest : null;
 };
 
-export const resolveHostname = (input = "") => {
-  const trimmed = input.trim();
-  if (!trimmed) return "";
-  try {
-    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
-    return url.hostname;
-  } catch (error) {
-    return normalizeHost(trimmed);
-  }
-};
+export const resolveHostname = (input = "") => normalizeHost(input);
 
 export const getLocale = (language) => (language === "en" ? "en-US" : "ru-RU");
 
