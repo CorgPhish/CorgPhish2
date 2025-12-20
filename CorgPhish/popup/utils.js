@@ -40,18 +40,58 @@ export const levenshteinDistance = (a = "", b = "") => {
   return matrix[rows - 1][cols - 1];
 };
 
+const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
+
+const getRegistrableLabel = (domain) => {
+  const labels = normalizeHost(domain).split(".").filter(Boolean);
+  if (labels.length < 2) return "";
+  const tail = labels.slice(-2).join(".");
+  const index = PUBLIC_SUFFIXES.has(tail) && labels.length >= 3 ? labels.length - 3 : labels.length - 2;
+  return labels[index] || "";
+};
+
+const splitTokens = (label = "") => label.split(/[^a-z0-9]+/i).filter(Boolean);
+
+const isBrandTokenSpoof = (targetLabel, brandToken) => {
+  if (!targetLabel || !brandToken) return false;
+  if (brandToken.length < 3) return false;
+  if (targetLabel === brandToken) return false;
+  const tokens = splitTokens(targetLabel);
+  if (tokens.length > 1 && tokens.includes(brandToken)) return true;
+  if (targetLabel.includes(brandToken)) {
+    const rest = targetLabel.replace(brandToken, "");
+    if (/\d/.test(rest)) return true;
+    if (targetLabel.includes("-") || targetLabel.includes("_")) return true;
+  }
+  return false;
+};
+
 export const findSpoofCandidate = (target, trustedList) => {
+  const cleanTarget = normalizeHost(target);
+  if (!cleanTarget) return null;
+  const targetLabel = getRegistrableLabel(cleanTarget);
   let closest = null;
   let distance = Infinity;
+  let brandMatch = null;
   trustedList.forEach((domain) => {
-    if (Math.abs(target.length - domain.length) > 2) return;
-    const currentDistance = levenshteinDistance(target, domain);
-    if (currentDistance < distance) {
-      distance = currentDistance;
-      closest = domain;
+    const cleanDomain = normalizeHost(domain);
+    if (!cleanDomain) return;
+    if (Math.abs(cleanTarget.length - cleanDomain.length) <= 2) {
+      const currentDistance = levenshteinDistance(cleanTarget, cleanDomain);
+      if (currentDistance < distance) {
+        distance = currentDistance;
+        closest = cleanDomain;
+      }
+    }
+    if (!brandMatch) {
+      const brandToken = getRegistrableLabel(cleanDomain);
+      if (isBrandTokenSpoof(targetLabel, brandToken)) {
+        brandMatch = cleanDomain;
+      }
     }
   });
-  return distance <= 2 ? closest : null;
+  if (distance <= 2 && closest) return closest;
+  return brandMatch;
 };
 
 export const resolveHostname = (input = "") => normalizeHost(input);

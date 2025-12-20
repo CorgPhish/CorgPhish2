@@ -63,14 +63,15 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
   const mlStatus = mlResult?.status || "error";
   const mlVerdict = mlResult?.verdict ?? null;
 
+  const hasSpoof = Boolean(spoofTarget);
   let verdict = "suspicious";
-  let sourceKey = spoofTarget ? "status.sourceValue.levenshtein" : "status.sourceValue.ml";
+  let sourceKey = hasSpoof ? "status.sourceValue.levenshtein" : "status.sourceValue.ml";
 
   if (mlStatus === "ok" || mlStatus === "fallback") {
     if (mlVerdict === "phishing") {
       verdict = "phishing";
       sourceKey = "status.sourceValue.ml";
-    } else if (mlVerdict === "trusted") {
+    } else if (mlVerdict === "trusted" && !hasSpoof) {
       verdict = "trusted";
       sourceKey = "status.sourceValue.ml";
     }
