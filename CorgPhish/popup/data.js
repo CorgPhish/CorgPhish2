@@ -6,8 +6,11 @@ import {
   DEFAULT_SETTINGS,
   HISTORY_LIMIT
 } from "./config.js";
+import { normalizeHost } from "./utils.js";
 
 let trustedCache = null;
+const normalizeDomainList = (domains = []) =>
+  domains.map((domain) => normalizeHost(domain)).filter(Boolean);
 
 // RU: Загружаем trusted через service worker.
 // EN: Load trusted domains via service worker.
@@ -78,7 +81,8 @@ export const saveSettings = (settings) =>
 export const loadWhitelist = () =>
   new Promise((resolve) => {
     chrome.storage.local.get({ [CUSTOM_WHITELIST_KEY]: [] }, (result) => {
-      resolve(Array.isArray(result[CUSTOM_WHITELIST_KEY]) ? result[CUSTOM_WHITELIST_KEY] : []);
+      const list = Array.isArray(result[CUSTOM_WHITELIST_KEY]) ? result[CUSTOM_WHITELIST_KEY] : [];
+      resolve(normalizeDomainList(list));
     });
   });
 
@@ -86,7 +90,7 @@ export const loadWhitelist = () =>
 // EN: Save whitelist.
 export const saveWhitelist = (domains) =>
   new Promise((resolve) => {
-    chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
+    chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: normalizeDomainList(domains) }, resolve);
   });
 
 // RU: Загружаем blacklist.
@@ -94,7 +98,8 @@ export const saveWhitelist = (domains) =>
 export const loadBlacklist = () =>
   new Promise((resolve) => {
     chrome.storage.local.get({ [CUSTOM_BLACKLIST_KEY]: [] }, (result) => {
-      resolve(Array.isArray(result[CUSTOM_BLACKLIST_KEY]) ? result[CUSTOM_BLACKLIST_KEY] : []);
+      const list = Array.isArray(result[CUSTOM_BLACKLIST_KEY]) ? result[CUSTOM_BLACKLIST_KEY] : [];
+      resolve(normalizeDomainList(list));
     });
   });
 
@@ -102,7 +107,7 @@ export const loadBlacklist = () =>
 // EN: Save blacklist.
 export const saveBlacklist = (domains) =>
   new Promise((resolve) => {
-    chrome.storage.local.set({ [CUSTOM_BLACKLIST_KEY]: domains }, resolve);
+    chrome.storage.local.set({ [CUSTOM_BLACKLIST_KEY]: normalizeDomainList(domains) }, resolve);
   });
 
 // RU: Ограничиваем историю по давности.
