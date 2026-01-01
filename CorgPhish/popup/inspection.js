@@ -7,7 +7,7 @@ import { predictUrl } from "./model.js";
 const CACHE_TTL_MS = 5000;
 let lastInspection = null;
 
-export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = "") => {
+export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = "", signals = {}) => {
   const trustedList = await getTrustedDomains(customWhitelist);
   const blacklist = await loadBlacklist();
   const cleanDomain = normalizeHost(hostname);
@@ -15,7 +15,14 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
     throw new Error("errors.invalidDomain");
   }
 
-  const cacheKey = `${fullUrl || cleanDomain}::${customWhitelist.join("|")}::${blacklist.join("|")}`;
+  const brandDomain = normalizeHost(signals?.brand?.domain || "");
+  const formRisk = signals?.form || null;
+  const signalKey = JSON.stringify({
+    brand: brandDomain,
+    form: normalizeHost(formRisk?.actionHost || ""),
+    formReason: formRisk?.reason || ""
+  });
+  const cacheKey = `${fullUrl || cleanDomain}::${customWhitelist.join("|")}::${blacklist.join("|")}::${signalKey}`;
   if (lastInspection && lastInspection.key === cacheKey && Date.now() - lastInspection.ts < CACHE_TTL_MS) {
     return { ...lastInspection.result, cached: true };
   }
@@ -42,6 +49,24 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
   const isTrusted = trustedList.some(
     (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
   );
+  if (isTrusted && formRisk?.actionHost) {
+    const result = {
+      domain: cleanDomain,
+      verdict: "suspicious",
+      spoofTarget: null,
+      isTrusted: false,
+      mlVerdict: null,
+      mlStatus: "skipped",
+      suspicionKey: "status.suspicious.form",
+      suspicionParams: { host: formRisk.actionHost },
+      formRisk,
+      checkedAt: Date.now(),
+      detectionSource: "status.sourceValue.form",
+      cached: false
+    };
+    lastInspection = { key: cacheKey, ts: Date.now(), result };
+    return result;
+  }
   if (isTrusted) {
     const result = {
       domain: cleanDomain,
@@ -58,20 +83,37 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
     return result;
   }
 
-  const spoofTarget = findSpoofCandidate(cleanDomain, trustedList);
+  const spoofTarget = brandDomain || findSpoofCandidate(cleanDomain, trustedList);
   const mlResult = fullUrl ? await predictUrl(fullUrl) : { verdict: null, status: "error" };
   const mlStatus = mlResult?.status || "error";
   const mlVerdict = mlResult?.verdict ?? null;
 
   const hasSpoof = Boolean(spoofTarget);
+  const hasSignals = Boolean(brandDomain || formRisk);
+  let suspicionKey = null;
+  let suspicionParams = null;
+  if (brandDomain) {
+    suspicionKey = "status.suspicious.brand";
+    suspicionParams = { brand: brandDomain };
+  } else if (formRisk?.actionHost) {
+    suspicionKey = "status.suspicious.form";
+    suspicionParams = { host: formRisk.actionHost };
+  }
   let verdict = "suspicious";
-  let sourceKey = hasSpoof ? "status.sourceValue.levenshtein" : "status.sourceValue.ml";
+  let sourceKey = "status.sourceValue.ml";
+  if (brandDomain) {
+    sourceKey = "status.sourceValue.brand";
+  } else if (formRisk?.actionHost) {
+    sourceKey = "status.sourceValue.form";
+  } else if (hasSpoof) {
+    sourceKey = "status.sourceValue.levenshtein";
+  }
 
   if (mlStatus === "ok" || mlStatus === "fallback") {
     if (mlVerdict === "phishing") {
       verdict = "phishing";
       sourceKey = "status.sourceValue.ml";
-    } else if (mlVerdict === "trusted" && !hasSpoof) {
+    } else if (mlVerdict === "trusted" && !hasSpoof && !hasSignals) {
       verdict = "trusted";
       sourceKey = "status.sourceValue.ml";
     }
@@ -85,6 +127,9 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
     mlVerdict,
     mlStatus,
     mlError: mlResult?.error,
+    suspicionKey,
+    suspicionParams,
+    formRisk,
     checkedAt: Date.now(),
     detectionSource: sourceKey,
     cached: false

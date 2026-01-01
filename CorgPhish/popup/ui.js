@@ -133,7 +133,10 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
 
   const recKeys = config.recommendationsKeys || [];
   const recItems = recKeys.map((key) => translate(key, context)).filter(Boolean);
-  if (stateKey === "suspicious" && context.spoofTarget) {
+  if (context.suspicionKey) {
+    const hintParams = { ...context, ...(context.suspicionParams || {}) };
+    recItems.unshift(translate(context.suspicionKey, hintParams));
+  } else if (stateKey === "suspicious" && context.spoofTarget) {
     recItems.unshift(translate("status.suspicious.hint", context));
   }
   const finalRec = recItems.length ? recItems : [translate("recommendations.empty")];

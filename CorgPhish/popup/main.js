@@ -73,6 +73,22 @@ const queryActiveTab = () =>
     });
   });
 
+const fetchPageSignals = (tabId) =>
+  new Promise((resolve) => {
+    if (!tabId) {
+      resolve(null);
+      return;
+    }
+    chrome.tabs.sendMessage(tabId, { type: "getPageSignals" }, (response) => {
+      if (chrome.runtime.lastError) {
+        resolve(null);
+        return;
+      }
+      resolve(response?.ok ? response.signals : null);
+    });
+    setTimeout(() => resolve(null), 600);
+  });
+
 // RU: Переключение представления попапа.
 // EN: Switch popup view.
 const switchView = (view) => {
@@ -206,7 +222,9 @@ const applyInspectionResult = async (result, options = {}) => {
     spoofTarget: result.spoofTarget,
     language: currentSettings.language,
     mlVerdict: result.mlVerdict,
-    sourceKey: result.detectionSource
+    sourceKey: result.detectionSource,
+    suspicionKey: result.suspicionKey,
+    suspicionParams: result.suspicionParams
   });
   if (!fromCache) {
     await recordHistory(
@@ -257,7 +275,8 @@ const checkActiveTab = async () => {
       return;
     }
     const url = new URL(activeTab.url);
-    const result = await inspectDomain(url.hostname, customWhitelist, activeTab.url);
+    const signals = await fetchPageSignals(activeTab.id);
+    const result = await inspectDomain(url.hostname, customWhitelist, activeTab.url, signals || {});
     await applyInspectionResult(result, { shouldAlert: true, source: "active", tabId: activeTab.id });
   } catch (error) {
     console.error("Ошибка во время проверки", error);

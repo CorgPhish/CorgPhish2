@@ -18,6 +18,9 @@
     bad: "#D65A5A",
     overlay: "rgba(43, 42, 40, 0.45)"
   };
+  const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
+  const TRUSTED_CACHE_TTL = 60 * 1000;
+  let trustedCache = { list: null, ts: 0 };
 
   // RU: Нормализуем хостнейм (URL/пути → домен, без www/точек, в нижний регистр).
   // EN: Normalize hostname (URL/paths → domain, strip www/trailing dot, lowercase).
@@ -35,6 +38,72 @@
   // RU: Безопасно получаем hostname из URL или строки.
   // EN: Safely extract hostname from URL or plain string.
   const resolveHostname = (input = "") => normalizeHost(input);
+  const isIpDomain = (domain = "") => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(domain);
+  const getRegistrableDomain = (domain = "") => {
+    const labels = normalizeHost(domain).split(".").filter(Boolean);
+    if (labels.length < 2) return normalizeHost(domain);
+    const tail = labels.slice(-2).join(".");
+    const index = PUBLIC_SUFFIXES.has(tail) && labels.length >= 3 ? labels.length - 3 : labels.length - 2;
+    const base = labels.slice(index).join(".");
+    return base;
+  };
+  const getRegistrableLabel = (domain = "") => {
+    const labels = normalizeHost(domain).split(".").filter(Boolean);
+    if (labels.length < 2) return "";
+    const tail = labels.slice(-2).join(".");
+    const index = PUBLIC_SUFFIXES.has(tail) && labels.length >= 3 ? labels.length - 3 : labels.length - 2;
+    return labels[index] || "";
+  };
+  const extractTokens = (text = "") => {
+    const matches = text.toLowerCase().match(/[a-z0-9][a-z0-9-]{2,}/g) || [];
+    const seen = new Set();
+    const tokens = [];
+    matches.forEach((token) => {
+      if (!seen.has(token)) {
+        seen.add(token);
+        tokens.push(token);
+      }
+    });
+    return tokens;
+  };
+  const getTextSamples = () => {
+    const samples = [];
+    if (document.title) samples.push(document.title);
+    const metaNames = [
+      'meta[property="og:site_name"]',
+      'meta[property="og:title"]',
+      'meta[name="application-name"]',
+      'meta[name="apple-mobile-web-app-title"]',
+      'meta[name="twitter:title"]'
+    ];
+    metaNames.forEach((selector) => {
+      const node = document.querySelector(selector);
+      if (node?.content) samples.push(node.content);
+    });
+    const headings = Array.from(document.querySelectorAll("h1, h2")).slice(0, 3);
+    headings.forEach((node) => {
+      if (node?.textContent) samples.push(node.textContent);
+    });
+    return samples;
+  };
+  const loadTrustedDomains = () =>
+    new Promise((resolve) => {
+      if (trustedCache.list && Date.now() - trustedCache.ts < TRUSTED_CACHE_TTL) {
+        resolve(trustedCache.list);
+        return;
+      }
+      chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve([]);
+          return;
+        }
+        const list = Array.isArray(response?.trusted) ? response.trusted : [];
+        const normalized = list.map((domain) => normalizeHost(domain)).filter(Boolean);
+        trustedCache = { list: normalized, ts: Date.now() };
+        resolve(normalized);
+      });
+      setTimeout(() => resolve([]), 800);
+    });
 
   // RU: Читаем чёрный список из local storage.
   // EN: Load blacklist from local storage.
@@ -110,6 +179,63 @@
         resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
       });
     });
+
+  const detectBrandMismatch = async (hostname) => {
+    const trustedList = await loadTrustedDomains();
+    if (!trustedList.length) return null;
+    const currentBase = getRegistrableDomain(hostname);
+    const currentLabel = getRegistrableLabel(hostname);
+    const tokenToDomain = new Map();
+    trustedList.forEach((domain) => {
+      const token = getRegistrableLabel(domain);
+      if (token && token.length >= 3 && !tokenToDomain.has(token)) {
+        tokenToDomain.set(token, getRegistrableDomain(domain));
+      }
+    });
+    const samples = getTextSamples();
+    const tokens = samples.flatMap((text) => extractTokens(text));
+    for (const token of tokens) {
+      const brandDomain = tokenToDomain.get(token);
+      if (!brandDomain) continue;
+      if (token === currentLabel) continue;
+      if (currentBase === brandDomain || hostname.endsWith(`.${brandDomain}`)) continue;
+      return { token, domain: brandDomain };
+    }
+    return null;
+  };
+
+  const detectFormRisk = (hostname) => {
+    const forms = Array.from(document.forms || []);
+    if (!forms.length) return null;
+    const currentBase = getRegistrableDomain(hostname);
+    for (const form of forms) {
+      const actionAttr = form.getAttribute("action");
+      let actionUrl = null;
+      try {
+        actionUrl = actionAttr ? new URL(actionAttr, window.location.href) : new URL(window.location.href);
+      } catch (error) {
+        continue;
+      }
+      const actionHost = normalizeHost(actionUrl.hostname || "");
+      if (!actionHost) continue;
+      const actionBase = getRegistrableDomain(actionHost);
+      const isExternal = Boolean(currentBase && actionBase && currentBase !== actionBase);
+      const isIp = isIpDomain(actionHost);
+      const isHttpDowngrade =
+        window.location.protocol === "https:" && actionUrl.protocol === "http:";
+      const hasSensitive = Array.from(form.elements || []).some((el) => {
+        const type = (el.getAttribute?.("type") || "").toLowerCase();
+        const name = `${el.name || ""} ${el.id || ""} ${el.autocomplete || ""}`.toLowerCase();
+        if (type === "password") return true;
+        return /(otp|code|sms|token|pin|pass)/.test(name);
+      });
+      if (isIp || isExternal || isHttpDowngrade) {
+        const reason = isIp ? "ip" : isHttpDowngrade ? "http" : "external";
+        return { actionHost, reason, hasSensitive };
+      }
+    }
+    return null;
+  };
 
   // RU: Создаём блокирующий оверлей с кнопками действий.
   // EN: Create blocking overlay with action buttons.
@@ -373,6 +499,14 @@
   // RU: Слушаем сообщения о фишинге от попапа и блокируем сразу.
   // EN: Listen for phishing messages from popup and block instantly.
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "getPageSignals") {
+      (async () => {
+        const brand = await detectBrandMismatch(hostname);
+        const form = detectFormRisk(hostname);
+        sendResponse?.({ ok: true, signals: { brand, form } });
+      })();
+      return true;
+    }
     if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
       isTemporarilyAllowed(hostname).then((allowed) => {
         if (!allowed) {
