@@ -7,7 +7,13 @@ import { predictUrl } from "./model.js";
 const CACHE_TTL_MS = 5000;
 let lastInspection = null;
 
-export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = "", signals = {}) => {
+export const inspectDomain = async (
+  hostname,
+  customWhitelist = [],
+  fullUrl = "",
+  signals = {},
+  options = {}
+) => {
   const trustedList = await getTrustedDomains(customWhitelist);
   const blacklist = await loadBlacklist();
   const cleanDomain = normalizeHost(hostname);
@@ -15,12 +21,14 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
     throw new Error("errors.invalidDomain");
   }
 
+  const strictMode = Boolean(options?.strictMode);
   const brandDomain = normalizeHost(signals?.brand?.domain || "");
   const formRisk = signals?.form || null;
   const signalKey = JSON.stringify({
     brand: brandDomain,
     form: normalizeHost(formRisk?.actionHost || ""),
-    formReason: formRisk?.reason || ""
+    formReason: formRisk?.reason || "",
+    strict: strictMode
   });
   const cacheKey = `${fullUrl || cleanDomain}::${customWhitelist.join("|")}::${blacklist.join("|")}::${signalKey}`;
   if (lastInspection && lastInspection.key === cacheKey && Date.now() - lastInspection.ts < CACHE_TTL_MS) {
@@ -38,6 +46,7 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
       isTrusted: false,
       mlVerdict: null,
       mlStatus: "skipped",
+      officialDomain: null,
       checkedAt: Date.now(),
       detectionSource: "status.sourceValue.blacklist",
       cached: false
@@ -60,6 +69,7 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
       suspicionKey: "status.suspicious.form",
       suspicionParams: { host: formRisk.actionHost },
       formRisk,
+      officialDomain: null,
       checkedAt: Date.now(),
       detectionSource: "status.sourceValue.form",
       cached: false
@@ -75,6 +85,7 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
       isTrusted: true,
       mlVerdict: null,
       mlStatus: "skipped",
+      officialDomain: null,
       checkedAt: Date.now(),
       detectionSource: "status.sourceValue.list",
       cached: false
@@ -84,6 +95,7 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
   }
 
   const spoofTarget = brandDomain || findSpoofCandidate(cleanDomain, trustedList);
+  const officialDomain = spoofTarget || null;
   const mlResult = fullUrl ? await predictUrl(fullUrl) : { verdict: null, status: "error" };
   const mlStatus = mlResult?.status || "error";
   const mlVerdict = mlResult?.verdict ?? null;
@@ -118,6 +130,14 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
       sourceKey = "status.sourceValue.ml";
     }
   }
+  if (strictMode && verdict === "trusted") {
+    verdict = "suspicious";
+    sourceKey = "status.sourceValue.strict";
+    if (!suspicionKey) {
+      suspicionKey = "status.suspicious.strict";
+      suspicionParams = {};
+    }
+  }
 
   const result = {
     domain: cleanDomain,
@@ -130,6 +150,7 @@ export const inspectDomain = async (hostname, customWhitelist = [], fullUrl = ""
     suspicionKey,
     suspicionParams,
     formRisk,
+    officialDomain,
     checkedAt: Date.now(),
     detectionSource: sourceKey,
     cached: false

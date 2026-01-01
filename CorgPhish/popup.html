@@ -34,6 +34,9 @@
                         </svg>
                         <span class="sr-only" data-i18n="actions.settings">Настройки</span>
                     </button>
+                    <button class="button button--ghost button--compact" id="checkAllBtn" type="button" data-i18n="actions.scanAll">
+                        Проверить всё
+                    </button>
                     <button class="button" id="refreshBtn" type="button" data-i18n="actions.refresh">
                         Перепроверить
                     </button>
@@ -71,6 +74,9 @@
                     <button class="button button--ghost is-hidden" id="blacklistBtn" type="button" data-i18n="actions.blacklist.add">
                         Добавить в чёрный список
                     </button>
+                    <button class="button button--ghost is-hidden" id="officialSiteBtn" type="button" data-i18n="actions.official.open">
+                        Открыть официальный сайт
+                    </button>
                 </div>
                 <div class="status-banner is-hidden" id="statusBanner"></div>
             </section>
@@ -88,6 +94,17 @@
 
             <section class="card history-card">
                 <h3 class="section__title" data-i18n="history.sectionTitle">Последние проверки</h3>
+                <div class="history-controls">
+                    <input type="text" id="historySearchInput" placeholder="Поиск домена" autocomplete="off" />
+                    <select id="historyFilterSelect">
+                        <option value="all" data-i18n="history.filter.all">Все</option>
+                        <option value="trusted" data-i18n="history.filter.trusted">Доверенные</option>
+                        <option value="alert" data-i18n="history.filter.alert">С риском</option>
+                        <option value="suspicious" data-i18n="history.filter.suspicious">Подозрительные</option>
+                        <option value="phishing" data-i18n="history.filter.phishing">Фишинг</option>
+                        <option value="blacklisted" data-i18n="history.filter.blacklisted">Чёрный список</option>
+                    </select>
+                </div>
                 <ul class="history-list" id="historyList"></ul>
                 <div class="empty-state" id="historyEmpty" data-i18n="history.empty">Пока нет данных. Проверьте сайт.</div>
             </section>
@@ -146,6 +163,16 @@
                         </div>
                         <div class="switch">
                             <input type="checkbox" id="alertInput" />
+                            <span class="slider"></span>
+                        </div>
+                    </label>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="settings.strict.title">Строгий режим</h4>
+                            <p data-i18n="settings.strict.desc">Любой сайт вне списка доверенных будет помечен как подозрительный.</p>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="strictModeToggle" />
                             <span class="slider"></span>
                         </div>
                     </label>

@@ -28,6 +28,14 @@ export const applyLanguage = (dom, translate, language) => {
   if (dom.sourceValue) {
     dom.sourceValue.textContent = translate("status.sourceValue");
   }
+  if (dom.historySearchInput) {
+    dom.historySearchInput.placeholder = translate("history.search.placeholder");
+  }
+  if (dom.officialSiteBtn && dom.officialSiteBtn.dataset.domain) {
+    dom.officialSiteBtn.textContent = translate("actions.official.open", {
+      domain: dom.officialSiteBtn.dataset.domain
+    });
+  }
 };
 
 export const updateRecommendations = (dom, items = []) => {
@@ -55,6 +63,17 @@ export const setBlacklistState = (dom, domain, canBlacklist) => {
   dom.blacklistBtn.disabled = hidden;
   dom.blacklistBtn.dataset.domain = hidden ? "" : domain;
   dom.blacklistBtn.classList.toggle("is-hidden", hidden);
+};
+
+export const setOfficialSiteState = (dom, domain, translate) => {
+  if (!dom.officialSiteBtn) return;
+  const hidden = !domain;
+  dom.officialSiteBtn.disabled = hidden;
+  dom.officialSiteBtn.dataset.domain = hidden ? "" : domain;
+  dom.officialSiteBtn.classList.toggle("is-hidden", hidden);
+  if (!hidden && translate) {
+    dom.officialSiteBtn.textContent = translate("actions.official.open", { domain });
+  }
 };
 
 export const setManualHint = (dom, text, isError = false) => {
@@ -130,6 +149,7 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   const canBlacklist = stateKey === "phishing" || stateKey === "suspicious";
   setQuickAddState(dom, context.domain, isTrustedState || stateKey === "blacklisted");
   setBlacklistState(dom, context.domain, canBlacklist);
+  setOfficialSiteState(dom, context.officialDomain, translate);
 
   const recKeys = config.recommendationsKeys || [];
   const recItems = recKeys.map((key) => translate(key, context)).filter(Boolean);
@@ -170,10 +190,11 @@ export const renderWhitelist = (dom, translate, domains = []) => {
   });
 };
 
-export const renderHistory = (dom, translate, items = [], locale) => {
+export const renderHistory = (dom, translate, items = [], locale, emptyText = "") => {
   if (!dom.historyList || !dom.historyEmpty) return;
   dom.historyList.innerHTML = "";
   if (!items.length) {
+    dom.historyEmpty.textContent = emptyText || translate("history.empty");
     dom.historyEmpty.hidden = false;
     return;
   }

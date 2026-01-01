@@ -30,6 +30,8 @@ let currentSettings = { ...DEFAULT_SETTINGS };
 let customWhitelist = [];
 let customBlacklist = [];
 let lastHistory = [];
+let historyQuery = "";
+let historyFilter = "all";
 
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
 
@@ -73,6 +75,17 @@ const queryActiveTab = () =>
     });
   });
 
+const queryAllTabs = () =>
+  new Promise((resolve, reject) => {
+    chrome.tabs.query({ windowType: "normal" }, (tabs) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message || "errors.activeTab"));
+        return;
+      }
+      resolve(tabs || []);
+    });
+  });
+
 const fetchPageSignals = (tabId) =>
   new Promise((resolve) => {
     if (!tabId) {
@@ -88,6 +101,42 @@ const fetchPageSignals = (tabId) =>
     });
     setTimeout(() => resolve(null), 600);
   });
+
+const getInspectOptions = () => ({ strictMode: currentSettings.strictMode });
+
+const filterHistoryItems = (items = []) => {
+  const query = historyQuery.trim().toLowerCase();
+  return items.filter((item) => {
+    const matchesQuery =
+      !query ||
+      [item.domain, item.spoofTarget]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(query));
+    if (!matchesQuery) return false;
+    switch (historyFilter) {
+      case "trusted":
+        return item.verdict === "trusted";
+      case "alert":
+        return item.verdict !== "trusted";
+      case "suspicious":
+        return item.verdict === "suspicious";
+      case "phishing":
+        return item.verdict === "phishing";
+      case "blacklisted":
+        return item.verdict === "blacklisted";
+      default:
+        return true;
+    }
+  });
+};
+
+const renderHistoryView = () => {
+  const t = getTranslator();
+  const filtered = filterHistoryItems(lastHistory);
+  const hasFilter = historyFilter !== "all" || Boolean(historyQuery.trim());
+  const emptyText = hasFilter ? t("history.emptyFiltered") : t("history.empty");
+  renderHistory(dom, t, filtered, getLocale(currentSettings.language), emptyText);
+};
 
 // RU: Переключение представления попапа.
 // EN: Switch popup view.
@@ -188,10 +237,9 @@ const removeDomainFromBlacklist = async (domain) => {
 // RU: Обновляем историю и статистику.
 // EN: Refresh history and stats.
 const refreshHistory = async () => {
-  const t = getTranslator();
   const items = await loadHistory(currentSettings.historyRetentionDays);
   lastHistory = items;
-  renderHistory(dom, t, items.slice(0), getLocale(currentSettings.language));
+  renderHistoryView();
   updateStats(dom, items, customWhitelist);
 };
 
@@ -224,7 +272,8 @@ const applyInspectionResult = async (result, options = {}) => {
     mlVerdict: result.mlVerdict,
     sourceKey: result.detectionSource,
     suspicionKey: result.suspicionKey,
-    suspicionParams: result.suspicionParams
+    suspicionParams: result.suspicionParams,
+    officialDomain: result.officialDomain
   });
   if (!fromCache) {
     await recordHistory(
@@ -276,7 +325,13 @@ const checkActiveTab = async () => {
     }
     const url = new URL(activeTab.url);
     const signals = await fetchPageSignals(activeTab.id);
-    const result = await inspectDomain(url.hostname, customWhitelist, activeTab.url, signals || {});
+    const result = await inspectDomain(
+      url.hostname,
+      customWhitelist,
+      activeTab.url,
+      signals || {},
+      getInspectOptions()
+    );
     await applyInspectionResult(result, { shouldAlert: true, source: "active", tabId: activeTab.id });
   } catch (error) {
     console.error("Ошибка во время проверки", error);
@@ -304,7 +359,7 @@ const handleManualSubmit = async (event) => {
   }
   setStatusMessage("");
   try {
-    const result = await inspectDomain(hostname, customWhitelist, rawInput);
+    const result = await inspectDomain(hostname, customWhitelist, rawInput, {}, getInspectOptions());
     await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
     setManualHint(dom, t("manual.hint.success", { domain: result.domain }));
   } catch (error) {
@@ -330,6 +385,7 @@ const handleSettingsChange = async () => {
   const nextSettings = {
     autoCheckOnOpen: dom.autoCheckInput?.checked ?? DEFAULT_SETTINGS.autoCheckOnOpen,
     warnOnUntrusted: dom.alertInput?.checked ?? DEFAULT_SETTINGS.warnOnUntrusted,
+    strictMode: dom.strictModeToggle?.checked ?? DEFAULT_SETTINGS.strictMode,
     theme: dom.themeToggle?.checked ? "light" : "dark",
     language: dom.languageSelect?.value ?? DEFAULT_SETTINGS.language,
     blockOnUntrusted: dom.blockInputToggle?.checked ?? DEFAULT_SETTINGS.blockOnUntrusted,
@@ -352,6 +408,9 @@ const updateSettingsControls = () => {
   }
   if (dom.alertInput) {
     dom.alertInput.checked = currentSettings.warnOnUntrusted;
+  }
+  if (dom.strictModeToggle) {
+    dom.strictModeToggle.checked = currentSettings.strictMode;
   }
   if (dom.themeToggle) {
     dom.themeToggle.checked = currentSettings.theme === "light";
@@ -377,7 +436,7 @@ const handleQuickAddClick = async () => {
   const domain = dom.quickAddBtn?.dataset.domain;
   if (!domain) return;
   await addDomainToWhitelist(domain);
-  const result = await inspectDomain(domain, customWhitelist, domain);
+  const result = await inspectDomain(domain, customWhitelist, domain, {}, getInspectOptions());
   await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
 };
 
@@ -386,7 +445,7 @@ function handleBlacklistClick() {
     const domain = dom.blacklistBtn?.dataset.domain;
   if (!domain) return;
   await addDomainToBlacklist(domain);
-  const result = await inspectDomain(domain, customWhitelist, domain);
+  const result = await inspectDomain(domain, customWhitelist, domain, {}, getInspectOptions());
   await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
   try {
     const [tab] = await queryActiveTab();
@@ -399,10 +458,91 @@ function handleBlacklistClick() {
 })();
 }
 
+const handleOfficialSiteClick = () => {
+  const domain = dom.officialSiteBtn?.dataset.domain;
+  if (!domain) return;
+  const url = domain.includes("://") ? domain : `https://${domain}`;
+  chrome.tabs.create({ url });
+};
+
+const handleHistorySearch = (event) => {
+  historyQuery = event.target?.value || "";
+  renderHistoryView();
+};
+
+const handleHistoryFilter = (event) => {
+  historyFilter = event.target?.value || "all";
+  renderHistoryView();
+};
+
+const checkAllTabs = async () => {
+  if (!dom.checkAllBtn) return;
+  const t = getTranslator();
+  dom.checkAllBtn.disabled = true;
+  try {
+    const tabs = await queryAllTabs();
+    const candidates = tabs.filter((tab) => tab?.url && /^https?:\/\//i.test(tab.url));
+    if (!candidates.length) {
+      setStatusMessage(t("status.bulk.empty"), "info");
+      return;
+    }
+    let riskCount = 0;
+    for (const tab of candidates) {
+      try {
+        const url = new URL(tab.url);
+        const signals = await fetchPageSignals(tab.id);
+        const result = await inspectDomain(
+          url.hostname,
+          customWhitelist,
+          tab.url,
+          signals || {},
+          getInspectOptions()
+        );
+        await recordHistory(
+          {
+            domain: result.domain,
+            verdict: result.verdict,
+            checkedAt: result.checkedAt ?? Date.now(),
+            spoofTarget: result.spoofTarget,
+            source: "active",
+            detectionSource: result.detectionSource,
+            mlVerdict: result.mlVerdict,
+            mlStatus: result.mlStatus
+          },
+          currentSettings.historyRetentionDays
+        );
+        if (result.verdict === "phishing" || result.verdict === "blacklisted") {
+          riskCount += 1;
+          sendPhishingBlock(tab.id, result.domain, result.verdict);
+        }
+      } catch (error) {
+        console.warn("CorgPhish: bulk scan failed for tab", error);
+      }
+    }
+    refreshHistory();
+    const tone = riskCount ? "warn" : "info";
+    setStatusMessage(
+      t("status.bulk.result", { total: candidates.length, risk: riskCount }),
+      tone
+    );
+  } catch (error) {
+    console.warn("CorgPhish: bulk scan failed", error);
+    setStatusMessage(t("status.error.title"), "error");
+  } finally {
+    dom.checkAllBtn.disabled = false;
+  }
+};
+
 const init = async () => {
   currentSettings = await loadSettings();
   applyTheme(currentSettings.theme, currentSettings.compactMode);
   applyLanguage(dom, getTranslator(), currentSettings.language);
+  if (dom.historyFilterSelect) {
+    dom.historyFilterSelect.value = historyFilter;
+  }
+  if (dom.historySearchInput) {
+    dom.historySearchInput.value = historyQuery;
+  }
   await refreshWhitelist();
   await refreshBlacklist();
   updateSettingsControls();
@@ -413,6 +553,7 @@ const init = async () => {
 };
 
 safeAddEvent(dom.refreshBtn, "click", checkActiveTab);
+safeAddEvent(dom.checkAllBtn, "click", checkAllTabs);
 safeAddEvent(dom.openHistoryBtn, "click", () => switchView("history"));
 safeAddEvent(dom.closeHistoryBtn, "click", () => switchView("main"));
 safeAddEvent(dom.openSettingsBtn, "click", () => switchView("settings"));
@@ -424,6 +565,7 @@ safeAddEvent(dom.clearHistoryBtn, "click", async () => {
 
 safeAddEvent(dom.autoCheckInput, "change", handleSettingsChange);
 safeAddEvent(dom.alertInput, "change", handleSettingsChange);
+safeAddEvent(dom.strictModeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.themeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.languageSelect, "change", handleSettingsChange);
 safeAddEvent(dom.blockInputToggle, "change", handleSettingsChange);
@@ -436,6 +578,9 @@ safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
 safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
 safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
 safeAddEvent(dom.blacklistBtn, "click", handleBlacklistClick);
+safeAddEvent(dom.officialSiteBtn, "click", handleOfficialSiteClick);
+safeAddEvent(dom.historySearchInput, "input", handleHistorySearch);
+safeAddEvent(dom.historyFilterSelect, "change", handleHistoryFilter);
 safeAddEvent(dom.blacklistForm, "submit", async (event) => {
   event.preventDefault();
   if (!dom.blacklistInput) return;
