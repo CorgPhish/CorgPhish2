@@ -5,6 +5,8 @@ export const dom = {
   viewMain: document.getElementById("viewMain"),
   viewHistory: document.getElementById("viewHistory"),
   viewSettings: document.getElementById("viewSettings"),
+  settingsTabButtons: Array.from(document.querySelectorAll("[data-settings-tab]")),
+  settingsPanels: Array.from(document.querySelectorAll("[data-settings-panel]")),
   statusBadge: document.getElementById("statusBadge"),
   statusTitle: document.getElementById("statusTitle"),
   statusHint: document.getElementById("statusHint"),

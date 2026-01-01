@@ -32,6 +32,7 @@ let customBlacklist = [];
 let lastHistory = [];
 let historyQuery = "";
 let historyFilter = "all";
+let settingsTab = "options";
 
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
 
@@ -144,6 +145,7 @@ const switchView = (view) => {
   if (view === "settings") {
     dom.app.dataset.view = "settings";
     updateSettingsControls();
+    setSettingsTab(settingsTab);
     return;
   }
   if (view === "history") {
@@ -152,6 +154,22 @@ const switchView = (view) => {
     return;
   }
   dom.app.dataset.view = "main";
+};
+
+const setSettingsTab = (tabKey) => {
+  settingsTab = tabKey || "options";
+  if (dom.settingsTabButtons?.length) {
+    dom.settingsTabButtons.forEach((btn) => {
+      const isActive = btn.dataset.settingsTab === settingsTab;
+      btn.classList.toggle("is-active", isActive);
+    });
+  }
+  if (dom.settingsPanels?.length) {
+    dom.settingsPanels.forEach((panel) => {
+      const isActive = panel.dataset.settingsPanel === settingsTab;
+      panel.classList.toggle("is-active", isActive);
+    });
+  }
 };
 
 // RU: Обновляем whitelist в UI/сторидже.
@@ -592,5 +610,10 @@ safeAddEvent(dom.blacklistList, "click", async (event) => {
   if (!target?.dataset.domain) return;
   await removeDomainFromBlacklist(target.dataset.domain);
 });
+if (dom.settingsTabButtons?.length) {
+  dom.settingsTabButtons.forEach((btn) => {
+    safeAddEvent(btn, "click", () => setSettingsTab(btn.dataset.settingsTab));
+  });
+}
 
 init();
