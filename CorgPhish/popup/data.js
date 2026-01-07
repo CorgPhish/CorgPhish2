@@ -4,10 +4,26 @@ import {
   CUSTOM_BLACKLIST_KEY,
   CUSTOM_WHITELIST_KEY,
   DEFAULT_SETTINGS,
+  DEFAULT_ENTERPRISE_POLICY,
+  ENTERPRISE_POLICY_KEY,
   HISTORY_LIMIT
 } from "./config.js";
+import { normalizeHost } from "./utils.js";
 
 let trustedCache = null;
+const normalizeDomainList = (domains = []) =>
+  domains.map((domain) => normalizeHost(domain)).filter(Boolean);
+
+const normalizeEnterprisePolicy = (policy = {}) => {
+  const mode = ["off", "warn", "block"].includes(policy?.mode)
+    ? policy.mode
+    : DEFAULT_ENTERPRISE_POLICY.mode;
+  return {
+    mode,
+    allowlist: normalizeDomainList(policy?.allowlist || []),
+    denylist: normalizeDomainList(policy?.denylist || [])
+  };
+};
 
 // RU: Загружаем trusted через service worker.
 // EN: Load trusted domains via service worker.
@@ -78,7 +94,8 @@ export const saveSettings = (settings) =>
 export const loadWhitelist = () =>
   new Promise((resolve) => {
     chrome.storage.local.get({ [CUSTOM_WHITELIST_KEY]: [] }, (result) => {
-      resolve(Array.isArray(result[CUSTOM_WHITELIST_KEY]) ? result[CUSTOM_WHITELIST_KEY] : []);
+      const list = Array.isArray(result[CUSTOM_WHITELIST_KEY]) ? result[CUSTOM_WHITELIST_KEY] : [];
+      resolve(normalizeDomainList(list));
     });
   });
 
@@ -86,7 +103,7 @@ export const loadWhitelist = () =>
 // EN: Save whitelist.
 export const saveWhitelist = (domains) =>
   new Promise((resolve) => {
-    chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: domains }, resolve);
+    chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: normalizeDomainList(domains) }, resolve);
   });
 
 // RU: Загружаем blacklist.
@@ -94,7 +111,8 @@ export const saveWhitelist = (domains) =>
 export const loadBlacklist = () =>
   new Promise((resolve) => {
     chrome.storage.local.get({ [CUSTOM_BLACKLIST_KEY]: [] }, (result) => {
-      resolve(Array.isArray(result[CUSTOM_BLACKLIST_KEY]) ? result[CUSTOM_BLACKLIST_KEY] : []);
+      const list = Array.isArray(result[CUSTOM_BLACKLIST_KEY]) ? result[CUSTOM_BLACKLIST_KEY] : [];
+      resolve(normalizeDomainList(list));
     });
   });
 
@@ -102,7 +120,35 @@ export const loadBlacklist = () =>
 // EN: Save blacklist.
 export const saveBlacklist = (domains) =>
   new Promise((resolve) => {
-    chrome.storage.local.set({ [CUSTOM_BLACKLIST_KEY]: domains }, resolve);
+    chrome.storage.local.set({ [CUSTOM_BLACKLIST_KEY]: normalizeDomainList(domains) }, resolve);
+  });
+
+const loadEnterprisePolicyFromBackground = () =>
+  new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "getEnterprisePolicy" }, (response) => {
+      if (chrome.runtime.lastError) {
+        resolve(null);
+        return;
+      }
+      if (response?.ok && response.policy) {
+        resolve({ policy: normalizeEnterprisePolicy(response.policy), managed: Boolean(response.managed) });
+        return;
+      }
+      resolve(null);
+    });
+    setTimeout(() => resolve(null), 1000);
+  });
+
+export const loadEnterprisePolicy = async () => {
+  const viaBackground = await loadEnterprisePolicyFromBackground();
+  if (viaBackground) return viaBackground;
+  return { policy: normalizeEnterprisePolicy(DEFAULT_ENTERPRISE_POLICY), managed: false };
+};
+
+export const saveEnterprisePolicy = (policy) =>
+  new Promise((resolve) => {
+    const normalized = normalizeEnterprisePolicy(policy);
+    chrome.storage.local.set({ [ENTERPRISE_POLICY_KEY]: normalized }, () => resolve(normalized));
   });
 
 // RU: Ограничиваем историю по давности.

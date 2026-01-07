@@ -1,8 +1,10 @@
 // RU: Локальный инференс ONNX-модели (onnxruntime-web, wasm) с бинарным вердиктом.
 // EN: Local ONNX inference (onnxruntime-web, wasm) with binary verdict only.
+import { MODEL_THRESHOLD } from "./config.js";
+
 const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
 const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
-const DEFAULT_THRESHOLD = 0.5;
+const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
 
 const FEATURE_COLUMNS = [
   "length_url",
@@ -33,21 +35,80 @@ const FEATURE_COLUMNS = [
 let ortScriptPromise = null;
 let sessionPromise = null;
 
-// RU: Ленивая загрузка onnxruntime скрипта.
-// EN: Lazy-load onnxruntime script.
+// RU: Ленивая загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
+// EN: Lazy-load onnxruntime via classic `<script>` so `ort` lands on global scope.
 const loadOrt = () => {
   if (globalThis.ort) {
     return Promise.resolve(globalThis.ort);
   }
   if (!ortScriptPromise) {
-    ortScriptPromise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = chrome.runtime.getURL("vendor/ort/ort.min.js");
-      script.async = true;
-      script.onload = () => resolve(globalThis.ort);
-      script.onerror = () => reject(new Error("ort_load_failed"));
-      document.head.appendChild(script);
-    });
+    const waitForOrt = (timeoutMs = 8000) =>
+      new Promise((resolve, reject) => {
+        const started = Date.now();
+        const tick = () => {
+          if (globalThis.ort) {
+            resolve(globalThis.ort);
+            return;
+          }
+          if (Date.now() - started > timeoutMs) {
+            reject(new Error("ort_load_failed"));
+            return;
+          }
+          setTimeout(tick, 50);
+        };
+        tick();
+      });
+
+    ortScriptPromise = (async () => {
+      // 1) Пробуем динамический import модуля (без eval).
+      try {
+        const mod = await import(chrome.runtime.getURL("vendor/ort/ort.module.js"));
+        if (mod?.default || globalThis.ort) {
+          return mod.default || globalThis.ort;
+        }
+      } catch (error) {
+        // ignore, попробуем резервный путь
+      }
+
+      const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
+
+      // 2) Пытаемся просто подключить как <script src="chrome-extension://..."> (CSP страницы часто разрешает расширение).
+      try {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = url;
+          script.async = true;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error("ort_load_failed"));
+          document.head.appendChild(script);
+        });
+        return waitForOrt();
+      } catch (error) {
+        // ignore, попробуем blob если разрешено
+      }
+
+      // 3) Фоллбек: blob + <script> (может быть заблокирован CSP, но лучше попытаться как последний вариант).
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("ort_load_failed");
+      const code = await response.text();
+      const blob = new Blob([code], { type: "text/javascript" });
+      const blobUrl = URL.createObjectURL(blob);
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = blobUrl;
+        script.async = true;
+        script.onload = () => {
+          URL.revokeObjectURL(blobUrl);
+          resolve();
+        };
+        script.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          reject(new Error("ort_load_failed"));
+        };
+        document.head.appendChild(script);
+      });
+      return waitForOrt();
+    })();
   }
   return ortScriptPromise;
 };
@@ -60,6 +121,9 @@ const ensureSession = async () => {
   }
   sessionPromise = (async () => {
     const ort = await loadOrt();
+    if (!ort?.env?.wasm) {
+      throw new Error("ort_env_unavailable");
+    }
     ort.env.wasm.wasmPaths = ORT_BASE;
     ort.env.wasm.numThreads = 1;
     return ort.InferenceSession.create(MODEL_PATH, {
@@ -148,18 +212,52 @@ const heuristicVerdict = (features) => {
     features.qty_dollar_url +
     features.qty_exclamation_url +
     features.qty_space_url;
-  const lenScore = Math.min(features.length_url / 120, 2);
-  const hyphenScore = features.qty_hyphen_domain * 0.4;
-  const dotScore = features.qty_dot_domain * 0.25;
-  const ipScore = features.domain_in_ip ? 2.5 : 0;
-  const raw = riskyChars * 0.35 + lenScore + hyphenScore + dotScore + ipScore;
+  const lenScore = Math.min(features.length_url / 160, 2);
+  const hyphenScore = features.qty_hyphen_domain * 0.2;
+  const dotScore = features.qty_dot_domain * 0.12;
+  const ipScore = features.domain_in_ip ? 3 : 0;
+  const brandPenalty = features.qty_dot_domain >= 2 ? 0.3 : 0; // субдоменов много — чуть выше риск
+  const raw = riskyChars * 0.25 + lenScore + hyphenScore + dotScore + ipScore + brandPenalty;
   const probability = 1 / (1 + Math.exp(-raw)); // sigmoid
   return probability >= DEFAULT_THRESHOLD ? "phishing" : "trusted";
 };
 
+const predictViaBackground = (rawUrl, threshold) =>
+  new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendMessage(
+        { type: "predictUrlBg", url: rawUrl, threshold },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          if (response?.ok) {
+            resolve(response.result);
+          } else {
+            reject(new Error(response?.error || "bg_predict_failed"));
+          }
+        }
+      );
+    } catch (err) {
+      reject(err);
+    }
+  });
+
 // RU: Предсказать вердикт (trusted|phishing) по URL.
 // EN: Predict verdict (trusted|phishing) for URL.
 export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
+  // 1) Сначала пробуем предсказание в сервис-воркере (не зависит от CSP страницы).
+  try {
+    const bgResult = await predictViaBackground(rawUrl, threshold);
+    if (bgResult?.verdict) {
+      return { ...bgResult, status: bgResult.status || "ok" };
+    }
+  } catch (error) {
+    console.warn("CorgPhish: bg predict failed", error);
+  }
+
+  // 2) Пытаемся локальный ORT (если не заблокирован CSP).
   try {
     const { url, features } = extractFeatures(rawUrl);
     if (!url) {
@@ -198,7 +296,9 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
 
     return {
       status: "ok",
-      verdict
+      verdict,
+      probability,
+      threshold
     };
   } catch (error) {
     console.warn("ML predict failed", error);

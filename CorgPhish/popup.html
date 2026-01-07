@@ -5,25 +5,42 @@
     <title>CorgPhish — защита от фишинга</title>
     <link rel="stylesheet" href="popup.css" />
 </head>
-<body data-theme="dark">
+<body data-theme="light">
 <div class="app" id="app" data-state="pending" data-view="main">
     <div class="view-container">
         <section class="view view--main" id="viewMain">
-            <header class="hero">
+            <header class="topbar">
                 <div class="hero__brand">
-                    <div class="brand__logo">CP</div>
+                    <div class="brand__logo">
+                        <img src="popup/logo.jpg" alt="Логотип CorgPhish" class="brand__logo-img" />
+                    </div>
                     <div>
                         <p class="brand__title">CorgPhish</p>
                         <p class="brand__subtitle" data-i18n="main.subtitle">Главная панель защиты</p>
                     </div>
                 </div>
-                <div class="hero__cta">
-                    <p class="hero__hint" data-i18n="recommendations.initial">Держите вкладку открытой, чтобы мы могли её проанализировать.</p>
+                <div class="topbar__actions">
+                    <button class="icon-button" id="openHistoryBtn" type="button">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8" />
+                            <path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <span class="sr-only" data-i18n="actions.history">История проверок</span>
+                    </button>
+                    <button class="icon-button" id="openSettingsBtn" type="button">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
+                            <path d="M4.5 13.5c-.1-.5-.1-1 0-1.5l-1.8-1.4 1.6-2.7 2.2.7c.4-.3.9-.6 1.4-.7l.4-2.3h3.2l.4 2.3c.5.2 1 .4 1.4.7l2.2-.7 1.6 2.7-1.8 1.4c.1.5.1 1 0 1.5l1.8 1.4-1.6 2.7-2.2-.7c-.4.3-.9.6-1.4.7l-.4 2.3h-3.2l-.4-2.3a4.9 4.9 0 0 1-1.4-.7l-2.2.7-1.6-2.7 1.8-1.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                        </svg>
+                        <span class="sr-only" data-i18n="actions.settings">Настройки</span>
+                    </button>
+                    <button class="button button--ghost button--compact" id="checkAllBtn" type="button" data-i18n="actions.scanAll">
+                        Проверить всё
+                    </button>
                     <button class="button" id="refreshBtn" type="button" data-i18n="actions.refresh">
                         Перепроверить
                     </button>
                 </div>
-                <div class="status-banner is-hidden" id="statusBanner"></div>
             </header>
 
             <section class="card status-card">
@@ -31,25 +48,25 @@
                     <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
                     <span class="pill" id="riskLevel">—</span>
                 </div>
-                <h2 class="status-card__title" id="statusTitle" data-i18n="status.pending.title">Анализируем активную вкладку</h2>
-                <p class="status-card__hint" id="statusHint" data-i18n="status.pending.hint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
-
-                <div class="status-chips">
-                    <span class="pill pill--ghost" id="domainValue">—</span>
-                    <span class="pill pill--muted" id="sourceValue">trusted.json + ML</span>
-                    <span class="pill pill--ghost is-hidden" id="mlScore">ML —</span>
+                <div class="status-card__hero">
+                    <div class="status-figure" aria-hidden="true">
+                        <div class="status-figure__icon">
+                            <svg viewBox="0 0 64 64" role="presentation">
+                                <path d="M32 10 48 16v15c0 12-8.3 17-16 23-7.7-6-16-11-16-23V16l16-6Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+                                <path class="icon-check" d="m24 32 6 6 10-12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path class="icon-cross" d="M32 26v10m0 6v2" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="status-card__copy">
+                        <h2 class="status-card__title" id="statusTitle" data-i18n="status.pending.title">Анализируем активную вкладку</h2>
+                        <p class="status-card__hint" id="statusHint" data-i18n="status.pending.hint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
+                    </div>
                 </div>
-
-                <dl class="status-card__meta">
-                    <div>
-                        <dt data-i18n="status.domainLabel">Домен</dt>
-                        <dd id="domainValueMeta">—</dd>
-                    </div>
-                    <div>
-                        <dt data-i18n="status.lastCheck">Последняя проверка:</dt>
-                        <dd id="checkedAt">—</dd>
-                    </div>
-                </dl>
+                <div class="status-meta">
+                    <span class="tag" id="riskTag">—</span>
+                    <span class="pill pill--ghost" id="domainValue">—</span>
+                </div>
                 <div class="status-actions" id="statusActions">
                     <button class="button button--ghost is-hidden" id="quickAddBtn" type="button" data-i18n="actions.whitelist.addQuick">
                         Добавить в белый список
@@ -57,67 +74,12 @@
                     <button class="button button--ghost is-hidden" id="blacklistBtn" type="button" data-i18n="actions.blacklist.add">
                         Добавить в чёрный список
                     </button>
+                    <button class="button button--ghost is-hidden" id="officialSiteBtn" type="button" data-i18n="actions.official.open">
+                        Открыть официальный сайт
+                    </button>
                 </div>
+                <div class="status-banner is-hidden" id="statusBanner"></div>
             </section>
-
-            <section class="card recommendations">
-                <div class="card__header">
-                    <h3 data-i18n="recommendations.title">Рекомендации</h3>
-                    <span class="tag" id="riskTag">—</span>
-                </div>
-                <ul class="recommendations__list" id="recommendationsList">
-                    <li data-i18n="recommendations.initial">Держите вкладку открытой, чтобы мы могли её проанализировать.</li>
-                </ul>
-            </section>
-
-            <section class="card quick-actions">
-                <div class="card__header">
-                    <h4 data-i18n="quickActions.title">Дополнительно</h4>
-                </div>
-                <div class="quick-actions__buttons">
-                    <button class="button button--ghost" id="openHistoryBtn" type="button" data-i18n="actions.history">История проверок</button>
-                    <button class="button button--ghost" id="openSettingsBtn" type="button" data-i18n="actions.settings">Настройки</button>
-                </div>
-            </section>
-
-            <section class="card stats-card">
-                <div class="card__header">
-                    <h4 data-i18n="stats.title">Обзор</h4>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat stat--trust">
-                        <p class="stat__label" data-i18n="stats.trusted">Доверенных</p>
-                        <p class="stat__value" id="statsTrusted">0</p>
-                    </div>
-                    <div class="stat stat--alert">
-                        <p class="stat__label" data-i18n="stats.alerts">Подозрительных</p>
-                        <p class="stat__value" id="statsAlert">0</p>
-                    </div>
-                    <div class="stat stat--whitelist">
-                        <p class="stat__label" data-i18n="stats.whitelist">В белом списке</p>
-                        <p class="stat__value" id="statsWhitelist">0</p>
-                    </div>
-                </div>
-            </section>
-
-            <section class="card manual-card">
-                <div class="card__header">
-                    <h4 data-i18n="manual.title">Проверить домен вручную</h4>
-                    <span class="tag">NEW</span>
-                </div>
-                <p class="manual-card__hint" data-i18n="manual.description">
-                    Проверьте любой домен без перехода на сайт. Полезно для ссылок из писем или чатов.
-                </p>
-                <form class="manual-form" id="manualForm">
-                    <input type="text" id="manualInput" autocomplete="off" placeholder="example.com" />
-                    <button class="button" id="manualSubmit" type="submit" data-i18n="manual.action">Проверить</button>
-                </form>
-                <p class="note" id="manualHint" data-i18n="manual.hint.default">Укажите домен или полный URL, например https://bank.com.</p>
-            </section>
-
-            <p class="footer-note" data-i18n="footer.note">
-                CorgPhish проверяет только сайты по протоколам HTTP/HTTPS и работает локально.
-            </p>
         </section>
 
         <section class="view view--history" id="viewHistory">
@@ -132,6 +94,17 @@
 
             <section class="card history-card">
                 <h3 class="section__title" data-i18n="history.sectionTitle">Последние проверки</h3>
+                <div class="history-controls">
+                    <input type="text" id="historySearchInput" placeholder="Поиск домена" autocomplete="off" />
+                    <select id="historyFilterSelect">
+                        <option value="all" data-i18n="history.filter.all">Все</option>
+                        <option value="trusted" data-i18n="history.filter.trusted">Доверенные</option>
+                        <option value="alert" data-i18n="history.filter.alert">С риском</option>
+                        <option value="suspicious" data-i18n="history.filter.suspicious">Подозрительные</option>
+                        <option value="phishing" data-i18n="history.filter.phishing">Фишинг</option>
+                        <option value="blacklisted" data-i18n="history.filter.blacklisted">Чёрный список</option>
+                    </select>
+                </div>
                 <ul class="history-list" id="historyList"></ul>
                 <div class="empty-state" id="historyEmpty" data-i18n="history.empty">Пока нет данных. Проверьте сайт.</div>
             </section>
@@ -150,114 +123,187 @@
                 </div>
             </header>
 
-            <section class="card settings-card">
-                <h3 class="section__title" data-i18n="settings.options">Опции защиты</h3>
-                <div class="settings-list">
+            <div class="settings-tabs" role="tablist">
+                <button class="settings-tab is-active" type="button" data-settings-tab="options" data-i18n="settings.tabs.options">
+                    Опции
+                </button>
+                <button class="settings-tab" type="button" data-settings-tab="lists" data-i18n="settings.tabs.lists">
+                    Списки
+                </button>
+                <button class="settings-tab" type="button" data-settings-tab="enterprise" data-i18n="settings.tabs.enterprise">
+                    Корпоративно
+                </button>
+            </div>
+
+            <div class="settings-panel is-active" data-settings-panel="options">
+                <section class="card settings-card">
+                    <h3 class="section__title" data-i18n="settings.options">Опции защиты</h3>
+                    <div class="settings-list">
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.language.title">Язык интерфейса</h4>
+                                <p data-i18n="settings.language.desc">Переключайте русский и английский языки.</p>
+                            </div>
+                            <select id="languageSelect">
+                                <option value="ru">Русский</option>
+                                <option value="en">English</option>
+                            </select>
+                        </label>
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.theme.title">Тема интерфейса</h4>
+                                <p data-i18n="settings.theme.desc">Переключайте светлый и тёмный режимы.</p>
+                            </div>
+                            <div class="switch switch--double">
+                                <input type="checkbox" id="themeToggle" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.autoCheck.title">Автопроверка при открытии</h4>
+                                <p data-i18n="settings.autoCheck.desc">Автоматически запускать анализ при появлении попапа.</p>
+                            </div>
+                            <div class="switch">
+                                <input type="checkbox" id="autoCheckInput" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.alerts.title">Уведомления о рисках</h4>
+                                <p data-i18n="settings.alerts.desc">Показывать предупреждение при подозрительном сайте.</p>
+                            </div>
+                            <div class="switch">
+                                <input type="checkbox" id="alertInput" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.strict.title">Строгий режим</h4>
+                                <p data-i18n="settings.strict.desc">Любой сайт вне списка доверенных будет помечен как подозрительный.</p>
+                            </div>
+                            <div class="switch">
+                                <input type="checkbox" id="strictModeToggle" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.block.title">Блокировка ввода</h4>
+                                <p data-i18n="settings.block.desc">На подозрительных сайтах запретить ввод и загрузки.</p>
+                            </div>
+                            <div class="switch">
+                                <input type="checkbox" id="blockInputToggle" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.notify.title">Системные уведомления</h4>
+                                <p data-i18n="settings.notify.desc">Показывать уведомление при подозрительном сайте.</p>
+                            </div>
+                            <div class="switch">
+                                <input type="checkbox" id="systemNotifyToggle" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.retention.title">Автоочистка истории</h4>
+                                <p data-i18n="settings.retention.desc">Ограничивайте давность записей в истории проверок.</p>
+                            </div>
+                            <select id="historyRetentionSelect">
+                                <option value="0" data-i18n="settings.retention.never">Не очищать</option>
+                                <option value="7" data-i18n="settings.retention.days7">7 дней</option>
+                                <option value="30" data-i18n="settings.retention.days30">30 дней</option>
+                                <option value="90" data-i18n="settings.retention.days90">90 дней</option>
+                            </select>
+                        </label>
+                        <label class="setting-item">
+                            <div class="setting-item__info">
+                                <h4 data-i18n="settings.compact.title">Компактный режим</h4>
+                                <p data-i18n="settings.compact.desc">Меньше отступов и плотнее карточки.</p>
+                            </div>
+                            <div class="switch">
+                                <input type="checkbox" id="compactModeToggle" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                    </div>
+                    <p class="note" id="settingsStatus" data-i18n="settings.status.default">Изменения сохраняются автоматически.</p>
+                </section>
+            </div>
+
+            <div class="settings-panel" data-settings-panel="lists">
+                <section class="card whitelist-card">
+                    <h3 class="section__title" data-i18n="whitelist.title">Ваш белый список</h3>
+                    <form class="whitelist-form" id="whitelistForm">
+                        <input type="text" id="whitelistInput" placeholder="example.com" autocomplete="off" />
+                        <button class="button" type="submit" data-i18n="whitelist.add">Добавить</button>
+                    </form>
+                    <ul class="whitelist-list" id="whitelistList"></ul>
+                    <p class="note" data-i18n="whitelist.note">Добавленные домены проверяются вместе с локальным списком trusted.json.</p>
+                </section>
+
+                <section class="card whitelist-card">
+                    <h3 class="section__title" data-i18n="blacklist.title">Чёрный список</h3>
+                    <form class="whitelist-form" id="blacklistForm">
+                        <input type="text" id="blacklistInput" placeholder="bad.com" autocomplete="off" />
+                        <button class="button" type="submit" data-i18n="blacklist.add">Добавить</button>
+                    </form>
+                    <ul class="whitelist-list" id="blacklistList"></ul>
+                    <p class="note" data-i18n="blacklist.note">Домен будет блокироваться автоматически.</p>
+                </section>
+            </div>
+
+            <div class="settings-panel" data-settings-panel="enterprise">
+                <section class="card settings-card">
+                    <h3 class="section__title" data-i18n="enterprise.title">Корпоративный режим</h3>
+                    <p class="note" data-i18n="enterprise.desc">
+                        Ограничивайте доступ к сайтам и контролируйте домены для корпоративных данных.
+                    </p>
                     <label class="setting-item">
                         <div class="setting-item__info">
-                            <h4 data-i18n="settings.language.title">Язык интерфейса</h4>
-                            <p data-i18n="settings.language.desc">Переключайте русский и английский языки.</p>
+                            <h4 data-i18n="enterprise.mode.title">Режим политики</h4>
+                            <p data-i18n="enterprise.mode.desc">Выберите реакцию на домены вне корпоративных правил.</p>
                         </div>
-                        <select id="languageSelect">
-                            <option value="ru">Русский</option>
-                            <option value="en">English</option>
+                        <select id="enterpriseModeSelect">
+                            <option value="off" data-i18n="enterprise.mode.off">Выключен</option>
+                            <option value="warn" data-i18n="enterprise.mode.warn">Предупреждать</option>
+                            <option value="block" data-i18n="enterprise.mode.block">Блокировать</option>
                         </select>
                     </label>
-                    <label class="setting-item">
-                        <div class="setting-item__info">
-                            <h4 data-i18n="settings.theme.title">Тема интерфейса</h4>
-                            <p data-i18n="settings.theme.desc">Переключайте светлый и тёмный режимы.</p>
-                        </div>
-                        <div class="switch switch--double">
-                            <input type="checkbox" id="themeToggle" />
-                            <span class="slider"></span>
-                        </div>
-                    </label>
-                    <label class="setting-item">
-                        <div class="setting-item__info">
-                            <h4 data-i18n="settings.autoCheck.title">Автопроверка при открытии</h4>
-                            <p data-i18n="settings.autoCheck.desc">Автоматически запускать анализ при появлении попапа.</p>
-                        </div>
-                        <div class="switch">
-                            <input type="checkbox" id="autoCheckInput" />
-                            <span class="slider"></span>
-                        </div>
-                    </label>
-                    <label class="setting-item">
-                        <div class="setting-item__info">
-                            <h4 data-i18n="settings.alerts.title">Уведомления о рисках</h4>
-                            <p data-i18n="settings.alerts.desc">Показывать предупреждение при подозрительном сайте.</p>
-                        </div>
-                        <div class="switch">
-                            <input type="checkbox" id="alertInput" />
-                            <span class="slider"></span>
-                        </div>
-                    </label>
-                    <label class="setting-item">
-                        <div class="setting-item__info">
-                            <h4 data-i18n="settings.block.title">Блокировка ввода</h4>
-                            <p data-i18n="settings.block.desc">На подозрительных сайтах запретить ввод и загрузки.</p>
-                        </div>
-                        <div class="switch">
-                            <input type="checkbox" id="blockInputToggle" />
-                            <span class="slider"></span>
-                        </div>
-                    </label>
-                    <label class="setting-item">
-                        <div class="setting-item__info">
-                            <h4 data-i18n="settings.notify.title">Системные уведомления</h4>
-                            <p data-i18n="settings.notify.desc">Показывать уведомление при подозрительном сайте.</p>
-                        </div>
-                        <div class="switch">
-                            <input type="checkbox" id="systemNotifyToggle" />
-                            <span class="slider"></span>
-                        </div>
-                    </label>
-                    <label class="setting-item">
-                        <div class="setting-item__info">
-                            <h4 data-i18n="settings.retention.title">Автоочистка истории</h4>
-                            <p data-i18n="settings.retention.desc">Ограничивайте давность записей в истории проверок.</p>
-                        </div>
-                        <select id="historyRetentionSelect">
-                            <option value="0" data-i18n="settings.retention.never">Не очищать</option>
-                            <option value="7" data-i18n="settings.retention.days7">7 дней</option>
-                            <option value="30" data-i18n="settings.retention.days30">30 дней</option>
-                            <option value="90" data-i18n="settings.retention.days90">90 дней</option>
-                        </select>
-                    </label>
-                    <label class="setting-item">
-                        <div class="setting-item__info">
-                            <h4 data-i18n="settings.compact.title">Компактный режим</h4>
-                            <p data-i18n="settings.compact.desc">Меньше отступов и плотнее карточки.</p>
-                        </div>
-                        <div class="switch">
-                            <input type="checkbox" id="compactModeToggle" />
-                            <span class="slider"></span>
-                        </div>
-                    </label>
-                </div>
-                <p class="note" id="settingsStatus" data-i18n="settings.status.default">Изменения сохраняются автоматически.</p>
-            </section>
+                    <p class="note is-hidden" id="enterpriseManagedNote" data-i18n="enterprise.managed">
+                        Эта политика задана администратором и недоступна для изменения.
+                    </p>
+                </section>
 
-            <section class="card whitelist-card">
-                <h3 class="section__title" data-i18n="whitelist.title">Ваш белый список</h3>
-                <form class="whitelist-form" id="whitelistForm">
-                    <input type="text" id="whitelistInput" placeholder="example.com" autocomplete="off" />
-                    <button class="button" type="submit" data-i18n="whitelist.add">Добавить</button>
-                </form>
-                <ul class="whitelist-list" id="whitelistList"></ul>
-                <p class="note" data-i18n="whitelist.note">Добавленные домены проверяются вместе с локальным списком trusted.json.</p>
-            </section>
+                <section class="card whitelist-card">
+                    <h3 class="section__title" data-i18n="enterprise.allow.title">Разрешённые домены</h3>
+                    <form class="whitelist-form" id="enterpriseAllowForm">
+                        <input type="text" id="enterpriseAllowInput" placeholder="corp.com" autocomplete="off" />
+                        <button class="button" type="submit" data-i18n="whitelist.add">Добавить</button>
+                    </form>
+                    <ul class="whitelist-list" id="enterpriseAllowList"></ul>
+                    <p class="note" data-i18n="enterprise.allow.note">
+                        Если список заполнен, все остальные домены помечаются как подозрительные.
+                    </p>
+                </section>
 
-            <section class="card whitelist-card">
-                <h3 class="section__title" data-i18n="blacklist.title">Чёрный список</h3>
-                <form class="whitelist-form" id="blacklistForm">
-                    <input type="text" id="blacklistInput" placeholder="bad.com" autocomplete="off" />
-                    <button class="button" type="submit" data-i18n="blacklist.add">Добавить</button>
-                </form>
-                <ul class="whitelist-list" id="blacklistList"></ul>
-                <p class="note" data-i18n="blacklist.note">Домен будет блокироваться автоматически.</p>
-            </section>
+                <section class="card whitelist-card">
+                    <h3 class="section__title" data-i18n="enterprise.deny.title">Запрещённые домены</h3>
+                    <form class="whitelist-form" id="enterpriseDenyForm">
+                        <input type="text" id="enterpriseDenyInput" placeholder="badcorp.com" autocomplete="off" />
+                        <button class="button" type="submit" data-i18n="whitelist.add">Добавить</button>
+                    </form>
+                    <ul class="whitelist-list" id="enterpriseDenyList"></ul>
+                    <p class="note" data-i18n="enterprise.deny.note">
+                        Домен будет помечен или заблокирован вне зависимости от других настроек.
+                    </p>
+                </section>
+            </div>
         </section>
     </div>
 </div>

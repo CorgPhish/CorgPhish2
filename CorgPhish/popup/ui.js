@@ -19,6 +19,12 @@ export const applyLanguage = (dom, translate, language) => {
   if (dom.blacklistInput) {
     dom.blacklistInput.placeholder = translate("blacklist.placeholder");
   }
+  if (dom.enterpriseAllowInput) {
+    dom.enterpriseAllowInput.placeholder = translate("enterprise.allow.placeholder");
+  }
+  if (dom.enterpriseDenyInput) {
+    dom.enterpriseDenyInput.placeholder = translate("enterprise.deny.placeholder");
+  }
   if (dom.manualInput) {
     dom.manualInput.placeholder = translate("manual.placeholder");
   }
@@ -27,6 +33,14 @@ export const applyLanguage = (dom, translate, language) => {
   }
   if (dom.sourceValue) {
     dom.sourceValue.textContent = translate("status.sourceValue");
+  }
+  if (dom.historySearchInput) {
+    dom.historySearchInput.placeholder = translate("history.search.placeholder");
+  }
+  if (dom.officialSiteBtn && dom.officialSiteBtn.dataset.domain) {
+    dom.officialSiteBtn.textContent = translate("actions.official.open", {
+      domain: dom.officialSiteBtn.dataset.domain
+    });
   }
 };
 
@@ -57,20 +71,31 @@ export const setBlacklistState = (dom, domain, canBlacklist) => {
   dom.blacklistBtn.classList.toggle("is-hidden", hidden);
 };
 
+export const setOfficialSiteState = (dom, domain, translate) => {
+  if (!dom.officialSiteBtn) return;
+  const hidden = !domain;
+  dom.officialSiteBtn.disabled = hidden;
+  dom.officialSiteBtn.dataset.domain = hidden ? "" : domain;
+  dom.officialSiteBtn.classList.toggle("is-hidden", hidden);
+  if (!hidden && translate) {
+    dom.officialSiteBtn.textContent = translate("actions.official.open", { domain });
+  }
+};
+
 export const setManualHint = (dom, text, isError = false) => {
   if (!dom.manualHint) return;
   dom.manualHint.textContent = text;
   dom.manualHint.style.color = isError ? "#f87171" : "var(--color-muted-strong)";
 };
 
-export const renderBlacklist = (dom, translate, domains = []) => {
-  if (!dom.blacklistList) return;
-  dom.blacklistList.innerHTML = "";
+const renderDomainList = (listEl, translate, domains = [], emptyKey, options = {}) => {
+  if (!listEl) return;
+  listEl.innerHTML = "";
   if (!domains.length) {
     const li = document.createElement("li");
     li.className = "empty-state";
-    li.textContent = translate("blacklist.empty");
-    dom.blacklistList.appendChild(li);
+    li.textContent = translate(emptyKey);
+    listEl.appendChild(li);
     return;
   }
   domains.forEach((domain) => {
@@ -84,37 +109,51 @@ export const renderBlacklist = (dom, translate, domains = []) => {
     removeBtn.className = "whitelist-remove";
     removeBtn.dataset.domain = domain;
     removeBtn.textContent = "✕";
+    if (options.disableRemove) {
+      removeBtn.disabled = true;
+    }
 
     li.appendChild(removeBtn);
-    dom.blacklistList.appendChild(li);
+    listEl.appendChild(li);
   });
 };
 
+export const renderBlacklist = (dom, translate, domains = []) => {
+  renderDomainList(dom.blacklistList, translate, domains, "blacklist.empty");
+};
+
 export const applyState = (dom, translate, stateKey, context = {}) => {
+  const resolveTone = (key) => {
+    if (key === "phishing" || key === "blacklisted") return "bad";
+    if (key === "suspicious" || key === "warning" || key === "error") return "warn";
+    if (key === "trusted") return "ok";
+    if (key === "pending") return "info";
+    return "info";
+  };
   const config = VIEW_STATES[stateKey] ?? VIEW_STATES.pending;
   dom.app.dataset.state = config.theme;
+  const tone = resolveTone(stateKey);
 
   dom.statusBadge.textContent = translate(config.badgeKey, context);
+  dom.statusBadge.dataset.tone = tone;
   dom.statusTitle.textContent = translate(config.titleKey, context);
   dom.statusHint.textContent = translate(config.hintKey, context);
   const riskText = translate(config.riskKey, context);
   [dom.riskLevel, dom.riskTag].filter(Boolean).forEach((node) => {
     node.textContent = riskText;
-    node.dataset.tone =
-      stateKey === "phishing" || stateKey === "blacklisted" || stateKey === "suspicious"
-        ? "warn"
-        : "info";
+    node.dataset.tone = tone;
   });
   if (dom.mlScore) {
     dom.mlScore.classList.add("is-hidden");
   }
-  dom.domainValue.textContent = context.domain ?? "—";
-  if (dom.domainValueMeta) {
-    dom.domainValueMeta.textContent = context.domain ?? "—";
+  if (dom.domainValue) {
+    dom.domainValue.textContent = context.domain ?? "—";
   }
-  dom.checkedAt.textContent = context.checkedAt
-    ? formatTime(context.checkedAt, context.language)
-    : "—";
+  if (dom.checkedAt) {
+    dom.checkedAt.textContent = context.checkedAt
+      ? formatTime(context.checkedAt, context.language)
+      : "—";
+  }
   if (dom.sourceValue) {
     const sourceKey = context.sourceKey || "status.sourceValue";
     dom.sourceValue.textContent = translate(sourceKey, context);
@@ -123,10 +162,14 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   const canBlacklist = stateKey === "phishing" || stateKey === "suspicious";
   setQuickAddState(dom, context.domain, isTrustedState || stateKey === "blacklisted");
   setBlacklistState(dom, context.domain, canBlacklist);
+  setOfficialSiteState(dom, context.officialDomain, translate);
 
   const recKeys = config.recommendationsKeys || [];
   const recItems = recKeys.map((key) => translate(key, context)).filter(Boolean);
-  if (stateKey === "suspicious" && context.spoofTarget) {
+  if (context.suspicionKey) {
+    const hintParams = { ...context, ...(context.suspicionParams || {}) };
+    recItems.unshift(translate(context.suspicionKey, hintParams));
+  } else if (stateKey === "suspicious" && context.spoofTarget) {
     recItems.unshift(translate("status.suspicious.hint", context));
   }
   const finalRec = recItems.length ? recItems : [translate("recommendations.empty")];
@@ -134,36 +177,18 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
 };
 
 export const renderWhitelist = (dom, translate, domains = []) => {
-  if (!dom.whitelistList) return;
-  dom.whitelistList.innerHTML = "";
-  if (!domains.length) {
-    const li = document.createElement("li");
-    li.className = "empty-state";
-    li.textContent = translate("whitelist.empty");
-    dom.whitelistList.appendChild(li);
-    return;
-  }
-  domains.forEach((domain) => {
-    const li = document.createElement("li");
-    li.className = "whitelist-item";
-    li.dataset.domain = domain;
-    li.innerHTML = `<span>${domain}</span>`;
-
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "whitelist-remove";
-    removeBtn.dataset.domain = domain;
-    removeBtn.textContent = "✕";
-
-    li.appendChild(removeBtn);
-    dom.whitelistList.appendChild(li);
-  });
+  renderDomainList(dom.whitelistList, translate, domains, "whitelist.empty");
 };
 
-export const renderHistory = (dom, translate, items = [], locale) => {
+export const renderEnterpriseList = (listEl, translate, domains = [], emptyKey, options = {}) => {
+  renderDomainList(listEl, translate, domains, emptyKey, options);
+};
+
+export const renderHistory = (dom, translate, items = [], locale, emptyText = "") => {
   if (!dom.historyList || !dom.historyEmpty) return;
   dom.historyList.innerHTML = "";
   if (!items.length) {
+    dom.historyEmpty.textContent = emptyText || translate("history.empty");
     dom.historyEmpty.hidden = false;
     return;
   }
