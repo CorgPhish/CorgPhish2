@@ -1,173 +1,328 @@
-import { createRandomForest } from "./ml/randomForest.js";
+// RU: Сервис-воркер: системные уведомления, кэш trusted.json, закрытие вкладок.
+// EN: Service worker: system notifications, trusted.json cache, close tabs.
+import { DEFAULT_ENTERPRISE_POLICY, ENTERPRISE_POLICY_KEY, MODEL_THRESHOLD } from "./popup/config.js";
 
-const CLASSIFIER_PATH = "ml/classifier.json";
-const CLASSIFICATION_PREFIX = "classification:";
+const DEFAULT_SETTINGS = {
+  systemNotifyOnRisk: false
+};
 
-const classificationCache = new Map();
-let classifierData = null;
-let randomForest = null;
+const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
+const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
+const ENTERPRISE_POLICY_FALLBACK = DEFAULT_ENTERPRISE_POLICY;
 
-const classificationKey = (tabId) => `${CLASSIFICATION_PREFIX}${tabId}`;
-
-const loadClassifierData = async () => {
-  if (classifierData) {
-    return classifierData;
-  }
+const normalizeHost = (hostname = "") => {
+  const trimmed = hostname.trim();
+  if (!trimmed) return "";
   try {
-    const response = await fetch(chrome.runtime.getURL(CLASSIFIER_PATH));
-    if (!response.ok) {
-      console.warn("Не удалось загрузить classifier.json", response.statusText);
-      return null;
-    }
-    classifierData = await response.json();
-    return classifierData;
+    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    return url.hostname.replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
   } catch (error) {
-    console.warn("Ошибка загрузки classifier.json", error);
-    return null;
+    return trimmed.replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
   }
 };
 
-const ensureForest = async () => {
-  if (randomForest) {
-    return randomForest;
-  }
-  const data = await loadClassifierData();
-  if (!data) {
-    return null;
-  }
-  randomForest = createRandomForest(data);
-  return randomForest;
+const normalizeDomainList = (domains = []) =>
+  domains.map((domain) => normalizeHost(domain)).filter(Boolean);
+
+const normalizeEnterprisePolicy = (policy = {}) => {
+  const mode = ["off", "warn", "block"].includes(policy?.mode)
+    ? policy.mode
+    : ENTERPRISE_POLICY_FALLBACK.mode;
+  return {
+    mode,
+    allowlist: normalizeDomainList(policy?.allowlist || []),
+    denylist: normalizeDomainList(policy?.denylist || [])
+  };
 };
 
-const storeClassification = async (tabId, payload) => {
-  if (typeof tabId !== "number") {
-    return;
-  }
-  classificationCache.set(tabId, payload);
-  await chrome.storage.local.set({ [classificationKey(tabId)]: payload });
-};
-
-const getStoredClassification = async (tabId) => {
-  if (classificationCache.has(tabId)) {
-    return classificationCache.get(tabId);
-  }
-  const key = classificationKey(tabId);
-  const items = await chrome.storage.local.get(key);
-  if (items[key]) {
-    classificationCache.set(tabId, items[key]);
-    return items[key];
-  }
-  return null;
-};
-
-const removeClassification = async (tabId) => {
-  classificationCache.delete(tabId);
-  await chrome.storage.local.remove(classificationKey(tabId));
-};
-
-const summarizeFeatures = (features = {}) => {
-  const summary = { legitimate: 0, suspicious: 0, phishing: 0 };
-  Object.values(features).forEach((value) => {
-    const numericValue = Number.parseInt(value, 10);
-    if (numericValue === -1) {
-      summary.legitimate += 1;
-    } else if (numericValue === 0) {
-      summary.suspicious += 1;
-    } else if (numericValue === 1) {
-      summary.phishing += 1;
+const readStorage = (area, defaults) =>
+  new Promise((resolve) => {
+    if (!area?.get) {
+      resolve(defaults);
+      return;
     }
-  });
-  summary.total = summary.legitimate + summary.suspicious + summary.phishing || 1;
-  summary.legitimatePercent = (summary.legitimate / summary.total) * 100;
-  summary.suspiciousPercent = (summary.suspicious / summary.total) * 100;
-  summary.phishingPercent = (summary.phishing / summary.total) * 100;
-  summary.heuristicPhish = summary.phishingPercent > 35;
-  return summary;
-};
-
-const classifyFeatures = async ({ features = {}, url = null, tabId = null }) => {
-  const summary = summarizeFeatures(features);
-  const featureKeys = Object.keys(features);
-  const sample = {};
-  featureKeys.forEach((key) => {
-    sample[key] = Number.parseInt(features[key], 10) || 0;
+    area.get(defaults, (result) => resolve(result || defaults));
   });
 
-  let mlVerdict = null;
-  const forest = await ensureForest();
-  if (forest) {
-    const prediction = forest.predict([sample]);
-    if (prediction && prediction[0]) {
-      mlVerdict = {
-        isPhishing: Boolean(prediction[0][0]),
-        confidence: Number(prediction[0][1])
+const loadEnterprisePolicy = async () => {
+  try {
+    const managed = await readStorage(chrome.storage.managed, { [ENTERPRISE_POLICY_KEY]: null });
+    if (managed?.[ENTERPRISE_POLICY_KEY]) {
+      return {
+        policy: normalizeEnterprisePolicy(managed[ENTERPRISE_POLICY_KEY]),
+        managed: true
       };
     }
+    const local = await readStorage(chrome.storage.local, { [ENTERPRISE_POLICY_KEY]: null });
+    if (local?.[ENTERPRISE_POLICY_KEY]) {
+      return {
+        policy: normalizeEnterprisePolicy(local[ENTERPRISE_POLICY_KEY]),
+        managed: false
+      };
+    }
+    const response = await fetch(chrome.runtime.getURL("enterprise.json"));
+    if (response.ok) {
+      const payload = await response.json();
+      return {
+        policy: normalizeEnterprisePolicy(payload),
+        managed: false
+      };
+    }
+  } catch (error) {
+    console.warn("CorgPhish: failed to load enterprise policy", error);
   }
-
-  const verdict = {
-    isPhishing: mlVerdict?.isPhishing ?? summary.heuristicPhish,
-    confidence: mlVerdict?.confidence ?? summary.phishingPercent,
-    source: mlVerdict ? "ml" : "heuristic",
-    legitimatePercent: summary.legitimatePercent,
-    suspiciousPercent: summary.suspiciousPercent,
-    phishingPercent: summary.phishingPercent,
-    updatedAt: Date.now(),
-    url
-  };
-
-  return {
-    tabId,
-    url,
-    verdict,
-    features,
-    featureKeys,
-    vector: featureKeys.map((key) => sample[key])
-  };
+  return { policy: normalizeEnterprisePolicy(ENTERPRISE_POLICY_FALLBACK), managed: false };
 };
 
-const handleFeatureMessage = async (message, sender) => {
-  const payload = await classifyFeatures({
-    features: message.features,
-    url: message.url,
-    tabId: sender?.tab?.id
+// Lightweight heuristic predictor (без ORT) прямо в background.
+const FEATURE_COLUMNS = [
+  "length_url",
+  "qty_dot_url",
+  "qty_hyphen_url",
+  "qty_underline_url",
+  "qty_slash_url",
+  "qty_questionmark_url",
+  "qty_equal_url",
+  "qty_at_url",
+  "qty_and_url",
+  "qty_exclamation_url",
+  "qty_space_url",
+  "qty_tilde_url",
+  "qty_comma_url",
+  "qty_plus_url",
+  "qty_asterisk_url",
+  "qty_hashtag_url",
+  "qty_dollar_url",
+  "qty_percent_url",
+  "domain_length",
+  "qty_dot_domain",
+  "qty_hyphen_domain",
+  "qty_underline_domain",
+  "domain_in_ip"
+];
+
+const isIpDomain = (domain = "") => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(domain);
+
+const safeUrl = (input = "") => {
+  if (!input) return "";
+  try {
+    return new URL(input.includes("://") ? input : `https://${input}`).toString();
+  } catch (error) {
+    return "";
+  }
+};
+
+const extractFeatures = (rawUrl = "") => {
+  const url = safeUrl(rawUrl);
+  const features = {};
+  FEATURE_COLUMNS.forEach((col) => {
+    features[col] = 0;
   });
-  if (typeof sender?.tab?.id === "number") {
-    await storeClassification(sender.tab.id, payload);
+  if (!url) {
+    return { url: "", features };
   }
-  return payload;
+  const domain = (() => {
+    try {
+      return new URL(url).hostname || "";
+    } catch (error) {
+      return "";
+    }
+  })();
+
+  const count = (ch) => (url.match(new RegExp(`\\${ch}`, "g")) || []).length;
+
+  features.length_url = url.length;
+  features.qty_dot_url = count(".");
+  features.qty_hyphen_url = count("-");
+  features.qty_underline_url = count("_");
+  features.qty_slash_url = count("/");
+  features.qty_questionmark_url = count("?");
+  features.qty_equal_url = count("=");
+  features.qty_at_url = count("@");
+  features.qty_and_url = count("&");
+  features.qty_exclamation_url = count("!");
+  features.qty_space_url = count(" ");
+  features.qty_tilde_url = count("~");
+  features.qty_comma_url = count(",");
+  features.qty_plus_url = count("+");
+  features.qty_asterisk_url = count("*");
+  features.qty_hashtag_url = count("#");
+  features.qty_dollar_url = count("$");
+  features.qty_percent_url = count("%");
+
+  features.domain_length = domain.length;
+  features.qty_dot_domain = (domain.match(/\./g) || []).length;
+  features.qty_hyphen_domain = (domain.match(/-/g) || []).length;
+  features.qty_underline_domain = (domain.match(/_/g) || []).length;
+  features.domain_in_ip = isIpDomain(domain) ? 1 : 0;
+
+  return { url, features };
 };
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message) {
-    return;
-  }
+const heuristicVerdict = (features, threshold = DEFAULT_THRESHOLD) => {
+  const riskyChars =
+    features.qty_at_url +
+    features.qty_questionmark_url +
+    features.qty_equal_url +
+    features.qty_percent_url +
+    features.qty_hashtag_url +
+    features.qty_dollar_url +
+    features.qty_exclamation_url +
+    features.qty_space_url;
+  const lenScore = Math.min(features.length_url / 160, 2);
+  const hyphenScore = features.qty_hyphen_domain * 0.2;
+  const dotScore = features.qty_dot_domain * 0.12;
+  const ipScore = features.domain_in_ip ? 3 : 0;
+  const brandPenalty = features.qty_dot_domain >= 2 ? 0.3 : 0;
+  const raw = riskyChars * 0.25 + lenScore + hyphenScore + dotScore + ipScore + brandPenalty;
+  const probability = 1 / (1 + Math.exp(-raw));
+  const verdict = probability >= threshold ? "phishing" : "trusted";
+  return { verdict, probability };
+};
 
-  if (message.type === "pageFeatures") {
-    handleFeatureMessage(message, sender)
-      .then((payload) => sendResponse({ status: "ok", classification: payload }))
-      .catch((error) => {
-        console.error("Ошибка классификации", error);
-        sendResponse({ status: "error", error: error?.message });
-      });
+const cacheTrustedList = async () => {
+  try {
+    const response = await fetch(chrome.runtime.getURL("trusted.json"));
+    if (!response.ok) return [];
+    const payload = await response.json();
+    const list = Array.isArray(payload?.trusted) ? payload.trusted : [];
+    chrome.storage.local.set({ [TRUSTED_STORAGE_KEY]: list });
+    return list;
+  } catch (error) {
+    console.warn("CorgPhish: failed to preload trusted.json", error);
+    return [];
+  }
+};
+
+const loadSettings = () =>
+  new Promise((resolve) => {
+    chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
+      resolve({ ...DEFAULT_SETTINGS, ...settings });
+    });
+  });
+
+// RU: Обрабатываем сообщения попапа/контента.
+// EN: Handle messages from popup/content.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message) return;
+
+  if (message.type === "predictUrlBg") {
+    (async () => {
+      try {
+        // Попытка маршрутизировать в offscreen-документ (ORT в чистой среде расширения).
+        const ensureOffscreen = async () => {
+          const reasons = ["DOM_SCRAPING"];
+          const offscreenUrl = chrome.runtime.getURL("offscreen.html");
+          const existing = await chrome.offscreen.hasDocument?.();
+          if (existing) return;
+          await chrome.offscreen.createDocument({
+            url: offscreenUrl,
+            reasons,
+            justification: "Phishing ML inference in extension context (avoid page CSP)"
+          });
+        };
+
+        let result = null;
+        try {
+          await ensureOffscreen();
+          result = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              { type: "predictOffscreen", url: message.url, threshold: message.threshold },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  reject(chrome.runtime.lastError);
+                  return;
+                }
+                if (response?.ok && response.result) {
+                  resolve(response.result);
+                } else {
+                  reject(new Error(response?.error || "offscreen_failed"));
+                }
+              }
+            );
+          });
+        } catch (offscreenError) {
+          console.warn("CorgPhish: offscreen predict failed", offscreenError);
+        }
+
+        if (!result) {
+          const { url, features } = extractFeatures(message.url);
+          if (!url) {
+            sendResponse?.({ ok: false, error: "invalid_url" });
+            return;
+          }
+          const fallback = heuristicVerdict(features, message.threshold || DEFAULT_THRESHOLD);
+          result = { ...fallback, status: "fallback", threshold: message.threshold };
+        }
+        sendResponse?.({ ok: true, result });
+      } catch (error) {
+        sendResponse?.({ ok: false, error: error?.message || String(error) });
+      }
+    })();
     return true;
   }
 
-  if (message.type === "getClassification") {
-    const tabId = message.tabId ?? sender?.tab?.id ?? null;
-    if (typeof tabId !== "number") {
-      sendResponse({ classification: null });
-      return false;
-    }
-    getStoredClassification(tabId).then((classification) => {
-      sendResponse({ classification });
+  if (message.type === "riskNotification") {
+    loadSettings().then((settings) => {
+      if (!settings.systemNotifyOnRisk) {
+        sendResponse?.({ ok: false });
+        return;
+      }
+      const id = `corgphish-${Date.now()}`;
+      chrome.notifications.create(
+        id,
+        {
+          type: "basic",
+          iconUrl: "icons/icon128.png",
+          title: "CorgPhish: подозрительный сайт",
+          message: `${message.domain ?? "Сайт"} может быть фишингом`,
+          contextMessage: message.url ?? ""
+        },
+        () => sendResponse?.({ ok: true })
+      );
     });
+    return true;
+  }
+
+  if (message.type === "getTrustedDomains") {
+    (async () => {
+      try {
+        const stored = await new Promise((resolve) =>
+          chrome.storage.local.get({ [TRUSTED_STORAGE_KEY]: [] }, (res) =>
+            resolve(Array.isArray(res[TRUSTED_STORAGE_KEY]) ? res[TRUSTED_STORAGE_KEY] : [])
+          )
+        );
+        const list = stored.length ? stored : await cacheTrustedList();
+        sendResponse?.({ ok: true, trusted: list });
+      } catch (error) {
+        console.warn("CorgPhish: failed to serve trusted.json", error);
+        sendResponse?.({ ok: false, trusted: [] });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === "getEnterprisePolicy") {
+    (async () => {
+      const payload = await loadEnterprisePolicy();
+      sendResponse?.({ ok: true, policy: payload.policy, managed: payload.managed });
+    })();
+    return true;
+  }
+
+  if (message.type === "closeTab" && sender?.tab?.id) {
+    chrome.tabs.remove(sender.tab.id);
+    sendResponse?.({ ok: true });
     return true;
   }
 
   return false;
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => {
-  removeClassification(tabId);
+chrome.runtime.onInstalled.addListener(() => {
+  cacheTrustedList();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  cacheTrustedList();
 });
