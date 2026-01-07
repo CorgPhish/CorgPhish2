@@ -69,6 +69,16 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 - **Managed policy**: если `enterprisePolicy` задан в `chrome.storage.managed`, пользователь не может менять настройки.
 - **Form guard**: проверяются домены, куда отправляются формы.
 
+**Поведение:**
+- `warn` → вердикт `suspicious` и предупреждение в UI.
+- `block` → блокировка ввода и загрузок + оверлей на странице.
+- Проверяются домен текущей страницы и домен `action` у форм.
+
+**Где хранится:**
+- `enterprise.json` — дефолтная политика.
+- `chrome.storage.local` → `enterprisePolicy`.
+- `chrome.storage.managed` перекрывает локальные значения.
+
 ### Технологии
 - **Chrome Extension Manifest V3**.
 - **Service Worker** (`background.js`) для логики расширения и системных уведомлений.
@@ -337,6 +347,16 @@ The extension automatically analyzes URLs on page open, compares domains with tr
 - **Denylist**: domains are always restricted.
 - **Managed policy**: if `enterprisePolicy` exists in `chrome.storage.managed`, UI becomes read‑only.
 - **Form guard**: checks form submission domains against policy.
+
+**Behavior:**
+- `warn` → `suspicious` verdict and UI warning.
+- `block` → blocks input/downloads + shows overlay.
+- Checks the current page domain and the form `action` domain.
+
+**Storage:**
+- `enterprise.json` — default policy.
+- `chrome.storage.local` → `enterprisePolicy`.
+- `chrome.storage.managed` overrides local values.
 
 ### Technologies
 - **Chrome Extension Manifest V3**.
