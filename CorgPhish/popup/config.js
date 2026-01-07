@@ -11,12 +11,19 @@ export const DEFAULT_SETTINGS = {
   systemNotifyOnRisk: false
 };
 
+export const DEFAULT_ENTERPRISE_POLICY = {
+  mode: "off",
+  allowlist: [],
+  denylist: []
+};
+
 // Единый порог модели/эвристики (используется popup/content/offscreen/background).
 export const MODEL_THRESHOLD = 0.7;
 
 export const HISTORY_LIMIT = 50;
 export const CUSTOM_WHITELIST_KEY = "customTrustedDomains";
 export const CUSTOM_BLACKLIST_KEY = "customBlockedDomains";
+export const ENTERPRISE_POLICY_KEY = "enterprisePolicy";
 
 export const VIEW_STATES = {
   pending: {
@@ -121,6 +128,7 @@ export const translations = {
     "status.sourceValue.levenshtein": "Похожесть + ML",
     "status.sourceValue.brand": "Несовпадение бренда",
     "status.sourceValue.form": "Подозрительная форма",
+    "status.sourceValue.corp": "Корпоративная политика",
     "status.sourceValue.strict": "Строгий режим",
     "status.sourceValue.blacklist": "Чёрный список",
     "status.lastCheck": "Последняя проверка:",
@@ -144,6 +152,8 @@ export const translations = {
     "status.suspicious.brand": "На странице упоминается {brand}, но домен другой.",
     "status.suspicious.form": "Форма отправляет данные на {host}.",
     "status.suspicious.strict": "Домен отсутствует в списке доверенных.",
+    "status.suspicious.corpDomain": "Домен не соответствует корпоративной политике.",
+    "status.suspicious.corpForm": "Форма отправляет данные на домен вне корпоративного списка: {host}.",
     "status.suspicious.risk": "требует проверки",
     "status.suspicious.recommendations.0": "Не вводите данные, пока не убедитесь в подлинности.",
     "status.suspicious.recommendations.1": "Проверьте адрес и сравните с официальным доменом.",
@@ -233,10 +243,30 @@ export const translations = {
     "settings.retention.days90": "90 дней",
     "settings.tabs.options": "Опции",
     "settings.tabs.lists": "Списки",
+    "settings.tabs.enterprise": "Корпоративно",
     "settings.compact.title": "Компактный режим",
     "settings.compact.desc": "Меньше отступов и плотнее карточки.",
     "settings.status.default": "Изменения сохраняются автоматически.",
     "settings.status.saved": "Настройки сохранены.",
+    "enterprise.title": "Корпоративный режим",
+    "enterprise.desc": "Ограничивайте доступ к сайтам и контролируйте домены для корпоративных данных.",
+    "enterprise.mode.title": "Режим политики",
+    "enterprise.mode.desc": "Выберите реакцию на домены, не соответствующие корпоративным правилам.",
+    "enterprise.mode.off": "Выключен",
+    "enterprise.mode.warn": "Предупреждать",
+    "enterprise.mode.block": "Блокировать",
+    "enterprise.managed": "Эта политика задана администратором и недоступна для изменения.",
+    "enterprise.allow.title": "Разрешённые домены",
+    "enterprise.allow.note": "Если список заполнен, все остальные домены помечаются как подозрительные.",
+    "enterprise.allow.placeholder": "corp.com",
+    "enterprise.deny.title": "Запрещённые домены",
+    "enterprise.deny.note": "Домен будет помечен или заблокирован вне зависимости от других настроек.",
+    "enterprise.deny.placeholder": "badcorp.com",
+    "enterprise.list.empty": "Список пуст.",
+    "enterprise.status.invalid": "Введите корректный домен.",
+    "enterprise.status.exists": "Домен уже в списке.",
+    "enterprise.status.added": "Добавлен {domain}.",
+    "enterprise.status.removed": "Удалён {domain}.",
     "whitelist.title": "Ваш белый список",
     "whitelist.add": "Добавить",
     "whitelist.placeholder": "example.com",
@@ -280,6 +310,7 @@ export const translations = {
     "status.sourceValue.levenshtein": "Similarity + ML",
     "status.sourceValue.brand": "Brand mismatch",
     "status.sourceValue.form": "Suspicious form",
+    "status.sourceValue.corp": "Corporate policy",
     "status.sourceValue.strict": "Strict mode",
     "status.sourceValue.blacklist": "Blacklist",
     "status.lastCheck": "Last check:",
@@ -303,6 +334,8 @@ export const translations = {
     "status.suspicious.brand": "The page mentions {brand}, but the domain is different.",
     "status.suspicious.form": "The form sends data to {host}.",
     "status.suspicious.strict": "The domain is not on the trusted list.",
+    "status.suspicious.corpDomain": "The domain is restricted by corporate policy.",
+    "status.suspicious.corpForm": "The form sends data to a non-approved domain: {host}.",
     "status.suspicious.risk": "needs review",
     "status.suspicious.recommendations.0": "Do not enter data until the site is verified.",
     "status.suspicious.recommendations.1": "Compare the address with the official domain.",
@@ -392,10 +425,30 @@ export const translations = {
     "settings.retention.days90": "90 days",
     "settings.tabs.options": "Options",
     "settings.tabs.lists": "Lists",
+    "settings.tabs.enterprise": "Corporate",
     "settings.compact.title": "Compact mode",
     "settings.compact.desc": "Tighter spacing and condensed cards.",
     "settings.status.default": "Changes are saved automatically.",
     "settings.status.saved": "Settings saved.",
+    "enterprise.title": "Corporate mode",
+    "enterprise.desc": "Restrict access to sites and control where corporate data can be entered.",
+    "enterprise.mode.title": "Policy mode",
+    "enterprise.mode.desc": "Choose how to react to domains outside the corporate rules.",
+    "enterprise.mode.off": "Off",
+    "enterprise.mode.warn": "Warn",
+    "enterprise.mode.block": "Block",
+    "enterprise.managed": "This policy is managed by your administrator and cannot be changed.",
+    "enterprise.allow.title": "Allowed domains",
+    "enterprise.allow.note": "When the list is not empty, all other domains are flagged.",
+    "enterprise.allow.placeholder": "corp.com",
+    "enterprise.deny.title": "Blocked domains",
+    "enterprise.deny.note": "Domains in this list are always flagged or blocked.",
+    "enterprise.deny.placeholder": "badcorp.com",
+    "enterprise.list.empty": "List is empty.",
+    "enterprise.status.invalid": "Enter a valid domain.",
+    "enterprise.status.exists": "Domain is already in the list.",
+    "enterprise.status.added": "Added {domain}.",
+    "enterprise.status.removed": "Removed {domain}.",
     "whitelist.title": "Your whitelist",
     "whitelist.add": "Add",
     "whitelist.placeholder": "example.com",

@@ -723,6 +723,11 @@ body {
     font-size: 12px;
 }
 
+.whitelist-remove:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .empty-state {
     text-align: center;
     padding: 16px 12px;

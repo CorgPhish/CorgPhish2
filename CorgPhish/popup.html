@@ -130,6 +130,9 @@
                 <button class="settings-tab" type="button" data-settings-tab="lists" data-i18n="settings.tabs.lists">
                     Списки
                 </button>
+                <button class="settings-tab" type="button" data-settings-tab="enterprise" data-i18n="settings.tabs.enterprise">
+                    Корпоративно
+                </button>
             </div>
 
             <div class="settings-panel is-active" data-settings-panel="options">
@@ -252,6 +255,53 @@
                     </form>
                     <ul class="whitelist-list" id="blacklistList"></ul>
                     <p class="note" data-i18n="blacklist.note">Домен будет блокироваться автоматически.</p>
+                </section>
+            </div>
+
+            <div class="settings-panel" data-settings-panel="enterprise">
+                <section class="card settings-card">
+                    <h3 class="section__title" data-i18n="enterprise.title">Корпоративный режим</h3>
+                    <p class="note" data-i18n="enterprise.desc">
+                        Ограничивайте доступ к сайтам и контролируйте домены для корпоративных данных.
+                    </p>
+                    <label class="setting-item">
+                        <div class="setting-item__info">
+                            <h4 data-i18n="enterprise.mode.title">Режим политики</h4>
+                            <p data-i18n="enterprise.mode.desc">Выберите реакцию на домены вне корпоративных правил.</p>
+                        </div>
+                        <select id="enterpriseModeSelect">
+                            <option value="off" data-i18n="enterprise.mode.off">Выключен</option>
+                            <option value="warn" data-i18n="enterprise.mode.warn">Предупреждать</option>
+                            <option value="block" data-i18n="enterprise.mode.block">Блокировать</option>
+                        </select>
+                    </label>
+                    <p class="note is-hidden" id="enterpriseManagedNote" data-i18n="enterprise.managed">
+                        Эта политика задана администратором и недоступна для изменения.
+                    </p>
+                </section>
+
+                <section class="card whitelist-card">
+                    <h3 class="section__title" data-i18n="enterprise.allow.title">Разрешённые домены</h3>
+                    <form class="whitelist-form" id="enterpriseAllowForm">
+                        <input type="text" id="enterpriseAllowInput" placeholder="corp.com" autocomplete="off" />
+                        <button class="button" type="submit" data-i18n="whitelist.add">Добавить</button>
+                    </form>
+                    <ul class="whitelist-list" id="enterpriseAllowList"></ul>
+                    <p class="note" data-i18n="enterprise.allow.note">
+                        Если список заполнен, все остальные домены помечаются как подозрительные.
+                    </p>
+                </section>
+
+                <section class="card whitelist-card">
+                    <h3 class="section__title" data-i18n="enterprise.deny.title">Запрещённые домены</h3>
+                    <form class="whitelist-form" id="enterpriseDenyForm">
+                        <input type="text" id="enterpriseDenyInput" placeholder="badcorp.com" autocomplete="off" />
+                        <button class="button" type="submit" data-i18n="whitelist.add">Добавить</button>
+                    </form>
+                    <ul class="whitelist-list" id="enterpriseDenyList"></ul>
+                    <p class="note" data-i18n="enterprise.deny.note">
+                        Домен будет помечен или заблокирован вне зависимости от других настроек.
+                    </p>
                 </section>
             </div>
         </section>

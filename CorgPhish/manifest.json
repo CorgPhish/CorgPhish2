@@ -26,6 +26,7 @@
     {
       "resources": [
         "trusted.json",
+        "enterprise.json",
         "models/hybrid_tfidf_num.onnx",
         "vendor/ort/ort.min.js",
         "vendor/ort/ort.module.js",

@@ -19,6 +19,12 @@ export const applyLanguage = (dom, translate, language) => {
   if (dom.blacklistInput) {
     dom.blacklistInput.placeholder = translate("blacklist.placeholder");
   }
+  if (dom.enterpriseAllowInput) {
+    dom.enterpriseAllowInput.placeholder = translate("enterprise.allow.placeholder");
+  }
+  if (dom.enterpriseDenyInput) {
+    dom.enterpriseDenyInput.placeholder = translate("enterprise.deny.placeholder");
+  }
   if (dom.manualInput) {
     dom.manualInput.placeholder = translate("manual.placeholder");
   }
@@ -82,14 +88,14 @@ export const setManualHint = (dom, text, isError = false) => {
   dom.manualHint.style.color = isError ? "#f87171" : "var(--color-muted-strong)";
 };
 
-export const renderBlacklist = (dom, translate, domains = []) => {
-  if (!dom.blacklistList) return;
-  dom.blacklistList.innerHTML = "";
+const renderDomainList = (listEl, translate, domains = [], emptyKey, options = {}) => {
+  if (!listEl) return;
+  listEl.innerHTML = "";
   if (!domains.length) {
     const li = document.createElement("li");
     li.className = "empty-state";
-    li.textContent = translate("blacklist.empty");
-    dom.blacklistList.appendChild(li);
+    li.textContent = translate(emptyKey);
+    listEl.appendChild(li);
     return;
   }
   domains.forEach((domain) => {
@@ -103,10 +109,17 @@ export const renderBlacklist = (dom, translate, domains = []) => {
     removeBtn.className = "whitelist-remove";
     removeBtn.dataset.domain = domain;
     removeBtn.textContent = "✕";
+    if (options.disableRemove) {
+      removeBtn.disabled = true;
+    }
 
     li.appendChild(removeBtn);
-    dom.blacklistList.appendChild(li);
+    listEl.appendChild(li);
   });
+};
+
+export const renderBlacklist = (dom, translate, domains = []) => {
+  renderDomainList(dom.blacklistList, translate, domains, "blacklist.empty");
 };
 
 export const applyState = (dom, translate, stateKey, context = {}) => {
@@ -164,30 +177,11 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
 };
 
 export const renderWhitelist = (dom, translate, domains = []) => {
-  if (!dom.whitelistList) return;
-  dom.whitelistList.innerHTML = "";
-  if (!domains.length) {
-    const li = document.createElement("li");
-    li.className = "empty-state";
-    li.textContent = translate("whitelist.empty");
-    dom.whitelistList.appendChild(li);
-    return;
-  }
-  domains.forEach((domain) => {
-    const li = document.createElement("li");
-    li.className = "whitelist-item";
-    li.dataset.domain = domain;
-    li.innerHTML = `<span>${domain}</span>`;
+  renderDomainList(dom.whitelistList, translate, domains, "whitelist.empty");
+};
 
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "whitelist-remove";
-    removeBtn.dataset.domain = domain;
-    removeBtn.textContent = "✕";
-
-    li.appendChild(removeBtn);
-    dom.whitelistList.appendChild(li);
-  });
+export const renderEnterpriseList = (listEl, translate, domains = [], emptyKey, options = {}) => {
+  renderDomainList(listEl, translate, domains, emptyKey, options);
 };
 
 export const renderHistory = (dom, translate, items = [], locale, emptyText = "") => {
