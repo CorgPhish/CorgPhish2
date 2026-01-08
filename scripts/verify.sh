@@ -4,6 +4,16 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST="$ROOT_DIR/CorgPhish/manifest.json"
 
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required" >&2
+  exit 1
+fi
+
+if ! command -v zip >/dev/null 2>&1; then
+  echo "zip is required" >&2
+  exit 1
+fi
+
 if [[ ! -f "$MANIFEST" ]]; then
   echo "manifest.json not found at $MANIFEST" >&2
   exit 1
@@ -62,4 +72,3 @@ PY
     exit 1
   fi
 fi
-
