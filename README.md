@@ -8,6 +8,9 @@ CorgPhish is a local anti‑phishing extension for Chrome/Chromium. It runs full
   <img src="docs/badges/offline.svg" alt="offline badge" />
   <img src="docs/badges/mv3.svg" alt="mv3 badge" />
   <img src="docs/badges/local-ml.svg" alt="local ml badge" />
+  <a href="https://github.com/physcorgi/CorgPhish2/actions/workflows/build.yml">
+    <img src="https://github.com/physcorgi/CorgPhish2/actions/workflows/build.yml/badge.svg" alt="build status" />
+  </a>
 </p>
 
 - [Русский](#русский)
@@ -52,6 +55,7 @@ CorgPhish проверяет URL при открытии страницы, со�
 
 ### Документация
 - Полная техническая документация: `CorgPhish/README.md`.
+- Гайд по релизу: `RELEASING.md`.
 
 ### Лицензия
 MIT — см. `LICENSE`.
@@ -84,6 +88,7 @@ CorgPhish inspects URLs on page load, checks trusted/whitelist/blacklist, detect
 
 ### Documentation
 - Full technical documentation: `CorgPhish/README.md`.
+- Release guide: `RELEASING.md`.
 
 ### License
 MIT — see `LICENSE`.

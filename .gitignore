@@ -9,3 +9,4 @@ CorgPhish/AGENTSMD
 
 # Release artifacts
 *.zip
+dist/
