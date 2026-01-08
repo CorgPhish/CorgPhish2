@@ -6,11 +6,12 @@ import {
   DEFAULT_SETTINGS,
   HISTORY_LIMIT
 } from "./config.js";
-import { normalizeHost } from "./utils.js";
+import { isLikelyDomain, normalizeHost } from "./utils.js";
 
 let trustedCache = null;
 const normalizeDomainList = (domains = []) =>
   domains.map((domain) => normalizeHost(domain)).filter(Boolean);
+const normalizeTrustedList = (domains = []) => normalizeDomainList(domains).filter(isLikelyDomain);
 
 // RU: Загружаем trusted через service worker.
 // EN: Load trusted domains via service worker.
@@ -22,7 +23,7 @@ const loadFromBackground = () =>
         return;
       }
       const list = Array.isArray(response?.trusted) ? response.trusted : [];
-      resolve(list.map((domain) => domain.trim().toLowerCase()).filter(Boolean));
+      resolve(list.map((domain) => String(domain || "").trim().toLowerCase()).filter(Boolean));
     });
     setTimeout(() => resolve([]), 1000);
   });
@@ -33,7 +34,7 @@ export const loadTrustedList = async () => {
   if (trustedCache) {
     return trustedCache;
   }
-  const viaSw = await loadFromBackground();
+  const viaSw = normalizeTrustedList(await loadFromBackground());
   if (viaSw.length) {
     trustedCache = viaSw;
     return trustedCache;
@@ -47,7 +48,7 @@ export const loadTrustedList = async () => {
     if (!Array.isArray(payload?.trusted)) {
       throw new Error("errors.invalidTrusted");
     }
-    trustedCache = payload.trusted.map((domain) => domain.trim().toLowerCase()).filter(Boolean);
+    trustedCache = normalizeTrustedList(payload.trusted);
     return trustedCache;
   } catch (error) {
     console.warn("CorgPhish: failed to fetch trusted.json in popup", error);
@@ -57,7 +58,8 @@ export const loadTrustedList = async () => {
 
 export const getTrustedDomains = async (customWhitelist = []) => {
   const base = await loadTrustedList();
-  return [...new Set([...base, ...customWhitelist])];
+  const safeWhitelist = normalizeTrustedList(customWhitelist);
+  return [...new Set([...base, ...safeWhitelist])];
 };
 
 // RU: Читаем настройки из sync storage.
@@ -82,7 +84,7 @@ export const loadWhitelist = () =>
   new Promise((resolve) => {
     chrome.storage.local.get({ [CUSTOM_WHITELIST_KEY]: [] }, (result) => {
       const list = Array.isArray(result[CUSTOM_WHITELIST_KEY]) ? result[CUSTOM_WHITELIST_KEY] : [];
-      resolve(normalizeDomainList(list));
+      resolve(normalizeTrustedList(list));
     });
   });
 
@@ -90,7 +92,7 @@ export const loadWhitelist = () =>
 // EN: Save whitelist.
 export const saveWhitelist = (domains) =>
   new Promise((resolve) => {
-    chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: normalizeDomainList(domains) }, resolve);
+    chrome.storage.local.set({ [CUSTOM_WHITELIST_KEY]: normalizeTrustedList(domains) }, resolve);
   });
 
 // RU: Загружаем blacklist.

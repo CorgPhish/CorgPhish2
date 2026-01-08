@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [1.1.3]
+- Hardened trusted/whitelist validation to prevent broad domain matches.
+- Trusted UI now shows whether the match came from trusted.json, whitelist, or ML.
+- Improved similarity matching for spoofed domains.
+
 ## [1.1.2]
 - Added CI/CD build and release workflows for automatic packaging.
 - Added local release scripts and release guide documentation.

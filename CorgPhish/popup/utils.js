@@ -15,6 +15,23 @@ export const normalizeHost = (hostname = "") => {
   }
 };
 
+export const isIpDomain = (domain = "") => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(domain);
+
+export const isLikelyDomain = (domain = "") => {
+  const normalized = normalizeHost(domain);
+  if (!normalized) return false;
+  if (isIpDomain(normalized)) return false;
+  const labels = normalized.split(".").filter(Boolean);
+  if (labels.length < 2) return false;
+  const tld = labels[labels.length - 1];
+  if (tld.length < 2 || tld.length > 24) return false;
+  if (!/^[a-z0-9-]+$/i.test(tld)) return false;
+  return labels.every(
+    (label) =>
+      /^[a-z0-9-]+$/i.test(label) && !label.startsWith("-") && !label.endsWith("-")
+  );
+};
+
 // RU: Расстояние Левенштейна для похожести доменов.
 // EN: Levenshtein distance for domain similarity.
 export const levenshteinDistance = (a = "", b = "") => {

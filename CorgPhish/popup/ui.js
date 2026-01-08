@@ -135,6 +135,8 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   if (stateKey === "trusted") {
     if (context.sourceKey === "status.sourceValue.ml") {
       hintKey = "status.trusted.hint.ml";
+    } else if (context.sourceKey === "status.sourceValue.whitelist") {
+      hintKey = "status.trusted.hint.whitelist";
     } else if (context.sourceKey === "status.sourceValue.list") {
       hintKey = "status.trusted.hint.list";
     }

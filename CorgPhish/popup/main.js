@@ -290,6 +290,7 @@ const applyInspectionResult = async (result, options = {}) => {
     isTrusted: result.isTrusted,
     mlVerdict: result.mlVerdict,
     sourceKey: result.detectionSource,
+    match: result.matchedDomain || "",
     suspicionKey: result.suspicionKey,
     suspicionParams: result.suspicionParams,
     officialDomain: result.officialDomain
