@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MANIFEST="$ROOT_DIR/CorgPhish/manifest.json"
+
+if [[ ! -f "$MANIFEST" ]]; then
+  echo "manifest.json not found at $MANIFEST" >&2
+  exit 1
+fi
+
+VERSION=$(python3 - <<'PY'
+import json
+from pathlib import Path
+manifest = Path("CorgPhish/manifest.json")
+print(json.loads(manifest.read_text()).get("version", "0.0.0"))
+PY
+)
+
+OUT_DIR="$ROOT_DIR/dist"
+OUT_FILE="${1:-$OUT_DIR/corgphish-release-v${VERSION}.zip}"
+
+mkdir -p "$OUT_DIR"
+rm -f "$OUT_FILE"
+
+cd "$ROOT_DIR"
+zip -r "$OUT_FILE" CorgPhish -x "*.DS_Store" -x "CorgPhish/AGENTSMD"
+
+echo "Packaged: $OUT_FILE"

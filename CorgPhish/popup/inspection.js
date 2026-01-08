@@ -7,35 +7,6 @@ import { predictUrl } from "./model.js";
 const CACHE_TTL_MS = 5000;
 let lastInspection = null;
 
-const normalizeEnterprisePolicy = (policy = {}) => {
-  const mode = ["off", "warn", "block"].includes(policy?.mode) ? policy.mode : "off";
-  return {
-    mode,
-    allowlist: Array.isArray(policy?.allowlist)
-      ? policy.allowlist.map((domain) => normalizeHost(domain)).filter(Boolean)
-      : [],
-    denylist: Array.isArray(policy?.denylist)
-      ? policy.denylist.map((domain) => normalizeHost(domain)).filter(Boolean)
-      : []
-  };
-};
-
-const matchesDomain = (domain, list = []) =>
-  list.some((entry) => domain === entry || domain.endsWith(`.${entry}`));
-
-const evaluateEnterprisePolicy = (domain, policy, kind = "domain") => {
-  if (!domain) return null;
-  const normalized = normalizeEnterprisePolicy(policy);
-  if (normalized.mode === "off") return null;
-  if (matchesDomain(domain, normalized.denylist)) {
-    return { mode: normalized.mode, kind, reason: "denylist", host: domain };
-  }
-  if (normalized.allowlist.length && !matchesDomain(domain, normalized.allowlist)) {
-    return { mode: normalized.mode, kind, reason: "allowlist", host: domain };
-  }
-  return null;
-};
-
 export const inspectDomain = async (
   hostname,
   customWhitelist = [],
@@ -53,35 +24,11 @@ export const inspectDomain = async (
   const strictMode = Boolean(options?.strictMode);
   const brandDomain = normalizeHost(signals?.brand?.domain || "");
   const formRisk = signals?.form || null;
-  const enterprisePolicy = normalizeEnterprisePolicy(options?.enterprisePolicy);
-  const rawCorpSignal = signals?.corp || null;
-  const corpSignal = rawCorpSignal
-    ? {
-        mode: rawCorpSignal.mode || enterprisePolicy.mode,
-        kind: rawCorpSignal.kind || (rawCorpSignal.actionHost ? "form" : "domain"),
-        reason: rawCorpSignal.reason || "allowlist",
-        host: normalizeHost(rawCorpSignal.host || cleanDomain),
-        actionHost: normalizeHost(rawCorpSignal.actionHost || "")
-      }
-    : evaluateEnterprisePolicy(cleanDomain, enterprisePolicy);
-  const corpActionHost = normalizeHost(corpSignal?.actionHost || "");
-  const corpHost = normalizeHost(corpSignal?.host || cleanDomain);
-  const corpKey = corpSignal
-    ? {
-        mode: corpSignal.mode,
-        kind: corpSignal.kind,
-        reason: corpSignal.reason,
-        host: corpHost,
-        actionHost: corpActionHost
-      }
-    : null;
   const signalKey = JSON.stringify({
     brand: brandDomain,
     form: normalizeHost(formRisk?.actionHost || ""),
     formReason: formRisk?.reason || "",
-    strict: strictMode,
-    enterprise: enterprisePolicy,
-    corp: corpKey
+    strict: strictMode
   });
   const cacheKey = `${fullUrl || cleanDomain}::${customWhitelist.join("|")}::${blacklist.join("|")}::${signalKey}`;
   if (lastInspection && lastInspection.key === cacheKey && Date.now() - lastInspection.ts < CACHE_TTL_MS) {
@@ -111,31 +58,6 @@ export const inspectDomain = async (
   const isTrusted = trustedList.some(
     (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
   );
-  if (isTrusted && corpSignal) {
-    const suspicionKey =
-      corpSignal.kind === "form" ? "status.suspicious.corpForm" : "status.suspicious.corpDomain";
-    const suspicionParams =
-      corpSignal.kind === "form"
-        ? { host: corpActionHost || corpHost || cleanDomain }
-        : { domain: corpHost || cleanDomain };
-    const result = {
-      domain: cleanDomain,
-      verdict: "suspicious",
-      spoofTarget: null,
-      isTrusted: false,
-      mlVerdict: null,
-      mlStatus: "skipped",
-      suspicionKey,
-      suspicionParams,
-      formRisk,
-      officialDomain: null,
-      checkedAt: Date.now(),
-      detectionSource: "status.sourceValue.corp",
-      cached: false
-    };
-    lastInspection = { key: cacheKey, ts: Date.now(), result };
-    return result;
-  }
   if (isTrusted && formRisk?.actionHost) {
     const result = {
       domain: cleanDomain,
@@ -179,17 +101,10 @@ export const inspectDomain = async (
   const mlVerdict = mlResult?.verdict ?? null;
 
   const hasSpoof = Boolean(spoofTarget);
-  const hasSignals = Boolean(brandDomain || formRisk || corpSignal);
+  const hasSignals = Boolean(brandDomain || formRisk);
   let suspicionKey = null;
   let suspicionParams = null;
-  if (corpSignal) {
-    suspicionKey =
-      corpSignal.kind === "form" ? "status.suspicious.corpForm" : "status.suspicious.corpDomain";
-    suspicionParams =
-      corpSignal.kind === "form"
-        ? { host: corpActionHost || corpHost || cleanDomain }
-        : { domain: corpHost || cleanDomain };
-  } else if (brandDomain) {
+  if (brandDomain) {
     suspicionKey = "status.suspicious.brand";
     suspicionParams = { brand: brandDomain };
   } else if (formRisk?.actionHost) {
@@ -198,9 +113,7 @@ export const inspectDomain = async (
   }
   let verdict = "suspicious";
   let sourceKey = "status.sourceValue.ml";
-  if (corpSignal) {
-    sourceKey = "status.sourceValue.corp";
-  } else if (brandDomain) {
+  if (brandDomain) {
     sourceKey = "status.sourceValue.brand";
   } else if (formRisk?.actionHost) {
     sourceKey = "status.sourceValue.form";

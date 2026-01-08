@@ -3,3 +3,10 @@
 
 # Internal agent notes (not for release)
 CorgPhish/AGENTSMD
+
+# IDE
+.idea/
+
+# Release artifacts
+*.zip
+dist/

@@ -1,6 +1,6 @@
 // RU: Сервис-воркер: системные уведомления, кэш trusted.json, закрытие вкладок.
 // EN: Service worker: system notifications, trusted.json cache, close tabs.
-import { DEFAULT_ENTERPRISE_POLICY, ENTERPRISE_POLICY_KEY, MODEL_THRESHOLD } from "./popup/config.js";
+import { MODEL_THRESHOLD } from "./popup/config.js";
 
 const DEFAULT_SETTINGS = {
   systemNotifyOnRisk: false
@@ -8,71 +8,6 @@ const DEFAULT_SETTINGS = {
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
-const ENTERPRISE_POLICY_FALLBACK = DEFAULT_ENTERPRISE_POLICY;
-
-const normalizeHost = (hostname = "") => {
-  const trimmed = hostname.trim();
-  if (!trimmed) return "";
-  try {
-    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
-    return url.hostname.replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
-  } catch (error) {
-    return trimmed.replace(/^www\./i, "").replace(/\.$/, "").toLowerCase();
-  }
-};
-
-const normalizeDomainList = (domains = []) =>
-  domains.map((domain) => normalizeHost(domain)).filter(Boolean);
-
-const normalizeEnterprisePolicy = (policy = {}) => {
-  const mode = ["off", "warn", "block"].includes(policy?.mode)
-    ? policy.mode
-    : ENTERPRISE_POLICY_FALLBACK.mode;
-  return {
-    mode,
-    allowlist: normalizeDomainList(policy?.allowlist || []),
-    denylist: normalizeDomainList(policy?.denylist || [])
-  };
-};
-
-const readStorage = (area, defaults) =>
-  new Promise((resolve) => {
-    if (!area?.get) {
-      resolve(defaults);
-      return;
-    }
-    area.get(defaults, (result) => resolve(result || defaults));
-  });
-
-const loadEnterprisePolicy = async () => {
-  try {
-    const managed = await readStorage(chrome.storage.managed, { [ENTERPRISE_POLICY_KEY]: null });
-    if (managed?.[ENTERPRISE_POLICY_KEY]) {
-      return {
-        policy: normalizeEnterprisePolicy(managed[ENTERPRISE_POLICY_KEY]),
-        managed: true
-      };
-    }
-    const local = await readStorage(chrome.storage.local, { [ENTERPRISE_POLICY_KEY]: null });
-    if (local?.[ENTERPRISE_POLICY_KEY]) {
-      return {
-        policy: normalizeEnterprisePolicy(local[ENTERPRISE_POLICY_KEY]),
-        managed: false
-      };
-    }
-    const response = await fetch(chrome.runtime.getURL("enterprise.json"));
-    if (response.ok) {
-      const payload = await response.json();
-      return {
-        policy: normalizeEnterprisePolicy(payload),
-        managed: false
-      };
-    }
-  } catch (error) {
-    console.warn("CorgPhish: failed to load enterprise policy", error);
-  }
-  return { policy: normalizeEnterprisePolicy(ENTERPRISE_POLICY_FALLBACK), managed: false };
-};
 
 // Lightweight heuristic predictor (без ORT) прямо в background.
 const FEATURE_COLUMNS = [
@@ -298,14 +233,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.warn("CorgPhish: failed to serve trusted.json", error);
         sendResponse?.({ ok: false, trusted: [] });
       }
-    })();
-    return true;
-  }
-
-  if (message.type === "getEnterprisePolicy") {
-    (async () => {
-      const payload = await loadEnterprisePolicy();
-      sendResponse?.({ ok: true, policy: payload.policy, managed: payload.managed });
     })();
     return true;
   }
