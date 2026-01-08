@@ -19,12 +19,6 @@ export const applyLanguage = (dom, translate, language) => {
   if (dom.blacklistInput) {
     dom.blacklistInput.placeholder = translate("blacklist.placeholder");
   }
-  if (dom.enterpriseAllowInput) {
-    dom.enterpriseAllowInput.placeholder = translate("enterprise.allow.placeholder");
-  }
-  if (dom.enterpriseDenyInput) {
-    dom.enterpriseDenyInput.placeholder = translate("enterprise.deny.placeholder");
-  }
   if (dom.manualInput) {
     dom.manualInput.placeholder = translate("manual.placeholder");
   }
@@ -180,9 +174,6 @@ export const renderWhitelist = (dom, translate, domains = []) => {
   renderDomainList(dom.whitelistList, translate, domains, "whitelist.empty");
 };
 
-export const renderEnterpriseList = (listEl, translate, domains = [], emptyKey, options = {}) => {
-  renderDomainList(listEl, translate, domains, emptyKey, options);
-};
 
 export const renderHistory = (dom, translate, items = [], locale, emptyText = "") => {
   if (!dom.historyList || !dom.historyEmpty) return;

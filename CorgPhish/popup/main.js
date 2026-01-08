@@ -12,9 +12,7 @@ import {
   saveSettings,
   saveWhitelist,
   loadBlacklist,
-  saveBlacklist,
-  loadEnterprisePolicy,
-  saveEnterprisePolicy
+  saveBlacklist
 } from "./data.js";
 import {
   applyLanguage,
@@ -23,7 +21,6 @@ import {
   renderHistory,
   renderWhitelist,
   renderBlacklist,
-  renderEnterpriseList,
   setManualHint,
   updateStats
 } from "./ui.js";
@@ -32,8 +29,6 @@ import { getLocale, normalizeHost, resolveHostname } from "./utils.js";
 let currentSettings = { ...DEFAULT_SETTINGS };
 let customWhitelist = [];
 let customBlacklist = [];
-let currentEnterprisePolicy = null;
-let enterpriseManaged = false;
 let lastHistory = [];
 let historyQuery = "";
 let historyFilter = "all";
@@ -108,10 +103,7 @@ const fetchPageSignals = (tabId) =>
     setTimeout(() => resolve(null), 600);
   });
 
-const getInspectOptions = () => ({
-  strictMode: currentSettings.strictMode,
-  enterprisePolicy: currentEnterprisePolicy
-});
+const getInspectOptions = () => ({ strictMode: currentSettings.strictMode });
 
 const filterHistoryItems = (items = []) => {
   const query = historyQuery.trim().toLowerCase();
@@ -153,7 +145,6 @@ const switchView = (view) => {
   if (view === "settings") {
     dom.app.dataset.view = "settings";
     updateSettingsControls();
-    refreshEnterprisePolicy();
     setSettingsTab(settingsTab);
     return;
   }
@@ -196,70 +187,6 @@ const refreshBlacklist = async () => {
   const stored = await loadBlacklist();
   customBlacklist = stored.map((domain) => normalizeHost(domain)).filter(Boolean);
   renderBlacklist(dom, getTranslator(), customBlacklist);
-};
-
-const setEnterpriseControlsDisabled = (disabled) => {
-  if (dom.enterpriseModeSelect) {
-    dom.enterpriseModeSelect.disabled = disabled;
-  }
-  if (dom.enterpriseAllowInput) {
-    dom.enterpriseAllowInput.disabled = disabled;
-  }
-  if (dom.enterpriseDenyInput) {
-    dom.enterpriseDenyInput.disabled = disabled;
-  }
-  const allowBtn = dom.enterpriseAllowForm?.querySelector("button");
-  if (allowBtn) {
-    allowBtn.disabled = disabled;
-  }
-  const denyBtn = dom.enterpriseDenyForm?.querySelector("button");
-  if (denyBtn) {
-    denyBtn.disabled = disabled;
-  }
-  if (dom.enterpriseManagedNote) {
-    dom.enterpriseManagedNote.classList.toggle("is-hidden", !disabled);
-  }
-};
-
-const renderEnterprisePolicy = () => {
-  if (!currentEnterprisePolicy) return;
-  const t = getTranslator();
-  const disabled = enterpriseManaged;
-  if (dom.enterpriseModeSelect) {
-    dom.enterpriseModeSelect.value = currentEnterprisePolicy.mode || "off";
-  }
-  renderEnterpriseList(
-    dom.enterpriseAllowList,
-    t,
-    currentEnterprisePolicy.allowlist || [],
-    "enterprise.list.empty",
-    { disableRemove: disabled }
-  );
-  renderEnterpriseList(
-    dom.enterpriseDenyList,
-    t,
-    currentEnterprisePolicy.denylist || [],
-    "enterprise.list.empty",
-    { disableRemove: disabled }
-  );
-  setEnterpriseControlsDisabled(disabled);
-};
-
-const refreshEnterprisePolicy = async () => {
-  const result = await loadEnterprisePolicy();
-  currentEnterprisePolicy = result?.policy || { mode: "off", allowlist: [], denylist: [] };
-  enterpriseManaged = Boolean(result?.managed);
-  renderEnterprisePolicy();
-};
-
-const updateEnterprisePolicy = async (policy) => {
-  if (enterpriseManaged) {
-    renderEnterprisePolicy();
-    return;
-  }
-  const saved = await saveEnterprisePolicy(policy);
-  currentEnterprisePolicy = saved;
-  renderEnterprisePolicy();
 };
 
 // RU: Добавить домен в ЧС с валидацией.
@@ -323,34 +250,6 @@ const removeDomainFromBlacklist = async (domain) => {
   const clean = normalizeHost(domain);
   await updateBlacklistStorage(customBlacklist.filter((entry) => entry !== clean));
   showSettingsStatus("blacklist.status.removed", { domain: clean });
-};
-
-const addEnterpriseDomain = async (listKey, rawDomain) => {
-  if (enterpriseManaged) return;
-  const clean = normalizeHost(rawDomain);
-  if (!clean) {
-    showSettingsStatus("enterprise.status.invalid", {}, true);
-    return;
-  }
-  const basePolicy = currentEnterprisePolicy || { mode: "off", allowlist: [], denylist: [] };
-  const list = basePolicy[listKey] || [];
-  if (list.includes(clean)) {
-    showSettingsStatus("enterprise.status.exists", {}, true);
-    return;
-  }
-  const nextPolicy = { ...basePolicy, [listKey]: [...list, clean] };
-  await updateEnterprisePolicy(nextPolicy);
-  showSettingsStatus("enterprise.status.added", { domain: clean });
-};
-
-const removeEnterpriseDomain = async (listKey, domain) => {
-  if (enterpriseManaged) return;
-  const clean = normalizeHost(domain);
-  const basePolicy = currentEnterprisePolicy || { mode: "off", allowlist: [], denylist: [] };
-  const list = basePolicy[listKey] || [];
-  const nextPolicy = { ...basePolicy, [listKey]: list.filter((entry) => entry !== clean) };
-  await updateEnterprisePolicy(nextPolicy);
-  showSettingsStatus("enterprise.status.removed", { domain: clean });
 };
 
 // RU: Обновляем историю и статистику.
@@ -498,46 +397,6 @@ const handleWhitelistListClick = async (event) => {
   const target = event.target.closest(".whitelist-remove");
   if (!target || !target.dataset.domain) return;
   await removeDomainFromWhitelist(target.dataset.domain);
-};
-
-const handleEnterpriseModeChange = async () => {
-  if (enterpriseManaged) {
-    renderEnterprisePolicy();
-    return;
-  }
-  if (!dom.enterpriseModeSelect) return;
-  const nextMode = dom.enterpriseModeSelect.value || "off";
-  const basePolicy = currentEnterprisePolicy || { mode: "off", allowlist: [], denylist: [] };
-  await updateEnterprisePolicy({ ...basePolicy, mode: nextMode });
-  showSettingsStatus("settings.status.saved");
-};
-
-const handleEnterpriseAllowSubmit = async (event) => {
-  event.preventDefault();
-  if (!dom.enterpriseAllowInput) return;
-  await addEnterpriseDomain("allowlist", dom.enterpriseAllowInput.value);
-  dom.enterpriseAllowInput.value = "";
-};
-
-const handleEnterpriseAllowListClick = async (event) => {
-  if (enterpriseManaged) return;
-  const target = event.target.closest(".whitelist-remove");
-  if (!target?.dataset.domain) return;
-  await removeEnterpriseDomain("allowlist", target.dataset.domain);
-};
-
-const handleEnterpriseDenySubmit = async (event) => {
-  event.preventDefault();
-  if (!dom.enterpriseDenyInput) return;
-  await addEnterpriseDomain("denylist", dom.enterpriseDenyInput.value);
-  dom.enterpriseDenyInput.value = "";
-};
-
-const handleEnterpriseDenyListClick = async (event) => {
-  if (enterpriseManaged) return;
-  const target = event.target.closest(".whitelist-remove");
-  if (!target?.dataset.domain) return;
-  await removeEnterpriseDomain("denylist", target.dataset.domain);
 };
 
 const handleSettingsChange = async () => {
@@ -704,7 +563,6 @@ const init = async () => {
   }
   await refreshWhitelist();
   await refreshBlacklist();
-  await refreshEnterprisePolicy();
   updateSettingsControls();
   refreshHistory();
 
@@ -736,11 +594,6 @@ safeAddEvent(dom.manualForm, "submit", handleManualSubmit);
 safeAddEvent(dom.manualInput, "input", () => setManualHint(dom, getTranslator()("manual.hint.default")));
 safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
 safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
-safeAddEvent(dom.enterpriseModeSelect, "change", handleEnterpriseModeChange);
-safeAddEvent(dom.enterpriseAllowForm, "submit", handleEnterpriseAllowSubmit);
-safeAddEvent(dom.enterpriseAllowList, "click", handleEnterpriseAllowListClick);
-safeAddEvent(dom.enterpriseDenyForm, "submit", handleEnterpriseDenySubmit);
-safeAddEvent(dom.enterpriseDenyList, "click", handleEnterpriseDenyListClick);
 safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
 safeAddEvent(dom.blacklistBtn, "click", handleBlacklistClick);
 safeAddEvent(dom.officialSiteBtn, "click", handleOfficialSiteClick);

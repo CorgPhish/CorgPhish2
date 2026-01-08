@@ -38,7 +38,7 @@ Thanks for your interest in CorgPhish! Below are concise guidelines for contribu
 - Синхронизируйте ключи RU и EN.
 
 ## Commits / Коммиты
-- Use short, descriptive commit messages (e.g., `feat: add enterprise policy`).
+- Use short, descriptive commit messages (e.g., `feat: add form guard`).
 - Avoid committing build artifacts unless explicitly requested.
 
 - Используйте короткие, понятные сообщения коммитов.

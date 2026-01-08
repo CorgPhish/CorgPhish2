@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [1.1.1]
+- Removed corporate policy UI and logic from the consumer build (moved to corporate edition).
+
 ## [1.1.0]
 - Corporate policy mode with allow/deny lists and warn/block reactions.
 - Corporate policy signals integrated into inspection and blocking.

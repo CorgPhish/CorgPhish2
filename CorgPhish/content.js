@@ -21,9 +21,6 @@
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
-  const ENTERPRISE_CACHE_TTL = 30 * 1000;
-  const DEFAULT_ENTERPRISE_POLICY = { mode: "off", allowlist: [], denylist: [] };
-  let enterpriseCache = { policy: DEFAULT_ENTERPRISE_POLICY, ts: 0 };
 
   // RU: Нормализуем хостнейм (URL/пути → домен, без www/точек, в нижний регистр).
   // EN: Normalize hostname (URL/paths → domain, strip www/trailing dot, lowercase).
@@ -41,72 +38,6 @@
   // RU: Безопасно получаем hostname из URL или строки.
   // EN: Safely extract hostname from URL or plain string.
   const resolveHostname = (input = "") => normalizeHost(input);
-  const normalizeEnterprisePolicy = (policy = {}) => {
-    const mode = ["off", "warn", "block"].includes(policy?.mode)
-      ? policy.mode
-      : DEFAULT_ENTERPRISE_POLICY.mode;
-    return {
-      mode,
-      allowlist: Array.isArray(policy?.allowlist)
-        ? policy.allowlist.map((domain) => normalizeHost(domain)).filter(Boolean)
-        : [],
-      denylist: Array.isArray(policy?.denylist)
-        ? policy.denylist.map((domain) => normalizeHost(domain)).filter(Boolean)
-        : []
-    };
-  };
-  const matchesDomain = (domain, list = []) =>
-    list.some((entry) => domain === entry || domain.endsWith(`.${entry}`));
-  const loadEnterprisePolicy = () =>
-    new Promise((resolve) => {
-      if (enterpriseCache.policy && Date.now() - enterpriseCache.ts < ENTERPRISE_CACHE_TTL) {
-        resolve(enterpriseCache.policy);
-        return;
-      }
-      chrome.runtime.sendMessage({ type: "getEnterprisePolicy" }, (response) => {
-        if (chrome.runtime.lastError) {
-          resolve(DEFAULT_ENTERPRISE_POLICY);
-          return;
-        }
-        const normalized = normalizeEnterprisePolicy(response?.policy || DEFAULT_ENTERPRISE_POLICY);
-        enterpriseCache = { policy: normalized, ts: Date.now() };
-        resolve(normalized);
-      });
-      setTimeout(() => resolve(DEFAULT_ENTERPRISE_POLICY), 800);
-    });
-  const evaluateEnterprisePolicy = (domain, policy, kind = "domain") => {
-    if (!domain || !policy || policy.mode === "off") return null;
-    const allowlist = Array.isArray(policy.allowlist) ? policy.allowlist : [];
-    const denylist = Array.isArray(policy.denylist) ? policy.denylist : [];
-    if (matchesDomain(domain, denylist)) {
-      return { mode: policy.mode, kind, reason: "denylist", host: domain };
-    }
-    if (allowlist.length && !matchesDomain(domain, allowlist)) {
-      return { mode: policy.mode, kind, reason: "allowlist", host: domain };
-    }
-    return null;
-  };
-  const detectEnterpriseFormPolicy = (policy, hostname) => {
-    if (!policy || policy.mode === "off") return null;
-    const forms = Array.from(document.forms || []);
-    if (!forms.length) return null;
-    for (const form of forms) {
-      const actionAttr = form.getAttribute("action");
-      let actionUrl = null;
-      try {
-        actionUrl = actionAttr ? new URL(actionAttr, window.location.href) : new URL(window.location.href);
-      } catch (error) {
-        continue;
-      }
-      const actionHost = normalizeHost(actionUrl.hostname || "");
-      if (!actionHost || actionHost === hostname) continue;
-      const match = evaluateEnterprisePolicy(actionHost, policy, "form");
-      if (match) {
-        return { ...match, actionHost };
-      }
-    }
-    return null;
-  };
   const isIpDomain = (domain = "") => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(domain);
   const getRegistrableDomain = (domain = "") => {
     const labels = normalizeHost(domain).split(".").filter(Boolean);
@@ -533,14 +464,6 @@
     overlayRef = overlay;
     if (reason === "blacklist") {
       overlay.hint.textContent = "Домен в вашем чёрном списке. Страница заблокирована.";
-    } else if (reason === "policy") {
-      overlay.badge.textContent = "CorgPhish — политика";
-      overlay.title.textContent = "Доступ ограничен политикой компании";
-      overlay.hint.textContent =
-        "Домен не соответствует корпоративным правилам. Ввод данных и загрузки заблокированы.";
-      if (overlay.allowBtn) {
-        overlay.allowBtn.style.display = "none";
-      }
     } else if (reason === "phishing") {
       overlay.hint.textContent =
         "Модель подтвердила высокий риск. Данные, формы и загрузки заблокированы.";
@@ -550,14 +473,6 @@
   // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
   // EN: Init: auto inspection, temp allow handling, blacklist check.
   const init = async () => {
-    const enterprisePolicy = await loadEnterprisePolicy();
-    const enterpriseSignal =
-      evaluateEnterprisePolicy(hostname, enterprisePolicy, "domain") ||
-      detectEnterpriseFormPolicy(enterprisePolicy, hostname);
-    if (enterpriseSignal && enterprisePolicy.mode === "block") {
-      activateBlock("policy");
-      return;
-    }
     if (await isTemporarilyAllowed(hostname)) {
       return;
     }
@@ -588,11 +503,7 @@
       (async () => {
         const brand = await detectBrandMismatch(hostname);
         const form = detectFormRisk(hostname);
-        const enterprisePolicy = await loadEnterprisePolicy();
-        const corpDomain = evaluateEnterprisePolicy(hostname, enterprisePolicy, "domain");
-        const corpForm = detectEnterpriseFormPolicy(enterprisePolicy, hostname);
-        const corp = corpForm || corpDomain;
-        sendResponse?.({ ok: true, signals: { brand, form, corp } });
+        sendResponse?.({ ok: true, signals: { brand, form } });
       })();
       return true;
     }

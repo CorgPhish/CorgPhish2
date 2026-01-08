@@ -13,7 +13,6 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 - Ключевые возможности
 - Результаты проверки (вердикты)
 - Как работает (пайплайн)
-- Корпоративный режим
 - Технологии
 - Архитектура и структура
 - Данные и хранение
@@ -40,12 +39,11 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 - Быстрые действия: выйти со страницы, добавить в ЧС, временно разрешить домен на 5 минут.
 - Удобный попап: статус активной вкладки, история с фильтрами/поиском, проверка всех вкладок, быстрый переход на официальный домен.
 - Строгий режим: все домены вне trusted/whitelist помечаются как подозрительные.
-- Корпоративный режим: allow/deny‑списки доменов + режимы предупреждения/блокировки.
 - Полностью офлайн — никаких удалённых запросов.
 
 ### Результаты проверки (вердикты)
 - `trusted` — домен найден в trusted.json или в пользовательском whitelist, либо ML дал безопасный прогноз (если нет сигналов риска и строгий режим выключен).
-- `suspicious` — домен похож на доверенный, найдено несоответствие бренда/подозрительная форма/корпоративное ограничение, или включён строгий режим. Это предупреждение (не блокирует страницу).
+- `suspicious` — домен похож на доверенный, найдено несоответствие бренда/подозрительная форма, или включён строгий режим. Это предупреждение (не блокирует страницу).
 - `phishing` — ML подтвердил высокий риск.
 - `blacklisted` — домен найден в пользовательском blacklist.
 - `unsupported` — страница не HTTP/HTTPS (системные страницы и локальные файлы не анализируются).
@@ -54,30 +52,12 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 ### Как работает (пайплайн)
 1. **Нормализация домена** — удаляем `www.`, нижний регистр, убираем точку в конце.
 2. **Blacklist/Whitelist/Trusted** — мгновенная классификация на основе списков (включая поддомены).
-3. **Корпоративная политика** — allow/deny‑проверка доменов и форм (если включена).
-4. **Сигналы страницы** — BrandGuard и Form Action Guard (только для активной вкладки).
-5. **Похожесть** — поиск домена из trusted списка с расстоянием Левенштейна ≤ 2 + бренд‑токены.
-6. **ML‑инференс** — локальная ONNX‑модель (через offscreen document или в контенте). Если ORT недоступен — эвристика.
-7. **Строгий режим** — при включении переводит `trusted` в `suspicious`.
-8. **Вердикт** — `trusted / suspicious / phishing / blacklisted`.
-9. **Действия** — при `phishing/blacklisted` включается блокировка страницы, данные сохраняются в историю.
-
-### Корпоративный режим
-- **Mode**: `off`, `warn`, `block`.
-- **Allowlist**: если список не пустой, всё вне него считается нарушением политики.
-- **Denylist**: домены всегда считаются запрещёнными.
-- **Managed policy**: если `enterprisePolicy` задан в `chrome.storage.managed`, пользователь не может менять настройки.
-- **Form guard**: проверяются домены, куда отправляются формы.
-
-**Поведение:**
-- `warn` → вердикт `suspicious` и предупреждение в UI.
-- `block` → блокировка ввода и загрузок + оверлей на странице.
-- Проверяются домен текущей страницы и домен `action` у форм.
-
-**Где хранится:**
-- `enterprise.json` — дефолтная политика.
-- `chrome.storage.local` → `enterprisePolicy`.
-- `chrome.storage.managed` перекрывает локальные значения.
+3. **Сигналы страницы** — BrandGuard и Form Action Guard (только для активной вкладки).
+4. **Похожесть** — поиск домена из trusted списка с расстоянием Левенштейна ≤ 2 + бренд‑токены.
+5. **ML‑инференс** — локальная ONNX‑модель (через offscreen document или в контенте). Если ORT недоступен — эвристика.
+6. **Строгий режим** — при включении переводит `trusted` в `suspicious`.
+7. **Вердикт** — `trusted / suspicious / phishing / blacklisted`.
+8. **Действия** — при `phishing/blacklisted` включается блокировка страницы, данные сохраняются в историю.
 
 ### Технологии
 - **Chrome Extension Manifest V3**.
@@ -91,11 +71,10 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 
 ### Архитектура и структура
 - `manifest.json` — MV3 конфигурация, разрешения, web‑resources.
-- `background.js` — сервис‑воркер: кэш trusted.json, offscreen‑инференс, уведомления, закрытие вкладок, корпоративная политика.
+- `background.js` — сервис‑воркер: кэш trusted.json, offscreen‑инференс, уведомления, закрытие вкладок.
 - `offscreen.html`, `offscreen.js` — sandbox‑среда для ORT, чтобы избежать CSP страницы.
-- `content.js` — автоинспекция, оверлей, блокировка форм/загрузок, временные разрешения, сигналы страницы (бренд/формы/корп‑политика).
+- `content.js` — автоинспекция, оверлей, блокировка форм/загрузок, временные разрешения, сигналы страницы (бренд/формы).
 - `trusted.json` — встроенный список доверенных доменов.
-- `enterprise.json` — дефолтная корпоративная политика.
 - `models/` — ONNX‑модель.
 - `vendor/ort/` — onnxruntime‑web (js/wasm).
 - `popup/` — UI попапа:
@@ -114,15 +93,12 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 - `builtinTrustedDomains`: кеш trusted.json (загружается в фоне на install/startup).
 - `customTrustedDomains`: пользовательский whitelist.
 - `customBlockedDomains`: пользовательский blacklist.
-- `enterprisePolicy`: корпоративная политика (mode/allowlist/denylist).
 - `scanHistory`: история проверок (макс. 50 записей).
 - `tempAllowDomains`: временные разрешения `{ domain: timestamp_ms }`.
 
 **chrome.storage.sync**
 - настройки интерфейса и поведения (ключи из `DEFAULT_SETTINGS`, включая `strictMode`).
 
-**chrome.storage.managed (опционально)**
-- `enterprisePolicy`: политика, задаваемая администратором (перекрывает локальные значения).
 
 **Формат trusted.json**
 ```json
@@ -131,14 +107,6 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 }
 ```
 
-**Формат enterprise.json**
-```json
-{
-  "mode": "off",
-  "allowlist": ["corp.com"],
-  "denylist": ["badcorp.com"]
-}
-```
 
 ### Установка
 1. Откройте `chrome://extensions`.
@@ -151,12 +119,11 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 - **Попап**: показывает статус активной вкладки, рекомендации, быстрые действия, кнопку “Проверить всё”.
 - **История**: хранит последние проверки, поддерживает поиск и фильтры, учитывает retention.
 - **Списки**: whitelist/blacklist управляются через вкладку “Списки” в настройках.
-- **Корпоративно**: вкладка “Корпоративно” управляет allow/deny доменами.
 - **Официальный сайт**: при подозрении на бренд‑подмену доступна кнопка быстрого перехода.
 - **Блокировка**: при фишинге — оверлей, блок форм/загрузок, быстрые действия.
 
 ### Настройки
-Доступны в попапе → Settings (вкладки “Опции”, “Списки”, “Корпоративно”):
+Доступны в попапе → Settings (вкладки “Опции”, “Списки”):
 - **Язык**: ru/en.
 - **Тема**: светлая/тёмная.
 - **Автопроверка при открытии попапа**.
@@ -166,7 +133,6 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 - **Системные уведомления**.
 - **Автоочистка истории (retention)**: 0/7/30/90 дней.
 - **Компактный режим**.
-- **Корпоративная политика**: режим (off/warn/block), allow/deny‑домены.
 
 ### Модель и эвристика
 **Модель** — ONNX, ожидает:
@@ -278,7 +244,7 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 ### Ограничения и заметки
 - Проверяются только HTTP/HTTPS страницы.
 - Жёсткий CSP может блокировать ORT в контенте, но offscreen‑документ обычно работает.
-- Модель бинарная (trusted/phishing) и лёгкая; для критичных сценариев используйте whitelist/blacklist/enterprise policy.
+- Модель бинарная (trusted/phishing) и лёгкая; для критичных сценариев используйте whitelist/blacklist.
 - Часть UI‑переключателей пока не влияет на логику (см. раздел «Подключение настроек»).
 - Сигналы BrandGuard/Form Action Guard доступны только при проверке активной вкладки через попап.
 
@@ -292,7 +258,6 @@ MIT.
 - Key features
 - Verdicts
 - Pipeline
-- Corporate mode
 - Technologies
 - Architecture
 - Data & storage
@@ -319,12 +284,11 @@ The extension automatically analyzes URLs on page open, compares domains with tr
 - Quick actions: exit, blacklist, temporary allow (5 minutes).
 - Polished popup: status, scan history, filters, scan all tabs, open official domain.
 - Strict mode: non‑trusted domains become suspicious.
-- Corporate mode: allow/deny lists with warn/block.
 - Fully offline.
 
 ### Verdicts
 - `trusted` — in trusted.json or user whitelist, or ML marks trusted (no risk signals, strict mode off).
-- `suspicious` — similar to trusted, brand mismatch, suspicious form, corporate restriction, or strict mode. Warning only (no blocking).
+- `suspicious` — similar to trusted, brand mismatch, suspicious form, or strict mode. Warning only (no blocking).
 - `phishing` — ML confirmed high risk.
 - `blacklisted` — in user blacklist.
 - `unsupported` — not HTTP/HTTPS.
@@ -333,30 +297,12 @@ The extension automatically analyzes URLs on page open, compares domains with tr
 ### Pipeline
 1. **Domain normalization** — strip `www.`, lowercase, remove trailing dot.
 2. **Blacklist/Whitelist/Trusted** — immediate classification (including subdomains).
-3. **Corporate policy** — allow/deny checks for domains and forms (if enabled).
-4. **Page signals** — BrandGuard and Form Action Guard (active tab only).
-5. **Similarity** — search trusted list with Levenshtein ≤ 2 + brand tokens.
-6. **ML inference** — local ONNX model (via offscreen or content). If ORT fails — heuristic fallback.
-7. **Strict mode** — turns `trusted` into `suspicious`.
-8. **Verdict** — `trusted / suspicious / phishing / blacklisted`.
-9. **Actions** — phishing/blacklisted triggers blocking and history logging.
-
-### Corporate mode
-- **Mode**: `off`, `warn`, `block`.
-- **Allowlist**: if not empty, anything outside is a policy violation.
-- **Denylist**: domains are always restricted.
-- **Managed policy**: if `enterprisePolicy` exists in `chrome.storage.managed`, UI becomes read‑only.
-- **Form guard**: checks form submission domains against policy.
-
-**Behavior:**
-- `warn` → `suspicious` verdict and UI warning.
-- `block` → blocks input/downloads + shows overlay.
-- Checks the current page domain and the form `action` domain.
-
-**Storage:**
-- `enterprise.json` — default policy.
-- `chrome.storage.local` → `enterprisePolicy`.
-- `chrome.storage.managed` overrides local values.
+3. **Page signals** — BrandGuard and Form Action Guard (active tab only).
+4. **Similarity** — search trusted list with Levenshtein ≤ 2 + brand tokens.
+5. **ML inference** — local ONNX model (via offscreen or content). If ORT fails — heuristic fallback.
+6. **Strict mode** — turns `trusted` into `suspicious`.
+7. **Verdict** — `trusted / suspicious / phishing / blacklisted`.
+8. **Actions** — phishing/blacklisted triggers blocking and history logging.
 
 ### Technologies
 - **Chrome Extension Manifest V3**.
@@ -370,11 +316,10 @@ The extension automatically analyzes URLs on page open, compares domains with tr
 
 ### Architecture
 - `manifest.json` — MV3 config, permissions, web resources.
-- `background.js` — service worker: trusted cache, offscreen inference, notifications, tab closing, enterprise policy.
+- `background.js` — service worker: trusted cache, offscreen inference, notifications, tab closing.
 - `offscreen.html`, `offscreen.js` — isolated ORT runtime.
-- `content.js` — auto inspection, overlay, blocking, temp allow, page signals (brand/forms/corp policy).
+- `content.js` — auto inspection, overlay, blocking, temp allow, page signals (brand/forms).
 - `trusted.json` — built‑in trusted domains.
-- `enterprise.json` — default corporate policy.
 - `models/` — ONNX model.
 - `vendor/ort/` — onnxruntime‑web assets.
 - `popup/` — popup UI code.
@@ -387,15 +332,12 @@ All storage is local:
 - `builtinTrustedDomains`: cached trusted.json.
 - `customTrustedDomains`: user whitelist.
 - `customBlockedDomains`: user blacklist.
-- `enterprisePolicy`: corporate policy (mode/allowlist/denylist).
 - `scanHistory`: scan history (max 50 entries).
 - `tempAllowDomains`: temporary allow map.
 
 **chrome.storage.sync**
 - UI and behavior settings (keys from `DEFAULT_SETTINGS`).
 
-**chrome.storage.managed (optional)**
-- `enterprisePolicy`: admin‑managed policy overriding local values.
 
 **trusted.json format**
 ```json
@@ -404,14 +346,6 @@ All storage is local:
 }
 ```
 
-**enterprise.json format**
-```json
-{
-  "mode": "off",
-  "allowlist": ["corp.com"],
-  "denylist": ["badcorp.com"]
-}
-```
 
 ### Installation
 1. Open `chrome://extensions`.
@@ -424,12 +358,11 @@ All storage is local:
 - **Popup**: status, recommendations, quick actions, “Scan all tabs”.
 - **History**: stores recent scans with search and filters.
 - **Lists**: whitelist/blacklist via the “Lists” tab in settings.
-- **Corporate**: manage allow/deny domains in “Corporate” tab.
 - **Official site**: quick link to official domain when brand spoofing is detected.
 - **Blocking**: phishing verdict triggers overlay and input/download blocks.
 
 ### Settings
-Popup → Settings (tabs “Options”, “Lists”, “Corporate”):
+Popup → Settings (tabs “Options”, “Lists”):
 - **Language**: ru/en.
 - **Theme**: light/dark.
 - **Auto scan on popup open**.
@@ -439,7 +372,6 @@ Popup → Settings (tabs “Options”, “Lists”, “Corporate”):
 - **System notifications**.
 - **History retention**: 0/7/30/90 days.
 - **Compact mode**.
-- **Corporate policy**: mode (off/warn/block), allow/deny domains.
 
 ### Model & heuristic
 **Model** — ONNX, expects:
@@ -523,7 +455,7 @@ If you see `ort_load_failed`, the heuristic fallback is active (expected under s
 ### Limitations
 - Only HTTP/HTTPS pages are scanned.
 - Strict CSP can block ORT in content scripts, but offscreen usually works.
-- The ML model is binary (trusted/phishing); for critical cases use whitelist/blacklist/enterprise policy.
+- The ML model is binary (trusted/phishing); for critical cases use whitelist/blacklist.
 - Some UI toggles are not wired yet (see “Wire settings to behavior”).
 - BrandGuard/Form Action Guard signals are available only for active tab checks.
 
