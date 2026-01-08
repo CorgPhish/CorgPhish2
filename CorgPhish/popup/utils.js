@@ -42,6 +42,14 @@ export const levenshteinDistance = (a = "", b = "") => {
 
 const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
 
+const getRegistrableDomain = (domain) => {
+  const labels = normalizeHost(domain).split(".").filter(Boolean);
+  if (labels.length < 2) return normalizeHost(domain);
+  const tail = labels.slice(-2).join(".");
+  const index = PUBLIC_SUFFIXES.has(tail) && labels.length >= 3 ? labels.length - 3 : labels.length - 2;
+  return labels.slice(index).join(".");
+};
+
 const getRegistrableLabel = (domain) => {
   const labels = normalizeHost(domain).split(".").filter(Boolean);
   if (labels.length < 2) return "";
@@ -70,12 +78,17 @@ export const findSpoofCandidate = (target, trustedList) => {
   const cleanTarget = normalizeHost(target);
   if (!cleanTarget) return null;
   const targetLabel = getRegistrableLabel(cleanTarget);
+  const targetBase = getRegistrableDomain(cleanTarget);
   let closest = null;
   let distance = Infinity;
+  let closestLabel = null;
+  let labelDistance = Infinity;
   let brandMatch = null;
   trustedList.forEach((domain) => {
     const cleanDomain = normalizeHost(domain);
     if (!cleanDomain) return;
+    const trustedBase = getRegistrableDomain(cleanDomain);
+    if (trustedBase && targetBase && trustedBase === targetBase) return;
     if (Math.abs(cleanTarget.length - cleanDomain.length) <= 2) {
       const currentDistance = levenshteinDistance(cleanTarget, cleanDomain);
       if (currentDistance < distance) {
@@ -83,14 +96,23 @@ export const findSpoofCandidate = (target, trustedList) => {
         closest = cleanDomain;
       }
     }
+    const trustedLabel = getRegistrableLabel(cleanDomain);
+    if (trustedLabel && targetLabel && Math.abs(targetLabel.length - trustedLabel.length) <= 2) {
+      const currentDistance = levenshteinDistance(targetLabel, trustedLabel);
+      if (currentDistance < labelDistance) {
+        labelDistance = currentDistance;
+        closestLabel = cleanDomain;
+      }
+    }
     if (!brandMatch) {
-      const brandToken = getRegistrableLabel(cleanDomain);
-      if (isBrandTokenSpoof(targetLabel, brandToken)) {
+      if (isBrandTokenSpoof(targetLabel, trustedLabel)) {
         brandMatch = cleanDomain;
       }
     }
   });
   if (distance <= 2 && closest) return closest;
+  const labelLimit = targetLabel.length >= 6 ? 2 : 1;
+  if (labelDistance <= labelLimit && closestLabel) return closestLabel;
   return brandMatch;
 };
 

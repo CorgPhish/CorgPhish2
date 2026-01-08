@@ -15,6 +15,7 @@ export const inspectDomain = async (
   options = {}
 ) => {
   const trustedList = await getTrustedDomains(customWhitelist);
+  const listAvailable = trustedList.length > 0;
   const blacklist = await loadBlacklist();
   const cleanDomain = normalizeHost(hostname);
   if (!cleanDomain) {
@@ -94,7 +95,7 @@ export const inspectDomain = async (
     return result;
   }
 
-  const spoofTarget = brandDomain || findSpoofCandidate(cleanDomain, trustedList);
+  const spoofTarget = listAvailable ? brandDomain || findSpoofCandidate(cleanDomain, trustedList) : brandDomain;
   const officialDomain = spoofTarget || null;
   const mlResult = fullUrl ? await predictUrl(fullUrl) : { verdict: null, status: "error" };
   const mlStatus = mlResult?.status || "error";
@@ -126,8 +127,17 @@ export const inspectDomain = async (
       verdict = "phishing";
       sourceKey = "status.sourceValue.ml";
     } else if (mlVerdict === "trusted" && !hasSpoof && !hasSignals) {
-      verdict = "trusted";
-      sourceKey = "status.sourceValue.ml";
+      if (!listAvailable) {
+        verdict = "suspicious";
+        sourceKey = "status.sourceValue.listMissing";
+        if (!suspicionKey) {
+          suspicionKey = "status.suspicious.listMissing";
+          suspicionParams = {};
+        }
+      } else {
+        verdict = "trusted";
+        sourceKey = "status.sourceValue.ml";
+      }
     }
   }
   if (strictMode && verdict === "trusted") {

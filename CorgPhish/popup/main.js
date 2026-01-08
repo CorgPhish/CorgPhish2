@@ -287,6 +287,7 @@ const applyInspectionResult = async (result, options = {}) => {
     checkedAt: result.checkedAt ? new Date(result.checkedAt) : new Date(),
     spoofTarget: result.spoofTarget,
     language: currentSettings.language,
+    isTrusted: result.isTrusted,
     mlVerdict: result.mlVerdict,
     sourceKey: result.detectionSource,
     suspicionKey: result.suspicionKey,

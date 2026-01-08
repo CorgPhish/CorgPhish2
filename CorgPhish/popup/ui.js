@@ -131,7 +131,15 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   dom.statusBadge.textContent = translate(config.badgeKey, context);
   dom.statusBadge.dataset.tone = tone;
   dom.statusTitle.textContent = translate(config.titleKey, context);
-  dom.statusHint.textContent = translate(config.hintKey, context);
+  let hintKey = config.hintKey;
+  if (stateKey === "trusted") {
+    if (context.sourceKey === "status.sourceValue.ml") {
+      hintKey = "status.trusted.hint.ml";
+    } else if (context.sourceKey === "status.sourceValue.list") {
+      hintKey = "status.trusted.hint.list";
+    }
+  }
+  dom.statusHint.textContent = translate(hintKey, context);
   const riskText = translate(config.riskKey, context);
   [dom.riskLevel, dom.riskTag].filter(Boolean).forEach((node) => {
     node.textContent = riskText;
@@ -152,7 +160,7 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
     const sourceKey = context.sourceKey || "status.sourceValue";
     dom.sourceValue.textContent = translate(sourceKey, context);
   }
-  const isTrustedState = stateKey === "trusted";
+  const isTrustedState = Boolean(context.isTrusted);
   const canBlacklist = stateKey === "phishing" || stateKey === "suspicious";
   setQuickAddState(dom, context.domain, isTrustedState || stateKey === "blacklisted");
   setBlacklistState(dom, context.domain, canBlacklist);
