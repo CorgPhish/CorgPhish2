@@ -1,9 +1,6 @@
 # macOS cruft
 .DS_Store
 
-# Internal agent notes (not for release)
-CorgPhish/AGENTSMD
-
 # IDE
 .idea/
 
