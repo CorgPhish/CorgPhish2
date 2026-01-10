@@ -35,8 +35,8 @@ const FEATURE_COLUMNS = [
 let ortScriptPromise = null;
 let sessionPromise = null;
 
-// RU: Ленивая загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
-// EN: Lazy-load onnxruntime via classic `<script>` so `ort` lands on global scope.
+// RU: загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
+// EN:  onnxruntime via classic `<script>` so `ort` lands on global scope.
 const loadOrt = () => {
   if (globalThis.ort) {
     return Promise.resolve(globalThis.ort);

@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.0]
+- Simplified README and updated project structure notes.
+- Expanded trusted domain list for banks, marketplaces, and government services.
+- Cleaned docs assets and streamlined release packaging.
+
 ## [1.1.3]
 - Hardened trusted/whitelist validation to prevent broad domain matches.
 - Trusted UI now shows whether the match came from trusted.json, whitelist, or ML.

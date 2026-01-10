@@ -36,8 +36,7 @@ let settingsTab = "options";
 
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
 
-// RU: Мини-тост о сохранении настроек.
-// EN: Small toast about settings persistence.
+
 const showSettingsStatus = (key, params = {}, isError = false) => {
   if (!dom.settingsStatus) return;
   const t = getTranslator();
