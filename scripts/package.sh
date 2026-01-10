@@ -24,6 +24,6 @@ mkdir -p "$OUT_DIR"
 rm -f "$OUT_FILE"
 
 cd "$ROOT_DIR"
-zip -r "$OUT_FILE" CorgPhish -x "*.DS_Store" -x "CorgPhish/AGENTSMD"
+zip -r "$OUT_FILE" CorgPhish -x "*.DS_Store"
 
 echo "Packaged: $OUT_FILE"
