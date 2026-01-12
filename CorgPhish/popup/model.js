@@ -248,10 +248,15 @@ const predictViaBackground = (rawUrl, threshold) =>
 // EN: Predict verdict (trusted|phishing) for URL.
 export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   // 1) Сначала пробуем предсказание в сервис-воркере (не зависит от CSP страницы).
+  let bgFallback = null;
   try {
     const bgResult = await predictViaBackground(rawUrl, threshold);
     if (bgResult?.verdict) {
-      return { ...bgResult, status: bgResult.status || "ok" };
+      const status = bgResult.status || "ok";
+      if (status !== "fallback") {
+        return { ...bgResult, status };
+      }
+      bgFallback = { ...bgResult, status };
     }
   } catch (error) {
     console.warn("CorgPhish: bg predict failed", error);
@@ -302,6 +307,12 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
   } catch (error) {
     console.warn("ML predict failed", error);
+    if (bgFallback) {
+      return {
+        ...bgFallback,
+        error: bgFallback.error || error?.message || String(error)
+      };
+    }
     try {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");

@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.4]
+- Retry ML locally when background returns heuristic fallback.
+- Escalate spoofed domains and risky forms to phishing.
+- Phishing hint now describes signals instead of ML-only wording.
+
 ## [2.0.3]
 - Simplified suspicious title for non-list detections.
 

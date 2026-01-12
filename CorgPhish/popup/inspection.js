@@ -158,6 +158,18 @@ export const inspectDomain = async (
   if (mlStatus === "fallback" && sourceKey === "status.sourceValue.ml") {
     sourceKey = "status.sourceValue.heuristic";
   }
+  const hasRiskyForm = Boolean(
+    formRisk?.actionHost &&
+      (formRisk.hasSensitive || formRisk.reason === "ip" || formRisk.reason === "http")
+  );
+  if (verdict !== "phishing" && (hasSpoof || hasRiskyForm)) {
+    verdict = "phishing";
+    if (hasRiskyForm) {
+      sourceKey = "status.sourceValue.form";
+    } else if (hasSpoof) {
+      sourceKey = "status.sourceValue.levenshtein";
+    }
+  }
   if (strictMode && verdict === "trusted") {
     verdict = "suspicious";
     sourceKey = "status.sourceValue.strict";
