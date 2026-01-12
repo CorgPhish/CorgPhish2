@@ -140,6 +140,8 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
     } else if (context.sourceKey === "status.sourceValue.list") {
       hintKey = "status.trusted.hint.list";
     }
+  } else if (stateKey === "suspicious" && context.suspicionKey) {
+    hintKey = context.suspicionKey;
   }
   dom.statusHint.textContent = translate(hintKey, context);
   const riskText = translate(config.riskKey, context);

@@ -141,20 +141,22 @@ export const inspectDomain = async (
   if (mlStatus === "ok" || mlStatus === "fallback") {
     if (mlVerdict === "phishing") {
       verdict = "phishing";
-      sourceKey = "status.sourceValue.ml";
+      sourceKey = mlStatus === "fallback" ? "status.sourceValue.heuristic" : "status.sourceValue.ml";
     } else if (mlVerdict === "trusted" && !hasSpoof && !hasSignals) {
-      if (!hasListData) {
-        verdict = "suspicious";
-        sourceKey = "status.sourceValue.listMissing";
-        if (!suspicionKey) {
-          suspicionKey = "status.suspicious.listMissing";
-          suspicionParams = {};
-        }
-      } else {
-        verdict = "trusted";
-        sourceKey = "status.sourceValue.ml";
+      verdict = "suspicious";
+      if (!suspicionKey) {
+        suspicionKey = hasListData ? "status.suspicious.unlisted" : "status.suspicious.listMissing";
+        suspicionParams = {};
       }
+      sourceKey = hasListData
+        ? mlStatus === "fallback"
+          ? "status.sourceValue.heuristic"
+          : "status.sourceValue.ml"
+        : "status.sourceValue.listMissing";
     }
+  }
+  if (mlStatus === "fallback" && sourceKey === "status.sourceValue.ml") {
+    sourceKey = "status.sourceValue.heuristic";
   }
   if (strictMode && verdict === "trusted") {
     verdict = "suspicious";

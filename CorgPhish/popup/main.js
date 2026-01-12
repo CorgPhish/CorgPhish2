@@ -284,6 +284,7 @@ const applyInspectionResult = async (result, options = {}) => {
   const t = getTranslator();
   const isRisk = result.verdict === "phishing" || result.verdict === "blacklisted";
   const mlUnavailable = result.mlStatus === "error";
+  const mlFallback = result.mlStatus === "fallback";
   const fromCache = Boolean(result.cached);
   applyState(dom, t, result.verdict, {
     domain: result.domain,
@@ -324,6 +325,8 @@ const applyInspectionResult = async (result, options = {}) => {
     if (result.mlError) {
       console.warn("CorgPhish: ML unavailable", result.mlError);
     }
+  } else if (mlFallback) {
+    setStatusMessage(t("status.ml.fallback"), "warn");
   } else {
     setStatusMessage("");
   }

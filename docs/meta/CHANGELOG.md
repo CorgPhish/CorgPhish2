@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.2]
+- ML verdicts no longer mark unlisted sites as trusted.
+- Added fallback ML warning and clearer suspicious hints.
+
 ## [2.0.1]
 - Fixed active tab URL fallback using content script signals.
 
