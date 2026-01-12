@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = {
 
 // Единый порог модели/эвристики (используется popup/content/offscreen/background).
 export const MODEL_THRESHOLD = 0.7;
+export const HEURISTIC_THRESHOLD = 0.6;
 
 export const HISTORY_LIMIT = 50;
 export const CUSTOM_WHITELIST_KEY = "customTrustedDomains";

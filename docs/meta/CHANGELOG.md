@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.5]
+- Lowered heuristic threshold for stronger fallback detection.
+
 ## [2.0.4]
 - Retry ML locally when background returns heuristic fallback.
 - Escalate spoofed domains and risky forms to phishing.

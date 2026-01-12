@@ -1,6 +1,6 @@
 // RU: Сервис-воркер: системные уведомления, кэш trusted.json, закрытие вкладок.
 // EN: Service worker: system notifications, trusted.json cache, close tabs.
-import { MODEL_THRESHOLD } from "./popup/config.js";
+import { HEURISTIC_THRESHOLD, MODEL_THRESHOLD } from "./popup/config.js";
 
 const DEFAULT_SETTINGS = {
   systemNotifyOnRisk: false
@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
+const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
 
 // Lightweight heuristic predictor (без ORT) прямо в background.
 const FEATURE_COLUMNS = [
@@ -186,7 +187,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse?.({ ok: false, error: "invalid_url" });
             return;
           }
-          const fallback = heuristicVerdict(features, message.threshold || DEFAULT_THRESHOLD);
+          const fallback = heuristicVerdict(features, FALLBACK_THRESHOLD);
           result = { ...fallback, status: "fallback", threshold: message.threshold };
         }
         sendResponse?.({ ok: true, result });

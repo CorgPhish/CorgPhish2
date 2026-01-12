@@ -1,10 +1,11 @@
 // RU: Локальный инференс ONNX-модели (onnxruntime-web, wasm) с бинарным вердиктом.
 // EN: Local ONNX inference (onnxruntime-web, wasm) with binary verdict only.
-import { MODEL_THRESHOLD } from "./config.js";
+import { HEURISTIC_THRESHOLD, MODEL_THRESHOLD } from "./config.js";
 
 const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
 const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
+const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
 
 const FEATURE_COLUMNS = [
   "length_url",
@@ -316,7 +317,7 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     try {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");
-      const verdict = heuristicVerdict(features);
+      const verdict = heuristicVerdict(features, FALLBACK_THRESHOLD);
       return { status: "fallback", verdict, error: error?.message || String(error) };
     } catch (inner) {
       return {
