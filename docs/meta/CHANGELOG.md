@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.3]
+- Simplified suspicious title for non-list detections.
+
 ## [2.0.2]
 - ML verdicts no longer mark unlisted sites as trusted.
 - Added fallback ML warning and clearer suspicious hints.
