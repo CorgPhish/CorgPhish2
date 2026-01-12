@@ -517,7 +517,7 @@
       (async () => {
         const brand = await detectBrandMismatch(hostname);
         const form = detectFormRisk(hostname);
-        sendResponse?.({ ok: true, signals: { brand, form } });
+        sendResponse?.({ ok: true, signals: { brand, form }, url: window.location.href });
       })();
       return true;
     }

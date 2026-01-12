@@ -97,7 +97,11 @@ const fetchPageSignals = (tabId) =>
         resolve(null);
         return;
       }
-      resolve(response?.ok ? response.signals : null);
+      if (response?.ok) {
+        resolve({ signals: response.signals || null, url: response.url || "" });
+        return;
+      }
+      resolve(null);
     });
     setTimeout(() => resolve(null), 600);
   });
@@ -335,23 +339,29 @@ const checkActiveTab = async () => {
   dom.refreshBtn.disabled = true;
   try {
     const [activeTab] = await queryActiveTab();
-    if (!activeTab || !activeTab.url) {
-      throw new Error(t("errors.activeTab"));
-    }
-    if (!/^https?:\/\//i.test(activeTab.url)) {
+    const signalsPayload = activeTab?.id ? await fetchPageSignals(activeTab.id) : null;
+    const tabUrl = activeTab?.url || signalsPayload?.url || "";
+    if (!tabUrl) {
       applyState(dom, t, "unsupported", { language: currentSettings.language });
       return;
     }
-    const url = new URL(activeTab.url);
-    const signals = await fetchPageSignals(activeTab.id);
+    if (!/^https?:\/\//i.test(tabUrl)) {
+      applyState(dom, t, "unsupported", { language: currentSettings.language });
+      return;
+    }
+    const url = new URL(tabUrl);
     const result = await inspectDomain(
       url.hostname,
       customWhitelist,
-      activeTab.url,
-      signals || {},
+      tabUrl,
+      signalsPayload?.signals || {},
       getInspectOptions()
     );
-    await applyInspectionResult(result, { shouldAlert: true, source: "active", tabId: activeTab.id });
+    await applyInspectionResult(result, {
+      shouldAlert: true,
+      source: "active",
+      tabId: activeTab?.id
+    });
   } catch (error) {
     console.error("Ошибка во время проверки", error);
     const errorKey = error?.message;
@@ -508,13 +518,17 @@ const checkAllTabs = async () => {
     let riskCount = 0;
     for (const tab of candidates) {
       try {
-        const url = new URL(tab.url);
-        const signals = await fetchPageSignals(tab.id);
+        const signalsPayload = await fetchPageSignals(tab.id);
+        const tabUrl = tab.url || signalsPayload?.url || "";
+        if (!tabUrl || !/^https?:\/\//i.test(tabUrl)) {
+          continue;
+        }
+        const url = new URL(tabUrl);
         const result = await inspectDomain(
           url.hostname,
           customWhitelist,
-          tab.url,
-          signals || {},
+          tabUrl,
+          signalsPayload?.signals || {},
           getInspectOptions()
         );
         await recordHistory(

@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.1]
+- Fixed active tab URL fallback using content script signals.
+
 ## [2.0.0]
 - Simplified README and updated project structure notes.
 - Expanded trusted domain list for banks, marketplaces, and government services.
