@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.6]
+- Fixed ORT session creation by removing forced float32 outputs.
+
 ## [2.0.5]
 - Lowered heuristic threshold for stronger fallback detection.
 

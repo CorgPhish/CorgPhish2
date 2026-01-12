@@ -140,8 +140,7 @@
       ort.env.wasm.numThreads = 1;
       return ort.InferenceSession.create(MODEL_PATH, {
         executionProviders: ["wasm"],
-        graphOptimizationLevel: "disabled",
-        preferredOutputType: "float32"
+        graphOptimizationLevel: "disabled"
       });
     })();
     sessionPromise = sessionPromise.catch((error) => {
