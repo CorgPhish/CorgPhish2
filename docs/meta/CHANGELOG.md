@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.8]
+- Fixed ONNX model input types (float32) to restore ML inference.
+
 ## [2.0.7]
 - Skip local ORT when background returns fallback; disable ORT after type mismatch errors.
 
