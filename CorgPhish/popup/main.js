@@ -264,9 +264,9 @@ const refreshHistory = async () => {
   updateStats(dom, items, customWhitelist);
 };
 
-const sendPhishingBlock = (tabId, domain, verdict) => {
+const sendPhishingBlock = (tabId, payload) => {
   if (!tabId) return;
-  chrome.tabs.sendMessage(tabId, { type: "phishingBlock", domain, verdict }, () => {
+  chrome.tabs.sendMessage(tabId, { type: "phishingBlock", ...payload }, () => {
     if (chrome.runtime.lastError) {
       const msg = chrome.runtime.lastError?.message || "";
       // Мягко игнорируем отсутствие content script (например, сервисные страницы/другой контекст).
@@ -315,7 +315,11 @@ const applyInspectionResult = async (result, options = {}) => {
     );
   }
   if (isRisk) {
-    sendPhishingBlock(tabId, result.domain, result.verdict);
+    sendPhishingBlock(tabId, {
+      domain: result.domain,
+      verdict: result.verdict,
+      officialDomain: result.officialDomain
+    });
   }
   if (!fromCache && shouldAlert && isRisk && currentSettings.warnOnUntrusted) {
     setStatusMessage(t("status.phishing.hint"), "warn");

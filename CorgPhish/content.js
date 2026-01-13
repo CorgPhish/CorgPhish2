@@ -449,39 +449,34 @@
   let teardown = () => {};
   let overlayRef = null;
 
-  // RU: Включаем блокировку страницы (оверлей + ограничения).
-  // EN: Enable page blocking (overlay + restrictions).
-  const activateBlock = async (reason = "phishing") => {
+  const redirectToBlockedPage = (reason = "phishing", details = {}) => {
+    const params = new URLSearchParams();
+    params.set("domain", hostname);
+    params.set("reason", reason);
+    params.set("url", window.location.href);
+    if (details.officialDomain) {
+      params.set("official", details.officialDomain);
+    }
+    const targetUrl = `${chrome.runtime.getURL("blocked.html")}?${params.toString()}`;
+    try {
+      if (document.documentElement) {
+        document.documentElement.style.visibility = "hidden";
+      }
+    } catch (error) {
+      // ignore
+    }
+    if (window.location.href !== targetUrl) {
+      window.location.replace(targetUrl);
+    }
+  };
+
+  // RU: Блокируем страницу и перенаправляем на экран блокировки.
+  // EN: Block the page and redirect to the warning screen.
+  const activateBlock = async (reason = "phishing", details = {}) => {
     if (state.active) return;
     state.active = true;
+    redirectToBlockedPage(reason, details);
     teardown = blockInteractions(state);
-    const overlay = createOverlay(
-      hostname,
-      () => {
-        alert(EXIT_ALERT);
-        if (history.length > 1) {
-          history.back();
-        } else {
-          chrome.runtime.sendMessage({ type: "closeTab" });
-        }
-      },
-      async () => {
-        await addToBlacklist(hostname);
-        chrome.runtime.sendMessage({ type: "closeTab" });
-      },
-      async () => {
-        // Разрешаем на 5 минут, убираем оверлей, но блокировка форм/скачивания остаётся активной на этой вкладке.
-        await allowTemporarily(hostname, 5);
-        if (overlay.overlay) overlay.overlay.remove();
-      }
-    );
-    overlayRef = overlay;
-    if (reason === "blacklist") {
-      overlay.hint.textContent = "Домен в вашем чёрном списке. Страница заблокирована.";
-    } else if (reason === "phishing") {
-      overlay.hint.textContent =
-        "Модель подтвердила высокий риск. Данные, формы и загрузки заблокированы.";
-    }
   };
 
   // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
@@ -503,7 +498,9 @@
         return;
       }
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
-        activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing");
+        activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing", {
+          officialDomain: result.officialDomain
+        });
       }
     } catch (error) {
       console.warn("CorgPhish: auto inspect failed in content", error);
@@ -524,7 +521,7 @@
     if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
       isTemporarilyAllowed(hostname).then((allowed) => {
         if (!allowed) {
-          activateBlock("phishing");
+          activateBlock("phishing", { officialDomain: message.officialDomain });
         }
       });
       sendResponse?.({ ok: true });
