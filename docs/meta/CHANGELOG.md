@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.0.7]
+- Skip local ORT when background returns fallback; disable ORT after type mismatch errors.
+
 ## [2.0.6]
 - Fixed ORT session creation by removing forced float32 outputs.
 

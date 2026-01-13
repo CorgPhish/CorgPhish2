@@ -35,6 +35,7 @@ const FEATURE_COLUMNS = [
 
 let ortScriptPromise = null;
 let sessionPromise = null;
+let ortDisabled = false;
 
 // RU: загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
 // EN:  onnxruntime via classic `<script>` so `ort` lands on global scope.
@@ -248,18 +249,28 @@ const predictViaBackground = (rawUrl, threshold) =>
 // EN: Predict verdict (trusted|phishing) for URL.
 export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   // 1) Сначала пробуем предсказание в сервис-воркере (не зависит от CSP страницы).
-  let bgFallback = null;
   try {
     const bgResult = await predictViaBackground(rawUrl, threshold);
     if (bgResult?.verdict) {
-      const status = bgResult.status || "ok";
-      if (status !== "fallback") {
-        return { ...bgResult, status };
-      }
-      bgFallback = { ...bgResult, status };
+      return { ...bgResult, status: bgResult.status || "ok" };
     }
   } catch (error) {
     console.warn("CorgPhish: bg predict failed", error);
+  }
+
+  if (ortDisabled) {
+    try {
+      const { url, features } = extractFeatures(rawUrl);
+      if (!url) throw new Error("invalid_url");
+      const verdict = heuristicVerdict(features, FALLBACK_THRESHOLD);
+      return { status: "fallback", verdict, error: "ort_disabled" };
+    } catch (inner) {
+      return {
+        status: "error",
+        verdict: null,
+        error: "ort_disabled"
+      };
+    }
   }
 
   // 2) Пытаемся локальный ORT (если не заблокирован CSP).
@@ -307,11 +318,13 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
   } catch (error) {
     console.warn("ML predict failed", error);
-    if (bgFallback) {
-      return {
-        ...bgFallback,
-        error: bgFallback.error || error?.message || String(error)
-      };
+    const message = String(error?.message || error || "");
+    if (
+      /NormalizerNorm/i.test(message) ||
+      /tensor\(float\).*tensor\(double\)/i.test(message) ||
+      /ort_load_failed/i.test(message)
+    ) {
+      ortDisabled = true;
     }
     try {
       const { url, features } = extractFeatures(rawUrl);
