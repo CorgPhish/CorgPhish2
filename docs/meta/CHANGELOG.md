@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.1.4]
+- Added toggle for link highlighting in settings.
+- Updated suspicious link highlight color to avoid confusion with phishing alerts.
+
 ## [2.1.3]
 - Use domain fallback URL for ML when full URL is unavailable.
 

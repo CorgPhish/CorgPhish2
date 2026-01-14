@@ -94,8 +94,13 @@
       "content.reason.brandMention": "A known brand is mentioned."
     }
   };
+  const SETTINGS_DEFAULTS = {
+    linkHighlightEnabled: true
+  };
   const linkDomainCache = new Map();
   let linkScanTimer = null;
+  let linkHighlightEnabled = SETTINGS_DEFAULTS.linkHighlightEnabled;
+  let linkObserver = null;
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
@@ -256,11 +261,57 @@
   };
 
   const scheduleLinkScan = () => {
+    if (!linkHighlightEnabled) return;
     if (linkScanTimer) return;
     linkScanTimer = setTimeout(() => {
       linkScanTimer = null;
       scanLinkTargets();
     }, 500);
+  };
+
+  const startLinkObserver = () => {
+    if (linkObserver || !linkHighlightEnabled) return;
+    const root = document.documentElement;
+    if (!root) return;
+    scheduleLinkScan();
+    linkObserver = new MutationObserver(() => {
+      scheduleLinkScan();
+    });
+    linkObserver.observe(root, { childList: true, subtree: true });
+  };
+
+  const stopLinkObserver = () => {
+    if (!linkObserver) return;
+    linkObserver.disconnect();
+    linkObserver = null;
+  };
+
+  const clearLinkHighlights = () => {
+    const links = document.querySelectorAll(".corgphish-link");
+    links.forEach((link) => {
+      link.classList.remove(
+        "corgphish-link",
+        "corgphish-link--phishing",
+        "corgphish-link--blacklisted",
+        "corgphish-link--suspicious"
+      );
+      restoreLinkTitle(link);
+      delete link.dataset.corgphishState;
+      delete link.dataset.corgphishHref;
+    });
+    const style = document.getElementById("corgphish-link-style");
+    style?.remove?.();
+  };
+
+  const applyLinkHighlightSetting = (enabled) => {
+    linkHighlightEnabled = Boolean(enabled);
+    if (!linkHighlightEnabled) {
+      stopLinkObserver();
+      clearLinkHighlights();
+      return;
+    }
+    ensureLinkStyles();
+    startLinkObserver();
   };
 
   const markLinkState = (link, state, hint, href) => {
@@ -275,9 +326,12 @@
         "corgphish-link--blacklisted",
         "corgphish-link--suspicious"
       );
-      link.removeAttribute("title");
+      restoreLinkTitle(link);
     } else if (hint) {
+      rememberLinkTitle(link);
       link.title = hint;
+    } else {
+      restoreLinkTitle(link);
     }
     link.dataset.corgphishState = state;
     if (href) {
@@ -286,6 +340,7 @@
   };
 
   const scanLinkTargets = async () => {
+    if (!linkHighlightEnabled) return;
     ensureLinkStyles();
     const links = Array.from(document.querySelectorAll("a[href]")).slice(0, LINK_SCAN.maxLinks);
     if (!links.length) return;
@@ -490,6 +545,32 @@
     return dict.suspicious;
   };
 
+  const loadSyncSettings = () =>
+    new Promise((resolve) => {
+      chrome.storage.sync.get(SETTINGS_DEFAULTS, (result) => {
+        resolve({ ...SETTINGS_DEFAULTS, ...result });
+      });
+    });
+
+  const rememberLinkTitle = (link) => {
+    if (!link) return;
+    if (link.dataset.corgphishTitle !== undefined) return;
+    const current = link.getAttribute("title");
+    link.dataset.corgphishTitle = current ?? "";
+  };
+
+  const restoreLinkTitle = (link) => {
+    if (!link) return;
+    if (link.dataset.corgphishTitle === undefined) return;
+    const original = link.dataset.corgphishTitle;
+    if (original) {
+      link.setAttribute("title", original);
+    } else {
+      link.removeAttribute("title");
+    }
+    delete link.dataset.corgphishTitle;
+  };
+
   const ensureLinkStyles = () => {
     if (document.getElementById("corgphish-link-style")) return;
     const style = document.createElement("style");
@@ -501,8 +582,8 @@
         transition: box-shadow 0.15s ease, background 0.15s ease;
       }
       .corgphish-link--suspicious {
-        box-shadow: 0 0 0 2px rgba(242, 154, 74, 0.8);
-        background: rgba(242, 154, 74, 0.12);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.8);
+        background: rgba(59, 130, 246, 0.12);
       }
       .corgphish-link--phishing,
       .corgphish-link--blacklisted {
@@ -524,7 +605,7 @@
         box-shadow: 0 2px 6px rgba(0,0,0,0.15);
       }
       .corgphish-link--suspicious::after {
-        color: #d9772c;
+        color: #2563eb;
       }
     `;
     document.head.appendChild(style);
@@ -837,6 +918,8 @@
   // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
   // EN: Init: auto inspection, temp allow handling, blacklist check.
   const init = async () => {
+    const settings = await loadSyncSettings();
+    applyLinkHighlightSetting(settings.linkHighlightEnabled);
     if (await isTemporarilyAllowed(hostname)) {
       return;
     }
@@ -845,13 +928,6 @@
       activateBlock("blacklist");
       return;
     }
-    const startLinkObserver = () => {
-      scheduleLinkScan();
-      const observer = new MutationObserver(() => {
-        scheduleLinkScan();
-      });
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-    };
     try {
       const { inspectDomain } = await import(chrome.runtime.getURL("popup/inspection.js"));
       const whitelist = await loadWhitelist();
@@ -902,6 +978,15 @@
       return true;
     }
     return false;
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "sync") return;
+    if (!Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) return;
+    const nextValue = changes.linkHighlightEnabled?.newValue;
+    applyLinkHighlightSetting(
+      nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
+    );
   });
 
   init();

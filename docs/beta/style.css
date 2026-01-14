@@ -73,8 +73,8 @@ body {
 }
 
 .corgphish-link--suspicious {
-  box-shadow: 0 0 0 2px rgba(242, 154, 74, 0.8);
-  background: rgba(242, 154, 74, 0.12);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.8);
+  background: rgba(59, 130, 246, 0.12);
 }
 
 .corgphish-link--phishing,
@@ -99,5 +99,5 @@ body {
 }
 
 .corgphish-link--suspicious::after {
-  color: #d9772c;
+  color: #2563eb;
 }

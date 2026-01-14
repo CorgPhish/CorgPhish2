@@ -8,7 +8,8 @@ export const DEFAULT_SETTINGS = {
   historyRetentionDays: 30,
   compactMode: false,
   blockOnUntrusted: false,
-  systemNotifyOnRisk: false
+  systemNotifyOnRisk: false,
+  linkHighlightEnabled: true
 };
 
 // Единый порог модели/эвристики (используется popup/content/offscreen/background).
@@ -242,6 +243,8 @@ export const translations = {
     "settings.autoCheck.desc": "Автоматически запускать анализ при появлении попапа.",
     "settings.alerts.title": "Уведомления о рисках",
     "settings.alerts.desc": "Показывать предупреждение при подозрительном сайте.",
+    "settings.linkHighlight.title": "Подсветка ссылок",
+    "settings.linkHighlight.desc": "Помечать подозрительные ссылки прямо на странице.",
     "settings.strict.title": "Строгий режим",
     "settings.strict.desc": "Все сайты вне списка доверенных помечаются как подозрительные.",
     "settings.block.title": "Блокировка ввода",
@@ -423,6 +426,8 @@ export const translations = {
     "settings.autoCheck.desc": "Launch the analysis when the popup appears.",
     "settings.alerts.title": "Risk alerts",
     "settings.alerts.desc": "Show a warning when a suspicious site is detected.",
+    "settings.linkHighlight.title": "Link highlighting",
+    "settings.linkHighlight.desc": "Mark suspicious links directly on the page.",
     "settings.strict.title": "Strict mode",
     "settings.strict.desc": "Mark every non-trusted site as suspicious.",
     "settings.block.title": "Block input",
