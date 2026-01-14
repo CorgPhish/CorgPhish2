@@ -113,7 +113,8 @@ export const inspectDomain = async (
 
   const spoofTarget = hasListData ? brandDomain || findSpoofCandidate(cleanDomain, trustedList) : brandDomain;
   const officialDomain = spoofTarget || null;
-  const mlResult = fullUrl ? await predictUrl(fullUrl) : { verdict: null, status: "error" };
+  const targetUrl = fullUrl || (cleanDomain ? `https://${cleanDomain}` : "");
+  const mlResult = targetUrl ? await predictUrl(targetUrl) : { verdict: null, status: "error" };
   const mlStatus = mlResult?.status || "error";
   const mlVerdict = mlResult?.verdict ?? null;
 
