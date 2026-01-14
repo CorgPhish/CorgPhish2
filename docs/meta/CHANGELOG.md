@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.1.1]
+- Highlight risky links on page before click.
+
 ## [2.1.0]
 - Added content-based phishing scorer (forms + text signals).
 
