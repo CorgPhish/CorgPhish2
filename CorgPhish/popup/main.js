@@ -103,7 +103,7 @@ const fetchPageSignals = (tabId) =>
       }
       resolve(null);
     });
-    setTimeout(() => resolve(null), 600);
+    setTimeout(() => resolve(null), 1200);
   });
 
 const getInspectOptions = () => ({ strictMode: currentSettings.strictMode });
@@ -553,7 +553,11 @@ const checkAllTabs = async () => {
         );
         if (result.verdict === "phishing" || result.verdict === "blacklisted") {
           riskCount += 1;
-          sendPhishingBlock(tab.id, result.domain, result.verdict);
+          sendPhishingBlock(tab.id, {
+            domain: result.domain,
+            verdict: result.verdict,
+            officialDomain: result.officialDomain
+          });
         }
       } catch (error) {
         console.warn("CorgPhish: bulk scan failed for tab", error);

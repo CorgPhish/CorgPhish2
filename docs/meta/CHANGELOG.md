@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.1.0]
+- Added content-based phishing scorer (forms + text signals).
+
 ## [2.0.9]
 - Replace blocking overlay with redirect to a dedicated blocked page.
 

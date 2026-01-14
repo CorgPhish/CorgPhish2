@@ -117,8 +117,10 @@ export const inspectDomain = async (
   const mlStatus = mlResult?.status || "error";
   const mlVerdict = mlResult?.verdict ?? null;
 
+  const contentRisk = signals?.content || null;
+  const hasContentSignal = contentRisk?.level === "medium" || contentRisk?.level === "high";
   const hasSpoof = Boolean(spoofTarget);
-  const hasSignals = Boolean(brandDomain || formRisk);
+  const hasSignals = Boolean(brandDomain || formRisk || hasContentSignal);
   let suspicionKey = null;
   let suspicionParams = null;
   if (brandDomain) {
@@ -127,6 +129,9 @@ export const inspectDomain = async (
   } else if (formRisk?.actionHost) {
     suspicionKey = "status.suspicious.form";
     suspicionParams = { host: formRisk.actionHost };
+  } else if (contentRisk?.primaryReason) {
+    suspicionKey = contentRisk.primaryReason;
+    suspicionParams = {};
   }
   let verdict = "suspicious";
   let sourceKey = "status.sourceValue.ml";
@@ -168,6 +173,14 @@ export const inspectDomain = async (
       sourceKey = "status.sourceValue.form";
     } else if (hasSpoof) {
       sourceKey = "status.sourceValue.levenshtein";
+    }
+  }
+  if (contentRisk?.level === "high" && verdict !== "phishing") {
+    verdict = "phishing";
+    sourceKey = "status.sourceValue.content";
+  } else if (contentRisk?.level === "medium" && verdict === "suspicious") {
+    if (sourceKey === "status.sourceValue.ml") {
+      sourceKey = "status.sourceValue.content";
     }
   }
   if (strictMode && verdict === "trusted") {
