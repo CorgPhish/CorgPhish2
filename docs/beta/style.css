@@ -1,0 +1,58 @@
+:root {
+  --bg: #fff7f0;
+  --card: #ffffff;
+  --text: #2b2a28;
+  --muted: #6b645c;
+  --border: #eadfd4;
+  --accent: #f29a4a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Nunito", "Manrope", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 18px 40px rgba(37, 24, 14, 0.08);
+}
+
+.card ul {
+  padding-left: 18px;
+}
+
+.card a {
+  color: var(--accent);
+}
+
+.note {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
