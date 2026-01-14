@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.1.0]
+- Added content-based phishing scorer (forms + text signals).
+
+## [2.0.9]
+- Replace blocking overlay with redirect to a dedicated blocked page.
+
+## [2.0.8]
+- Fixed ONNX model input types (float32) to restore ML inference.
+
+## [2.0.7]
+- Skip local ORT when background returns fallback; disable ORT after type mismatch errors.
+
+## [2.0.6]
+- Fixed ORT session creation by removing forced float32 outputs.
+
+## [2.0.5]
+- Lowered heuristic threshold for stronger fallback detection.
+
+## [2.0.4]
+- Retry ML locally when background returns heuristic fallback.
+- Escalate spoofed domains and risky forms to phishing.
+- Phishing hint now describes signals instead of ML-only wording.
+
+## [2.0.3]
+- Simplified suspicious title for non-list detections.
+
+## [2.0.2]
+- ML verdicts no longer mark unlisted sites as trusted.
+- Added fallback ML warning and clearer suspicious hints.
+
+## [2.0.1]
+- Fixed active tab URL fallback using content script signals.
+
+## [2.0.0]
+- Simplified README and updated project structure notes.
+- Expanded trusted domain list for banks, marketplaces, and government services.
+- Cleaned docs assets and streamlined release packaging.
+
 ## [1.1.3]
 - Hardened trusted/whitelist validation to prevent broad domain matches.
 - Trusted UI now shows whether the match came from trusted.json, whitelist, or ML.

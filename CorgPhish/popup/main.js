@@ -36,8 +36,7 @@ let settingsTab = "options";
 
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
 
-// RU: Мини-тост о сохранении настроек.
-// EN: Small toast about settings persistence.
+
 const showSettingsStatus = (key, params = {}, isError = false) => {
   if (!dom.settingsStatus) return;
   const t = getTranslator();
@@ -98,9 +97,13 @@ const fetchPageSignals = (tabId) =>
         resolve(null);
         return;
       }
-      resolve(response?.ok ? response.signals : null);
+      if (response?.ok) {
+        resolve({ signals: response.signals || null, url: response.url || "" });
+        return;
+      }
+      resolve(null);
     });
-    setTimeout(() => resolve(null), 600);
+    setTimeout(() => resolve(null), 1200);
   });
 
 const getInspectOptions = () => ({ strictMode: currentSettings.strictMode });
@@ -261,9 +264,9 @@ const refreshHistory = async () => {
   updateStats(dom, items, customWhitelist);
 };
 
-const sendPhishingBlock = (tabId, domain, verdict) => {
+const sendPhishingBlock = (tabId, payload) => {
   if (!tabId) return;
-  chrome.tabs.sendMessage(tabId, { type: "phishingBlock", domain, verdict }, () => {
+  chrome.tabs.sendMessage(tabId, { type: "phishingBlock", ...payload }, () => {
     if (chrome.runtime.lastError) {
       const msg = chrome.runtime.lastError?.message || "";
       // Мягко игнорируем отсутствие content script (например, сервисные страницы/другой контекст).
@@ -281,6 +284,7 @@ const applyInspectionResult = async (result, options = {}) => {
   const t = getTranslator();
   const isRisk = result.verdict === "phishing" || result.verdict === "blacklisted";
   const mlUnavailable = result.mlStatus === "error";
+  const mlFallback = result.mlStatus === "fallback";
   const fromCache = Boolean(result.cached);
   applyState(dom, t, result.verdict, {
     domain: result.domain,
@@ -311,7 +315,11 @@ const applyInspectionResult = async (result, options = {}) => {
     );
   }
   if (isRisk) {
-    sendPhishingBlock(tabId, result.domain, result.verdict);
+    sendPhishingBlock(tabId, {
+      domain: result.domain,
+      verdict: result.verdict,
+      officialDomain: result.officialDomain
+    });
   }
   if (!fromCache && shouldAlert && isRisk && currentSettings.warnOnUntrusted) {
     setStatusMessage(t("status.phishing.hint"), "warn");
@@ -321,6 +329,8 @@ const applyInspectionResult = async (result, options = {}) => {
     if (result.mlError) {
       console.warn("CorgPhish: ML unavailable", result.mlError);
     }
+  } else if (mlFallback) {
+    setStatusMessage(t("status.ml.fallback"), "warn");
   } else {
     setStatusMessage("");
   }
@@ -336,23 +346,29 @@ const checkActiveTab = async () => {
   dom.refreshBtn.disabled = true;
   try {
     const [activeTab] = await queryActiveTab();
-    if (!activeTab || !activeTab.url) {
-      throw new Error(t("errors.activeTab"));
-    }
-    if (!/^https?:\/\//i.test(activeTab.url)) {
+    const signalsPayload = activeTab?.id ? await fetchPageSignals(activeTab.id) : null;
+    const tabUrl = activeTab?.url || signalsPayload?.url || "";
+    if (!tabUrl) {
       applyState(dom, t, "unsupported", { language: currentSettings.language });
       return;
     }
-    const url = new URL(activeTab.url);
-    const signals = await fetchPageSignals(activeTab.id);
+    if (!/^https?:\/\//i.test(tabUrl)) {
+      applyState(dom, t, "unsupported", { language: currentSettings.language });
+      return;
+    }
+    const url = new URL(tabUrl);
     const result = await inspectDomain(
       url.hostname,
       customWhitelist,
-      activeTab.url,
-      signals || {},
+      tabUrl,
+      signalsPayload?.signals || {},
       getInspectOptions()
     );
-    await applyInspectionResult(result, { shouldAlert: true, source: "active", tabId: activeTab.id });
+    await applyInspectionResult(result, {
+      shouldAlert: true,
+      source: "active",
+      tabId: activeTab?.id
+    });
   } catch (error) {
     console.error("Ошибка во время проверки", error);
     const errorKey = error?.message;
@@ -509,13 +525,17 @@ const checkAllTabs = async () => {
     let riskCount = 0;
     for (const tab of candidates) {
       try {
-        const url = new URL(tab.url);
-        const signals = await fetchPageSignals(tab.id);
+        const signalsPayload = await fetchPageSignals(tab.id);
+        const tabUrl = tab.url || signalsPayload?.url || "";
+        if (!tabUrl || !/^https?:\/\//i.test(tabUrl)) {
+          continue;
+        }
+        const url = new URL(tabUrl);
         const result = await inspectDomain(
           url.hostname,
           customWhitelist,
-          tab.url,
-          signals || {},
+          tabUrl,
+          signalsPayload?.signals || {},
           getInspectOptions()
         );
         await recordHistory(
@@ -533,7 +553,11 @@ const checkAllTabs = async () => {
         );
         if (result.verdict === "phishing" || result.verdict === "blacklisted") {
           riskCount += 1;
-          sendPhishingBlock(tab.id, result.domain, result.verdict);
+          sendPhishingBlock(tab.id, {
+            domain: result.domain,
+            verdict: result.verdict,
+            officialDomain: result.officialDomain
+          });
         }
       } catch (error) {
         console.warn("CorgPhish: bulk scan failed for tab", error);

@@ -117,8 +117,10 @@ export const inspectDomain = async (
   const mlStatus = mlResult?.status || "error";
   const mlVerdict = mlResult?.verdict ?? null;
 
+  const contentRisk = signals?.content || null;
+  const hasContentSignal = contentRisk?.level === "medium" || contentRisk?.level === "high";
   const hasSpoof = Boolean(spoofTarget);
-  const hasSignals = Boolean(brandDomain || formRisk);
+  const hasSignals = Boolean(brandDomain || formRisk || hasContentSignal);
   let suspicionKey = null;
   let suspicionParams = null;
   if (brandDomain) {
@@ -127,6 +129,9 @@ export const inspectDomain = async (
   } else if (formRisk?.actionHost) {
     suspicionKey = "status.suspicious.form";
     suspicionParams = { host: formRisk.actionHost };
+  } else if (contentRisk?.primaryReason) {
+    suspicionKey = contentRisk.primaryReason;
+    suspicionParams = {};
   }
   let verdict = "suspicious";
   let sourceKey = "status.sourceValue.ml";
@@ -141,19 +146,41 @@ export const inspectDomain = async (
   if (mlStatus === "ok" || mlStatus === "fallback") {
     if (mlVerdict === "phishing") {
       verdict = "phishing";
-      sourceKey = "status.sourceValue.ml";
+      sourceKey = mlStatus === "fallback" ? "status.sourceValue.heuristic" : "status.sourceValue.ml";
     } else if (mlVerdict === "trusted" && !hasSpoof && !hasSignals) {
-      if (!hasListData) {
-        verdict = "suspicious";
-        sourceKey = "status.sourceValue.listMissing";
-        if (!suspicionKey) {
-          suspicionKey = "status.suspicious.listMissing";
-          suspicionParams = {};
-        }
-      } else {
-        verdict = "trusted";
-        sourceKey = "status.sourceValue.ml";
+      verdict = "suspicious";
+      if (!suspicionKey) {
+        suspicionKey = hasListData ? "status.suspicious.unlisted" : "status.suspicious.listMissing";
+        suspicionParams = {};
       }
+      sourceKey = hasListData
+        ? mlStatus === "fallback"
+          ? "status.sourceValue.heuristic"
+          : "status.sourceValue.ml"
+        : "status.sourceValue.listMissing";
+    }
+  }
+  if (mlStatus === "fallback" && sourceKey === "status.sourceValue.ml") {
+    sourceKey = "status.sourceValue.heuristic";
+  }
+  const hasRiskyForm = Boolean(
+    formRisk?.actionHost &&
+      (formRisk.hasSensitive || formRisk.reason === "ip" || formRisk.reason === "http")
+  );
+  if (verdict !== "phishing" && (hasSpoof || hasRiskyForm)) {
+    verdict = "phishing";
+    if (hasRiskyForm) {
+      sourceKey = "status.sourceValue.form";
+    } else if (hasSpoof) {
+      sourceKey = "status.sourceValue.levenshtein";
+    }
+  }
+  if (contentRisk?.level === "high" && verdict !== "phishing") {
+    verdict = "phishing";
+    sourceKey = "status.sourceValue.content";
+  } else if (contentRisk?.level === "medium" && verdict === "suspicious") {
+    if (sourceKey === "status.sourceValue.ml") {
+      sourceKey = "status.sourceValue.content";
     }
   }
   if (strictMode && verdict === "trusted") {

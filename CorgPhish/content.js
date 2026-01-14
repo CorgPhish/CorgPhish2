@@ -18,6 +18,29 @@
     bad: "#D65A5A",
     overlay: "rgba(43, 42, 40, 0.45)"
   };
+  const FREE_HOST_SUFFIXES = [
+    "wixsite.com",
+    "wordpress.com",
+    "blogspot.com",
+    "tilda.ws",
+    "site123.me",
+    "ucoz.ru",
+    "ucoz.com",
+    "weebly.com",
+    "webflow.io",
+    "github.io",
+    "pages.dev",
+    "netlify.app",
+    "vercel.app"
+  ];
+  const CONTENT_PATTERNS = {
+    login:
+      /(login|sign in|log in|password|passcode|account|verify|verification|confirm|auth|authorize|secure|security|вход|войти|логин|парол|аккаунт|подтверд|провер|авторизац|верифиц)/i,
+    payment:
+      /(payment|pay|card|bank|wallet|invoice|transfer|pin|cvv|cvc|iban|crypto|оплат|платеж|карта|банк|кошелек|счет|перевод|смс|код)/i,
+    urgent:
+      /(urgent|immediately|suspend|blocked|disable|limited|expire|risk|срочно|немедленно|заблок|огранич|истек|риск|под угрозой)/i
+  };
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
@@ -98,7 +121,83 @@
     headings.forEach((node) => {
       if (node?.textContent) samples.push(node.textContent);
     });
+    const buttons = Array.from(document.querySelectorAll("button")).slice(0, 5);
+    buttons.forEach((node) => {
+      if (node?.textContent) samples.push(node.textContent);
+    });
+    const labels = Array.from(document.querySelectorAll("label")).slice(0, 5);
+    labels.forEach((node) => {
+      if (node?.textContent) samples.push(node.textContent);
+    });
+    const inputs = Array.from(document.querySelectorAll("input, textarea")).slice(0, 8);
+    inputs.forEach((node) => {
+      if (node?.placeholder) samples.push(node.placeholder);
+      if (node?.getAttribute?.("aria-label")) samples.push(node.getAttribute("aria-label"));
+    });
     return samples;
+  };
+
+  const analyzeFormInputs = () => {
+    const forms = Array.from(document.forms || []).slice(0, 5);
+    let passwordField = false;
+    let otpField = false;
+    let cardField = false;
+    let hiddenCount = 0;
+    forms.forEach((form) => {
+      const elements = Array.from(form.elements || []).slice(0, 40);
+      elements.forEach((el) => {
+        if (!el) return;
+        const type = (el.getAttribute?.("type") || el.type || "").toLowerCase();
+        const name = `${el.name || ""} ${el.id || ""} ${el.autocomplete || ""} ${el.placeholder || ""}`.toLowerCase();
+        if (type === "hidden") hiddenCount += 1;
+        if (type === "password" || /passw|парол/.test(name)) passwordField = true;
+        if (/otp|2fa|mfa|code|sms|token|подтверд|код|смс/.test(name)) otpField = true;
+        if (/card|cvc|cvv|pan|iban|карта|счет|сч[её]т|expiry|exp/.test(name)) cardField = true;
+      });
+    });
+    return { passwordField, otpField, cardField, hiddenCount };
+  };
+
+  const detectContentRisk = (hostname, formRisk, brandSignal) => {
+    const samples = getTextSamples();
+    const text = samples.join(" ").toLowerCase();
+    const formInputs = analyzeFormInputs();
+    const isFreeHost = FREE_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+    const reasons = [];
+    const scored = [];
+    const add = (weight, key) => {
+      if (!reasons.includes(key)) {
+        reasons.push(key);
+        scored.push({ key, weight });
+      }
+    };
+
+    if (formInputs.passwordField) add(2.0, "content.reason.password");
+    if (formInputs.otpField) add(2.0, "content.reason.otp");
+    if (formInputs.cardField) add(2.0, "content.reason.card");
+    if (formInputs.hiddenCount >= 3) add(0.5, "content.reason.hiddenInputs");
+    if (CONTENT_PATTERNS.login.test(text)) add(1.0, "content.reason.login");
+    if (CONTENT_PATTERNS.payment.test(text)) add(1.5, "content.reason.payment");
+    if (CONTENT_PATTERNS.urgent.test(text)) add(1.0, "content.reason.urgent");
+    if (formRisk?.reason === "external") add(1.5, "content.reason.externalForm");
+    if (formRisk?.reason === "http") add(2.0, "content.reason.insecureForm");
+    if (formRisk?.reason === "ip") add(2.5, "content.reason.ipForm");
+    if (brandSignal?.domain) add(2.0, "content.reason.brandMention");
+    if (
+      isFreeHost &&
+      (formInputs.passwordField || formInputs.cardField || CONTENT_PATTERNS.login.test(text))
+    ) {
+      add(1.5, "content.reason.freeHost");
+    }
+
+    const score = scored.reduce((sum, item) => sum + item.weight, 0);
+    const level = score >= 4 ? "high" : score >= 2 ? "medium" : "low";
+    if (!reasons.length) {
+      return null;
+    }
+    const primaryReason =
+      scored.sort((a, b) => b.weight - a.weight)[0]?.key || reasons[0];
+    return { score, level, reasons, primaryReason };
   };
   const loadTrustedDomains = () =>
     new Promise((resolve) => {
@@ -249,6 +348,25 @@
       }
     }
     return null;
+  };
+
+  const waitForDomReady = () =>
+    new Promise((resolve) => {
+      if (document.readyState === "interactive" || document.readyState === "complete") {
+        resolve();
+        return;
+      }
+      window.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+    });
+
+  const collectPageSignals = async ({ waitForDom = false } = {}) => {
+    if (waitForDom) {
+      await waitForDomReady();
+    }
+    const brand = await detectBrandMismatch(hostname);
+    const form = detectFormRisk(hostname);
+    const content = detectContentRisk(hostname, form, brand);
+    return { brand, form, content };
   };
 
   // RU: Создаём блокирующий оверлей с кнопками действий.
@@ -449,39 +567,34 @@
   let teardown = () => {};
   let overlayRef = null;
 
-  // RU: Включаем блокировку страницы (оверлей + ограничения).
-  // EN: Enable page blocking (overlay + restrictions).
-  const activateBlock = async (reason = "phishing") => {
+  const redirectToBlockedPage = (reason = "phishing", details = {}) => {
+    const params = new URLSearchParams();
+    params.set("domain", hostname);
+    params.set("reason", reason);
+    params.set("url", window.location.href);
+    if (details.officialDomain) {
+      params.set("official", details.officialDomain);
+    }
+    const targetUrl = `${chrome.runtime.getURL("blocked.html")}?${params.toString()}`;
+    try {
+      if (document.documentElement) {
+        document.documentElement.style.visibility = "hidden";
+      }
+    } catch (error) {
+      // ignore
+    }
+    if (window.location.href !== targetUrl) {
+      window.location.replace(targetUrl);
+    }
+  };
+
+  // RU: Блокируем страницу и перенаправляем на экран блокировки.
+  // EN: Block the page and redirect to the warning screen.
+  const activateBlock = async (reason = "phishing", details = {}) => {
     if (state.active) return;
     state.active = true;
+    redirectToBlockedPage(reason, details);
     teardown = blockInteractions(state);
-    const overlay = createOverlay(
-      hostname,
-      () => {
-        alert(EXIT_ALERT);
-        if (history.length > 1) {
-          history.back();
-        } else {
-          chrome.runtime.sendMessage({ type: "closeTab" });
-        }
-      },
-      async () => {
-        await addToBlacklist(hostname);
-        chrome.runtime.sendMessage({ type: "closeTab" });
-      },
-      async () => {
-        // Разрешаем на 5 минут, убираем оверлей, но блокировка форм/скачивания остаётся активной на этой вкладке.
-        await allowTemporarily(hostname, 5);
-        if (overlay.overlay) overlay.overlay.remove();
-      }
-    );
-    overlayRef = overlay;
-    if (reason === "blacklist") {
-      overlay.hint.textContent = "Домен в вашем чёрном списке. Страница заблокирована.";
-    } else if (reason === "phishing") {
-      overlay.hint.textContent =
-        "Модель подтвердила высокий риск. Данные, формы и загрузки заблокированы.";
-    }
   };
 
   // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
@@ -498,12 +611,25 @@
     try {
       const { inspectDomain } = await import(chrome.runtime.getURL("popup/inspection.js"));
       const whitelist = await loadWhitelist();
-      const result = await inspectDomain(hostname, whitelist, window.location.href);
+      const initial = await inspectDomain(hostname, whitelist, window.location.href, {});
+      if (await isTemporarilyAllowed(hostname)) {
+        return;
+      }
+      if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
+        activateBlock(initial.verdict === "blacklisted" ? "blacklist" : "phishing", {
+          officialDomain: initial.officialDomain
+        });
+        return;
+      }
+      const signals = await collectPageSignals({ waitForDom: true });
+      const result = await inspectDomain(hostname, whitelist, window.location.href, signals);
       if (await isTemporarilyAllowed(hostname)) {
         return;
       }
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
-        activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing");
+        activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing", {
+          officialDomain: result.officialDomain
+        });
       }
     } catch (error) {
       console.warn("CorgPhish: auto inspect failed in content", error);
@@ -515,16 +641,15 @@
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === "getPageSignals") {
       (async () => {
-        const brand = await detectBrandMismatch(hostname);
-        const form = detectFormRisk(hostname);
-        sendResponse?.({ ok: true, signals: { brand, form } });
+        const signals = await collectPageSignals();
+        sendResponse?.({ ok: true, signals, url: window.location.href });
       })();
       return true;
     }
     if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
       isTemporarilyAllowed(hostname).then((allowed) => {
         if (!allowed) {
-          activateBlock("phishing");
+          activateBlock("phishing", { officialDomain: message.officialDomain });
         }
       });
       sendResponse?.({ ok: true });

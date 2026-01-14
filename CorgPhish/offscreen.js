@@ -2,6 +2,7 @@
   const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
   const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
   const DEFAULT_THRESHOLD = 0.7;
+  const HEURISTIC_THRESHOLD = 0.6;
 
   const FEATURE_COLUMNS = [
     "length_url",
@@ -139,8 +140,7 @@
       ort.env.wasm.numThreads = 1;
       return ort.InferenceSession.create(MODEL_PATH, {
         executionProviders: ["wasm"],
-        graphOptimizationLevel: "disabled",
-        preferredOutputType: "float32"
+        graphOptimizationLevel: "disabled"
       });
     })();
     sessionPromise = sessionPromise.catch((error) => {
@@ -187,7 +187,7 @@
       }
       return { status: "ok", verdict, probability, threshold };
     } catch (error) {
-      const fallback = heuristicVerdict(features, threshold);
+      const fallback = heuristicVerdict(features, HEURISTIC_THRESHOLD);
       return { status: "fallback", verdict: fallback.verdict, probability: fallback.probability, error: error?.message || String(error) };
     }
   };

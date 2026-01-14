@@ -1,10 +1,11 @@
 // RU: Локальный инференс ONNX-модели (onnxruntime-web, wasm) с бинарным вердиктом.
 // EN: Local ONNX inference (onnxruntime-web, wasm) with binary verdict only.
-import { MODEL_THRESHOLD } from "./config.js";
+import { HEURISTIC_THRESHOLD, MODEL_THRESHOLD } from "./config.js";
 
 const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
 const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
+const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
 
 const FEATURE_COLUMNS = [
   "length_url",
@@ -34,9 +35,10 @@ const FEATURE_COLUMNS = [
 
 let ortScriptPromise = null;
 let sessionPromise = null;
+let ortDisabled = false;
 
-// RU: Ленивая загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
-// EN: Lazy-load onnxruntime via classic `<script>` so `ort` lands on global scope.
+// RU: загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
+// EN:  onnxruntime via classic `<script>` so `ort` lands on global scope.
 const loadOrt = () => {
   if (globalThis.ort) {
     return Promise.resolve(globalThis.ort);
@@ -128,8 +130,7 @@ const ensureSession = async () => {
     ort.env.wasm.numThreads = 1;
     return ort.InferenceSession.create(MODEL_PATH, {
       executionProviders: ["wasm"],
-      graphOptimizationLevel: "disabled",
-      preferredOutputType: "float32"
+      graphOptimizationLevel: "disabled"
     });
   })();
   sessionPromise = sessionPromise.catch((error) => {
@@ -257,6 +258,21 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     console.warn("CorgPhish: bg predict failed", error);
   }
 
+  if (ortDisabled) {
+    try {
+      const { url, features } = extractFeatures(rawUrl);
+      if (!url) throw new Error("invalid_url");
+      const verdict = heuristicVerdict(features, FALLBACK_THRESHOLD);
+      return { status: "fallback", verdict, error: "ort_disabled" };
+    } catch (inner) {
+      return {
+        status: "error",
+        verdict: null,
+        error: "ort_disabled"
+      };
+    }
+  }
+
   // 2) Пытаемся локальный ORT (если не заблокирован CSP).
   try {
     const { url, features } = extractFeatures(rawUrl);
@@ -302,10 +318,18 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     };
   } catch (error) {
     console.warn("ML predict failed", error);
+    const message = String(error?.message || error || "");
+    if (
+      /NormalizerNorm/i.test(message) ||
+      /tensor\(float\).*tensor\(double\)/i.test(message) ||
+      /ort_load_failed/i.test(message)
+    ) {
+      ortDisabled = true;
+    }
     try {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");
-      const verdict = heuristicVerdict(features);
+      const verdict = heuristicVerdict(features, FALLBACK_THRESHOLD);
       return { status: "fallback", verdict, error: error?.message || String(error) };
     } catch (inner) {
       return {

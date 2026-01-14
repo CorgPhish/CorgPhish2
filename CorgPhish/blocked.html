@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CorgPhish — доступ ограничен</title>
+  <link rel="stylesheet" href="blocked.css" />
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div class="badge" id="reasonBadge">Проверка</div>
+      <h1 class="title" id="title">Доступ ограничен</h1>
+      <p class="domain" id="domain">—</p>
+      <p class="subtitle" id="subtitle">Мы заблокировали переход на сайт до выяснения.</p>
+      <div class="actions">
+        <button class="button button--ghost" id="backBtn" type="button">Назад</button>
+        <button class="button" id="allowBtn" type="button">Открыть на 5 минут</button>
+        <button class="button button--danger" id="blacklistBtn" type="button">Добавить в чёрный список</button>
+        <button class="button button--ghost is-hidden" id="officialBtn" type="button">Открыть официальный сайт</button>
+      </div>
+      <p class="note" id="note">CorgPhish предотвращает ввод данных и загрузки на подозрительных страницах.</p>
+    </section>
+  </main>
+  <script src="blocked.js"></script>
+</body>
+</html>
