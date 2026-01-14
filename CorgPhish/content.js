@@ -845,6 +845,13 @@
       activateBlock("blacklist");
       return;
     }
+    const startLinkObserver = () => {
+      scheduleLinkScan();
+      const observer = new MutationObserver(() => {
+        scheduleLinkScan();
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    };
     try {
       const { inspectDomain } = await import(chrome.runtime.getURL("popup/inspection.js"));
       const whitelist = await loadWhitelist();
@@ -868,13 +875,10 @@
           officialDomain: result.officialDomain
         });
       }
-      scheduleLinkScan();
-      const observer = new MutationObserver(() => {
-        scheduleLinkScan();
-      });
-      observer.observe(document.documentElement, { childList: true, subtree: true });
     } catch (error) {
       console.warn("CorgPhish: auto inspect failed in content", error);
+    } finally {
+      startLinkObserver();
     }
   };
 
