@@ -79,7 +79,7 @@ CorgPhish — локальное анти‑фишинг расширение д
 - `dist/` — результаты сборки (zip‑архивы).
 - `LICENSE` — лицензия.
 
-## Что обычно меняют
+## Что надо менять для тонкой настройки
 - trusted список: `CorgPhish/trusted.json`.
 - тексты UI: `CorgPhish/popup/config.js`.
 - логика вердикта: `CorgPhish/popup/inspection.js`.
@@ -96,8 +96,7 @@ CorgPhish — локальное анти‑фишинг расширение д
 - Гайд по релизу: `docs/meta/RELEASING.md`.
 - Security policy: `docs/meta/SECURITY.md`.
 
-## Примечания
-- Корпоративная версия живет в отдельном репозитории.
+
 
 ## Лицензия
 MIT — см. `LICENSE`.
