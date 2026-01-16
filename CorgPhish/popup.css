@@ -182,13 +182,15 @@ body {
     align-items: center;
     justify-content: center;
     box-shadow: var(--shadow-card);
+    overflow: hidden;
 }
 
 .brand__logo-img {
     width: 44px;
     height: 44px;
     display: block;
-    object-fit: contain;
+    object-fit: cover;
+    border-radius: 14px;
 }
 
 .brand__logo svg {

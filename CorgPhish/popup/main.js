@@ -421,6 +421,8 @@ const handleSettingsChange = async () => {
   const nextSettings = {
     autoCheckOnOpen: dom.autoCheckInput?.checked ?? DEFAULT_SETTINGS.autoCheckOnOpen,
     warnOnUntrusted: dom.alertInput?.checked ?? DEFAULT_SETTINGS.warnOnUntrusted,
+    linkHighlightEnabled:
+      dom.linkHighlightToggle?.checked ?? DEFAULT_SETTINGS.linkHighlightEnabled,
     strictMode: dom.strictModeToggle?.checked ?? DEFAULT_SETTINGS.strictMode,
     theme: dom.themeToggle?.checked ? "light" : "dark",
     language: dom.languageSelect?.value ?? DEFAULT_SETTINGS.language,
@@ -444,6 +446,9 @@ const updateSettingsControls = () => {
   }
   if (dom.alertInput) {
     dom.alertInput.checked = currentSettings.warnOnUntrusted;
+  }
+  if (dom.linkHighlightToggle) {
+    dom.linkHighlightToggle.checked = currentSettings.linkHighlightEnabled;
   }
   if (dom.strictModeToggle) {
     dom.strictModeToggle.checked = currentSettings.strictMode;
@@ -609,6 +614,7 @@ safeAddEvent(dom.clearHistoryBtn, "click", async () => {
 
 safeAddEvent(dom.autoCheckInput, "change", handleSettingsChange);
 safeAddEvent(dom.alertInput, "change", handleSettingsChange);
+safeAddEvent(dom.linkHighlightToggle, "change", handleSettingsChange);
 safeAddEvent(dom.strictModeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.themeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.languageSelect, "change", handleSettingsChange);

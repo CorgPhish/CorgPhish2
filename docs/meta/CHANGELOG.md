@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.1.4]
+- Added toggle for link highlighting in settings.
+- Updated suspicious link highlight color to avoid confusion with phishing alerts.
+
+## [2.1.3]
+- Use domain fallback URL for ML when full URL is unavailable.
+
+## [2.1.2]
+- Ensure link scan runs even when main inspection fails.
+- Updated beta demo page phishing link.
+
+## [2.1.1]
+- Highlight risky links on page before click.
+
 ## [2.1.0]
 - Added content-based phishing scorer (forms + text signals).
 

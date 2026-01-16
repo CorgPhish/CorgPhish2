@@ -31,6 +31,7 @@ export const dom = {
   clearHistoryBtn: document.getElementById("clearHistoryBtn"),
   autoCheckInput: document.getElementById("autoCheckInput"),
   alertInput: document.getElementById("alertInput"),
+  linkHighlightToggle: document.getElementById("linkHighlightToggle"),
   themeToggle: document.getElementById("themeToggle"),
   languageSelect: document.getElementById("languageSelect"),
   strictModeToggle: document.getElementById("strictModeToggle"),

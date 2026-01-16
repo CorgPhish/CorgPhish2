@@ -41,6 +41,66 @@
     urgent:
       /(urgent|immediately|suspend|blocked|disable|limited|expire|risk|срочно|немедленно|заблок|огранич|истек|риск|под угрозой)/i
   };
+  const LINK_SCAN = {
+    maxLinks: 220,
+    maxDomains: 50,
+    batchSize: 6,
+    delayMs: 200,
+    cacheTtlMs: 5 * 60 * 1000
+  };
+  const LINK_HINTS = {
+    ru: {
+      phishing: "Опасная ссылка: возможный фишинг.",
+      suspicious: "Подозрительная ссылка: домен требует проверки.",
+      blacklisted: "Опасная ссылка: домен в чёрном списке.",
+      "status.suspicious.brand": "Упоминается бренд, но домен другой.",
+      "status.suspicious.form": "Форма отправляет данные на другой домен.",
+      "status.suspicious.unlisted": "Домен не найден в доверенных списках.",
+      "status.suspicious.listMissing": "trusted.json недоступен, проверьте домен вручную.",
+      "status.suspicious.strict": "Домен не в списке доверенных.",
+      "content.reason.password": "Форма содержит поле пароля.",
+      "content.reason.otp": "Запрашивается одноразовый код.",
+      "content.reason.card": "Запрошены данные карты.",
+      "content.reason.hiddenInputs": "Много скрытых полей.",
+      "content.reason.login": "Запрашивается вход или подтверждение.",
+      "content.reason.payment": "Запрошены платежные данные.",
+      "content.reason.urgent": "Есть признаки срочного требования.",
+      "content.reason.externalForm": "Форма отправляет данные на другой домен.",
+      "content.reason.insecureForm": "Форма отправляет данные по HTTP.",
+      "content.reason.ipForm": "Форма отправляет данные на IP-адрес.",
+      "content.reason.freeHost": "Сайт на публичном хостинге.",
+      "content.reason.brandMention": "На странице упоминается известный бренд."
+    },
+    en: {
+      phishing: "Dangerous link: possible phishing.",
+      suspicious: "Suspicious link: needs verification.",
+      blacklisted: "Dangerous link: domain is blacklisted.",
+      "status.suspicious.brand": "Brand mentioned, but the domain differs.",
+      "status.suspicious.form": "The form submits data to another domain.",
+      "status.suspicious.unlisted": "The domain is not in trusted lists.",
+      "status.suspicious.listMissing": "trusted.json unavailable, verify manually.",
+      "status.suspicious.strict": "The domain is not on the trusted list.",
+      "content.reason.password": "The form contains a password field.",
+      "content.reason.otp": "One-time code is requested.",
+      "content.reason.card": "Card details are requested.",
+      "content.reason.hiddenInputs": "Too many hidden fields.",
+      "content.reason.login": "Sign-in or confirmation is requested.",
+      "content.reason.payment": "Payment details are requested.",
+      "content.reason.urgent": "Urgent or threatening language detected.",
+      "content.reason.externalForm": "The form submits data to another domain.",
+      "content.reason.insecureForm": "The form submits data over HTTP.",
+      "content.reason.ipForm": "The form submits data to an IP address.",
+      "content.reason.freeHost": "Hosted on a public platform.",
+      "content.reason.brandMention": "A known brand is mentioned."
+    }
+  };
+  const SETTINGS_DEFAULTS = {
+    linkHighlightEnabled: true
+  };
+  const linkDomainCache = new Map();
+  let linkScanTimer = null;
+  let linkHighlightEnabled = SETTINGS_DEFAULTS.linkHighlightEnabled;
+  let linkObserver = null;
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
@@ -199,6 +259,179 @@
       scored.sort((a, b) => b.weight - a.weight)[0]?.key || reasons[0];
     return { score, level, reasons, primaryReason };
   };
+
+  const scheduleLinkScan = () => {
+    if (!linkHighlightEnabled) return;
+    if (linkScanTimer) return;
+    linkScanTimer = setTimeout(() => {
+      linkScanTimer = null;
+      scanLinkTargets();
+    }, 500);
+  };
+
+  const startLinkObserver = () => {
+    if (linkObserver || !linkHighlightEnabled) return;
+    const root = document.documentElement;
+    if (!root) return;
+    scheduleLinkScan();
+    linkObserver = new MutationObserver(() => {
+      scheduleLinkScan();
+    });
+    linkObserver.observe(root, { childList: true, subtree: true });
+  };
+
+  const stopLinkObserver = () => {
+    if (!linkObserver) return;
+    linkObserver.disconnect();
+    linkObserver = null;
+  };
+
+  const clearLinkHighlights = () => {
+    const links = document.querySelectorAll(".corgphish-link");
+    links.forEach((link) => {
+      link.classList.remove(
+        "corgphish-link",
+        "corgphish-link--phishing",
+        "corgphish-link--blacklisted",
+        "corgphish-link--suspicious"
+      );
+      restoreLinkTitle(link);
+      delete link.dataset.corgphishState;
+      delete link.dataset.corgphishHref;
+    });
+    const style = document.getElementById("corgphish-link-style");
+    style?.remove?.();
+  };
+
+  const applyLinkHighlightSetting = (enabled) => {
+    linkHighlightEnabled = Boolean(enabled);
+    if (!linkHighlightEnabled) {
+      stopLinkObserver();
+      clearLinkHighlights();
+      return;
+    }
+    ensureLinkStyles();
+    startLinkObserver();
+  };
+
+  const markLinkState = (link, state, hint, href) => {
+    if (!link) return;
+    link.classList.add("corgphish-link");
+    link.classList.toggle("corgphish-link--phishing", state === "phishing");
+    link.classList.toggle("corgphish-link--blacklisted", state === "blacklisted");
+    link.classList.toggle("corgphish-link--suspicious", state === "suspicious");
+    if (state === "trusted" || state === "safe") {
+      link.classList.remove(
+        "corgphish-link--phishing",
+        "corgphish-link--blacklisted",
+        "corgphish-link--suspicious"
+      );
+      restoreLinkTitle(link);
+    } else if (hint) {
+      rememberLinkTitle(link);
+      link.title = hint;
+    } else {
+      restoreLinkTitle(link);
+    }
+    link.dataset.corgphishState = state;
+    if (href) {
+      link.dataset.corgphishHref = href;
+    }
+  };
+
+  const scanLinkTargets = async () => {
+    if (!linkHighlightEnabled) return;
+    ensureLinkStyles();
+    const links = Array.from(document.querySelectorAll("a[href]")).slice(0, LINK_SCAN.maxLinks);
+    if (!links.length) return;
+    const trustedList = await loadTrustedDomains();
+    const whitelist = await loadWhitelist();
+    const domainToLinks = new Map();
+
+    const shouldSkip = (href) => {
+      if (!href) return true;
+      if (/^(javascript|mailto|tel|about|chrome|edge|file|data):/i.test(href)) return true;
+      return false;
+    };
+
+    links.forEach((link) => {
+      const href = link.getAttribute("href") || "";
+      if (shouldSkip(href)) return;
+      const resolved = (() => {
+        try {
+          return new URL(href, window.location.href);
+        } catch (error) {
+          return null;
+        }
+      })();
+      if (!resolved || !/^https?:/i.test(resolved.protocol)) return;
+      const domain = normalizeHost(resolved.hostname || "");
+      if (!domain) return;
+      const resolvedHref = resolved.toString();
+      if (link.dataset.corgphishHref === resolvedHref && link.dataset.corgphishState) {
+        return;
+      }
+      const base = getRegistrableBase(domain);
+      const currentBase = getRegistrableBase(hostname);
+      if (currentBase && base === currentBase) return;
+
+      const match = matchDomain(domain, whitelist) || matchDomain(domain, trustedList);
+      if (match) {
+        markLinkState(link, "trusted", null, resolvedHref);
+        return;
+      }
+
+      const cached = linkDomainCache.get(domain);
+      if (cached && Date.now() - cached.ts < LINK_SCAN.cacheTtlMs) {
+        markLinkState(link, cached.result.verdict, buildLinkHint(cached.result), resolvedHref);
+        return;
+      }
+
+      if (!domainToLinks.has(domain)) {
+        domainToLinks.set(domain, []);
+      }
+      domainToLinks.get(domain).push({ link, url: resolvedHref });
+    });
+
+    const domains = Array.from(domainToLinks.keys()).slice(0, LINK_SCAN.maxDomains);
+    if (!domains.length) return;
+
+    let inspectDomainFn = null;
+    try {
+      const module = await import(chrome.runtime.getURL("popup/inspection.js"));
+      inspectDomainFn = module?.inspectDomain;
+    } catch (error) {
+      console.warn("CorgPhish: link scan import failed", error);
+    }
+    if (!inspectDomainFn) return;
+
+    let index = 0;
+    const processBatch = async () => {
+      const batch = domains.slice(index, index + LINK_SCAN.batchSize);
+      if (!batch.length) return;
+      await Promise.all(
+        batch.map(async (domain) => {
+          const entries = domainToLinks.get(domain) || [];
+          if (!entries.length) return;
+          const sampleUrl = entries[0]?.url || domain;
+          try {
+            const result = await inspectDomainFn(domain, whitelist, sampleUrl, {});
+            linkDomainCache.set(domain, { result, ts: Date.now() });
+            entries.forEach((entry) =>
+              markLinkState(entry.link, result.verdict, buildLinkHint(result), entry.url)
+            );
+          } catch (error) {
+            console.warn("CorgPhish: link scan failed", error);
+          }
+        })
+      );
+      index += LINK_SCAN.batchSize;
+      if (index < domains.length) {
+        setTimeout(processBatch, LINK_SCAN.delayMs);
+      }
+    };
+    processBatch();
+  };
   const loadTrustedDomains = () =>
     new Promise((resolve) => {
       if (trustedCache.list && Date.now() - trustedCache.ts < TRUSTED_CACHE_TTL) {
@@ -292,6 +525,91 @@
         resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
       });
     });
+
+  const getRegistrableBase = (domain) => getRegistrableDomain(domain);
+
+  const matchDomain = (domain, list) =>
+    list.find((entry) => domain === entry || domain.endsWith(`.${entry}`)) || null;
+
+  const getLinkLanguage = () =>
+    navigator?.language?.toLowerCase().startsWith("ru") ? "ru" : "en";
+
+  const buildLinkHint = (result) => {
+    const lang = getLinkLanguage();
+    const dict = LINK_HINTS[lang] || LINK_HINTS.ru;
+    if (result.verdict === "blacklisted") return dict.blacklisted;
+    if (result.suspicionKey && dict[result.suspicionKey]) {
+      return dict[result.suspicionKey];
+    }
+    if (result.verdict === "phishing") return dict.phishing;
+    return dict.suspicious;
+  };
+
+  const loadSyncSettings = () =>
+    new Promise((resolve) => {
+      chrome.storage.sync.get(SETTINGS_DEFAULTS, (result) => {
+        resolve({ ...SETTINGS_DEFAULTS, ...result });
+      });
+    });
+
+  const rememberLinkTitle = (link) => {
+    if (!link) return;
+    if (link.dataset.corgphishTitle !== undefined) return;
+    const current = link.getAttribute("title");
+    link.dataset.corgphishTitle = current ?? "";
+  };
+
+  const restoreLinkTitle = (link) => {
+    if (!link) return;
+    if (link.dataset.corgphishTitle === undefined) return;
+    const original = link.dataset.corgphishTitle;
+    if (original) {
+      link.setAttribute("title", original);
+    } else {
+      link.removeAttribute("title");
+    }
+    delete link.dataset.corgphishTitle;
+  };
+
+  const ensureLinkStyles = () => {
+    if (document.getElementById("corgphish-link-style")) return;
+    const style = document.createElement("style");
+    style.id = "corgphish-link-style";
+    style.textContent = `
+      .corgphish-link {
+        position: relative;
+        border-radius: 4px;
+        transition: box-shadow 0.15s ease, background 0.15s ease;
+      }
+      .corgphish-link--suspicious {
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.8);
+        background: rgba(59, 130, 246, 0.12);
+      }
+      .corgphish-link--phishing,
+      .corgphish-link--blacklisted {
+        box-shadow: 0 0 0 2px rgba(214, 90, 90, 0.9);
+        background: rgba(214, 90, 90, 0.12);
+      }
+      .corgphish-link--suspicious::after,
+      .corgphish-link--phishing::after,
+      .corgphish-link--blacklisted::after {
+        content: "⚠";
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        font-size: 12px;
+        background: #fff;
+        color: #d65a5a;
+        border-radius: 999px;
+        padding: 1px 4px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      }
+      .corgphish-link--suspicious::after {
+        color: #2563eb;
+      }
+    `;
+    document.head.appendChild(style);
+  };
 
   const detectBrandMismatch = async (hostname) => {
     const trustedList = await loadTrustedDomains();
@@ -600,6 +918,8 @@
   // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
   // EN: Init: auto inspection, temp allow handling, blacklist check.
   const init = async () => {
+    const settings = await loadSyncSettings();
+    applyLinkHighlightSetting(settings.linkHighlightEnabled);
     if (await isTemporarilyAllowed(hostname)) {
       return;
     }
@@ -633,6 +953,8 @@
       }
     } catch (error) {
       console.warn("CorgPhish: auto inspect failed in content", error);
+    } finally {
+      startLinkObserver();
     }
   };
 
@@ -656,6 +978,15 @@
       return true;
     }
     return false;
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "sync") return;
+    if (!Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) return;
+    const nextValue = changes.linkHighlightEnabled?.newValue;
+    applyLinkHighlightSetting(
+      nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
+    );
   });
 
   init();
