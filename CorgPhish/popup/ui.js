@@ -76,6 +76,17 @@ export const setOfficialSiteState = (dom, domain, translate) => {
   }
 };
 
+export const setReportState = (dom, domain, canReport, details = {}) => {
+  if (!dom.reportPhishingBtn) return;
+  const hidden = !domain || !canReport;
+  dom.reportPhishingBtn.disabled = hidden;
+  dom.reportPhishingBtn.dataset.domain = hidden ? "" : domain;
+  dom.reportPhishingBtn.dataset.url = hidden ? "" : details.url || "";
+  dom.reportPhishingBtn.dataset.verdict = hidden ? "" : details.verdict || "";
+  dom.reportPhishingBtn.dataset.source = hidden ? "" : details.sourceKey || "";
+  dom.reportPhishingBtn.classList.toggle("is-hidden", hidden);
+};
+
 export const setManualHint = (dom, text, isError = false) => {
   if (!dom.manualHint) return;
   dom.manualHint.textContent = text;
@@ -166,8 +177,14 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
   }
   const isTrustedState = Boolean(context.isTrusted);
   const canBlacklist = stateKey === "phishing" || stateKey === "suspicious";
+  const canReport = stateKey === "phishing" || stateKey === "suspicious" || stateKey === "blacklisted";
   setQuickAddState(dom, context.domain, isTrustedState || stateKey === "blacklisted");
   setBlacklistState(dom, context.domain, canBlacklist);
+  setReportState(dom, context.domain, canReport, {
+    url: context.url,
+    verdict: stateKey,
+    sourceKey: context.sourceKey
+  });
   setOfficialSiteState(dom, context.officialDomain, translate);
 
   const recKeys = config.recommendationsKeys || [];

@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.2.1]
+- Added phishing report action in popup with Safe Browsing report link.
+- Added phishing report button on blocked page.
+- Report details are copied to clipboard before opening report form.
+
 ## [2.2.0]
 - Added pre-click link inspection to block phishing URLs before navigation.
 - Added redirect-chain analysis for nested `url/redirect/next/...` parameters.

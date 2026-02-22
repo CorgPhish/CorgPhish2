@@ -33,6 +33,7 @@ let lastHistory = [];
 let historyQuery = "";
 let historyFilter = "all";
 let settingsTab = "options";
+let lastInspectedUrl = "";
 
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
 
@@ -60,6 +61,32 @@ const setStatusMessage = (text = "", tone = "info") => {
   dom.statusBanner.textContent = text;
   dom.statusBanner.dataset.tone = tone;
   dom.statusBanner.classList.remove("is-hidden");
+};
+
+const resolveReportUrl = (rawUrl, domain) => {
+  const candidate = String(rawUrl || "").trim();
+  if (candidate) {
+    try {
+      const parsed = new URL(candidate.includes("://") ? candidate : `https://${candidate}`);
+      if (/^https?:$/i.test(parsed.protocol)) {
+        return parsed.toString();
+      }
+    } catch (error) {
+      // ignore malformed candidate
+    }
+  }
+  const cleanDomain = normalizeHost(domain);
+  return cleanDomain ? `https://${cleanDomain}` : "";
+};
+
+const copyReportToClipboard = async (text) => {
+  if (!text || !navigator.clipboard?.writeText) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
 
 // RU: Получаем активную вкладку.
@@ -280,14 +307,19 @@ const sendPhishingBlock = (tabId, payload) => {
 // RU: Применяем результат инспекции к UI и истории.
 // EN: Apply inspection result to UI and history.
 const applyInspectionResult = async (result, options = {}) => {
-  const { shouldAlert = false, source = "active", tabId } = options;
+  const { shouldAlert = false, source = "active", tabId, inspectedUrl = "" } = options;
   const t = getTranslator();
   const isRisk = result.verdict === "phishing" || result.verdict === "blacklisted";
   const mlUnavailable = result.mlStatus === "error";
   const mlFallback = result.mlStatus === "fallback";
   const fromCache = Boolean(result.cached);
+  const resolvedUrl = inspectedUrl || lastInspectedUrl || "";
+  if (inspectedUrl) {
+    lastInspectedUrl = inspectedUrl;
+  }
   applyState(dom, t, result.verdict, {
     domain: result.domain,
+    url: resolvedUrl,
     checkedAt: result.checkedAt ? new Date(result.checkedAt) : new Date(),
     spoofTarget: result.spoofTarget,
     language: currentSettings.language,
@@ -356,6 +388,7 @@ const checkActiveTab = async () => {
       applyState(dom, t, "unsupported", { language: currentSettings.language });
       return;
     }
+    lastInspectedUrl = tabUrl;
     const url = new URL(tabUrl);
     const result = await inspectDomain(
       url.hostname,
@@ -367,7 +400,8 @@ const checkActiveTab = async () => {
     await applyInspectionResult(result, {
       shouldAlert: true,
       source: "active",
-      tabId: activeTab?.id
+      tabId: activeTab?.id,
+      inspectedUrl: tabUrl
     });
   } catch (error) {
     console.error("Ошибка во время проверки", error);
@@ -393,10 +427,22 @@ const handleManualSubmit = async (event) => {
     setManualHint(dom, t("manual.hint.invalid"), true);
     return;
   }
+  const inspectedUrl = resolveReportUrl(rawInput, hostname);
+  lastInspectedUrl = inspectedUrl;
   setStatusMessage("");
   try {
-    const result = await inspectDomain(hostname, customWhitelist, rawInput, {}, getInspectOptions());
-    await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
+    const result = await inspectDomain(
+      hostname,
+      customWhitelist,
+      inspectedUrl || rawInput,
+      {},
+      getInspectOptions()
+    );
+    await applyInspectionResult(result, {
+      shouldAlert: false,
+      source: "manual",
+      inspectedUrl
+    });
     setManualHint(dom, t("manual.hint.success", { domain: result.domain }));
   } catch (error) {
     const translated = baseTranslate(currentSettings.language, error?.message) || t("manual.hint.invalid");
@@ -504,6 +550,31 @@ const handleOfficialSiteClick = () => {
   if (!domain) return;
   const url = domain.includes("://") ? domain : `https://${domain}`;
   chrome.tabs.create({ url });
+};
+
+const handleReportPhishingClick = async () => {
+  const t = getTranslator();
+  const domain = dom.reportPhishingBtn?.dataset.domain || dom.domainValue?.textContent || "";
+  const reportUrl = resolveReportUrl(dom.reportPhishingBtn?.dataset.url || lastInspectedUrl, domain);
+  if (!reportUrl) {
+    setStatusMessage(t("status.report.failed"), "error");
+    return;
+  }
+  const verdict = dom.reportPhishingBtn?.dataset.verdict || "suspicious";
+  const source = dom.reportPhishingBtn?.dataset.source || "";
+  const reportText = [
+    "CorgPhish phishing report",
+    `URL: ${reportUrl}`,
+    `Domain: ${normalizeHost(domain) || "n/a"}`,
+    `Verdict: ${verdict}`,
+    `Source: ${source}`,
+    `Time: ${new Date().toISOString()}`
+  ].join("\n");
+  const copied = await copyReportToClipboard(reportText);
+  const reportPage =
+    `https://safebrowsing.google.com/safebrowsing/report_phish/?url=${encodeURIComponent(reportUrl)}`;
+  chrome.tabs.create({ url: reportPage });
+  setStatusMessage(t(copied ? "status.report.openedCopied" : "status.report.opened"), "warn");
 };
 
 const handleHistorySearch = (event) => {
@@ -628,6 +699,7 @@ safeAddEvent(dom.whitelistForm, "submit", handleWhitelistSubmit);
 safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
 safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
 safeAddEvent(dom.blacklistBtn, "click", handleBlacklistClick);
+safeAddEvent(dom.reportPhishingBtn, "click", handleReportPhishingClick);
 safeAddEvent(dom.officialSiteBtn, "click", handleOfficialSiteClick);
 safeAddEvent(dom.historySearchInput, "input", handleHistorySearch);
 safeAddEvent(dom.historyFilterSelect, "change", handleHistoryFilter);

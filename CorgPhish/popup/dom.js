@@ -45,6 +45,7 @@ export const dom = {
   whitelistList: document.getElementById("whitelistList"),
   quickAddBtn: document.getElementById("quickAddBtn"),
   blacklistBtn: document.getElementById("blacklistBtn"),
+  reportPhishingBtn: document.getElementById("reportPhishingBtn"),
   officialSiteBtn: document.getElementById("officialSiteBtn"),
   blacklistForm: document.getElementById("blacklistForm"),
   blacklistInput: document.getElementById("blacklistInput"),

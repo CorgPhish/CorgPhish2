@@ -66,6 +66,7 @@ const note = document.getElementById("note");
 const backBtn = document.getElementById("backBtn");
 const allowBtn = document.getElementById("allowBtn");
 const blacklistBtn = document.getElementById("blacklistBtn");
+const reportBtn = document.getElementById("reportBtn");
 const officialBtn = document.getElementById("officialBtn");
 
 const reasonLabels = {
@@ -133,6 +134,28 @@ officialBtn.addEventListener("click", () => {
   if (!official) return;
   const url = official.includes("://") ? official : `https://${official}`;
   chrome.tabs.create({ url });
+});
+
+reportBtn.addEventListener("click", async () => {
+  const targetUrl = originalUrl || (domain ? `https://${domain}` : "");
+  if (!targetUrl) return;
+  const reportText = [
+    "CorgPhish phishing report",
+    `URL: ${targetUrl}`,
+    `Domain: ${domain || "n/a"}`,
+    `Reason: ${reason}`,
+    `Time: ${new Date().toISOString()}`
+  ].join("\n");
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(reportText);
+    } catch (error) {
+      // ignore clipboard errors
+    }
+  }
+  const reportUrl =
+    `https://safebrowsing.google.com/safebrowsing/report_phish/?url=${encodeURIComponent(targetUrl)}`;
+  chrome.tabs.create({ url: reportUrl });
 });
 
 if (note) {
