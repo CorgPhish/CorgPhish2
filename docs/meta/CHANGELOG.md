@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.2.2]
+- Added Anti-scam banner mode with social-engineering text detection on page content.
+- Added settings toggle to enable/disable Anti-scam banners.
+
 ## [2.2.1]
 - Added phishing report action in popup with Safe Browsing report link.
 - Added phishing report button on blocked page.

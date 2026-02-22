@@ -32,6 +32,7 @@ export const dom = {
   autoCheckInput: document.getElementById("autoCheckInput"),
   alertInput: document.getElementById("alertInput"),
   linkHighlightToggle: document.getElementById("linkHighlightToggle"),
+  antiScamToggle: document.getElementById("antiScamToggle"),
   themeToggle: document.getElementById("themeToggle"),
   languageSelect: document.getElementById("languageSelect"),
   strictModeToggle: document.getElementById("strictModeToggle"),

@@ -9,7 +9,8 @@ export const DEFAULT_SETTINGS = {
   compactMode: false,
   blockOnUntrusted: false,
   systemNotifyOnRisk: false,
-  linkHighlightEnabled: true
+  linkHighlightEnabled: true,
+  antiScamBannerEnabled: true
 };
 
 // Единый порог модели/эвристики (используется popup/content/offscreen/background).
@@ -249,6 +250,8 @@ export const translations = {
     "settings.alerts.desc": "Показывать предупреждение при подозрительном сайте.",
     "settings.linkHighlight.title": "Подсветка ссылок",
     "settings.linkHighlight.desc": "Помечать подозрительные ссылки прямо на странице.",
+    "settings.antiScam.title": "Anti-scam баннеры",
+    "settings.antiScam.desc": "Показывать предупреждение при признаках мошеннических сценариев на странице.",
     "settings.strict.title": "Строгий режим",
     "settings.strict.desc": "Все сайты вне списка доверенных помечаются как подозрительные.",
     "settings.block.title": "Блокировка ввода",
@@ -436,6 +439,8 @@ export const translations = {
     "settings.alerts.desc": "Show a warning when a suspicious site is detected.",
     "settings.linkHighlight.title": "Link highlighting",
     "settings.linkHighlight.desc": "Mark suspicious links directly on the page.",
+    "settings.antiScam.title": "Anti-scam banners",
+    "settings.antiScam.desc": "Show warning banner when scam-like social engineering patterns are detected.",
     "settings.strict.title": "Strict mode",
     "settings.strict.desc": "Mark every non-trusted site as suspicious.",
     "settings.block.title": "Block input",
