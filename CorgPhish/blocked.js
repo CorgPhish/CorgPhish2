@@ -70,14 +70,23 @@ const officialBtn = document.getElementById("officialBtn");
 
 const reasonLabels = {
   phishing: "Подозрение на фишинг",
-  blacklist: "Домен в чёрном списке"
+  blacklist: "Домен в чёрном списке",
+  linkPhishing: "Опасная ссылка",
+  linkBlacklist: "Ссылка на домен из ЧС",
+  redirectPhishing: "Опасный редирект"
 };
 
 reasonBadge.textContent = reasonLabels[reason] || reasonLabels.phishing;
 
-if (reason === "blacklist") {
+if (reason === "blacklist" || reason === "linkBlacklist") {
   title.textContent = "Сайт заблокирован";
   subtitle.textContent = "Домен находится в вашем чёрном списке.";
+} else if (reason === "redirectPhishing") {
+  title.textContent = "Переход заблокирован";
+  subtitle.textContent = "В цепочке редиректов обнаружен рискованный домен.";
+} else if (reason === "linkPhishing") {
+  title.textContent = "Переход заблокирован";
+  subtitle.textContent = "Ссылка ведёт на сайт с признаками фишинга.";
 } else {
   title.textContent = "Опасный сайт";
   subtitle.textContent = "Обнаружены признаки фишинга. Переход заблокирован.";

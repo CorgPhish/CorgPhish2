@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.2.0]
+- Added pre-click link inspection to block phishing URLs before navigation.
+- Added redirect-chain analysis for nested `url/redirect/next/...` parameters.
+- Added sensitive-data guard warnings on risky pages when users type/paste credentials.
+
 ## [2.1.4]
 - Added toggle for link highlighting in settings.
 - Updated suspicious link highlight color to avoid confusion with phishing alerts.

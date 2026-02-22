@@ -97,10 +97,65 @@
   const SETTINGS_DEFAULTS = {
     linkHighlightEnabled: true
   };
+  const REDIRECT_PARAM_KEYS = [
+    "url",
+    "target",
+    "redirect",
+    "redirect_url",
+    "redirect_uri",
+    "redir",
+    "redirect_to",
+    "return",
+    "return_url",
+    "next",
+    "continue",
+    "destination",
+    "dest",
+    "to",
+    "r",
+    "u",
+    "go"
+  ];
+  const REDIRECT_ANALYSIS_LIMIT = 6;
+  const PRECLICK_CACHE_TTL = 2 * 60 * 1000;
+  const SENSITIVE_WARN_COOLDOWN_MS = 12 * 1000;
+  const VERDICT_PRIORITY = {
+    trusted: 0,
+    suspicious: 1,
+    phishing: 2,
+    blacklisted: 3
+  };
+  const SENSITIVE_FIELD_RE =
+    /(pass|password|pwd|otp|2fa|mfa|token|sms|code|pin|card|cvv|cvc|iban|account|email|phone|login|парол|код|смс|карт|счет|аккаунт|почт|тел)/i;
+  const SENSITIVE_DATA_RE = {
+    card: /(?:\d[ -]*?){13,19}/,
+    email: /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i,
+    phone: /\+?\d[\d\s()\-]{8,}\d/,
+    otp: /\b\d{4,8}\b/
+  };
+  const SENSITIVE_HINTS = {
+    ru: {
+      field:
+        "Осторожно: сайт не доверенный. Не вводите пароль, код подтверждения и данные карты.",
+      paste:
+        "Обнаружены признаки чувствительных данных во вставке. Проверьте домен перед отправкой."
+    },
+    en: {
+      field:
+        "Caution: this site is not trusted. Avoid entering passwords, OTP codes, and card details.",
+      paste:
+        "Sensitive data patterns detected in pasted text. Verify the domain before submitting."
+    }
+  };
   const linkDomainCache = new Map();
+  const preClickCache = new Map();
   let linkScanTimer = null;
   let linkHighlightEnabled = SETTINGS_DEFAULTS.linkHighlightEnabled;
   let linkObserver = null;
+  let inspectDomainFnPromise = null;
+  let pageRiskVerdict = "trusted";
+  let sensitiveWarnAt = 0;
+  let sensitiveGuardTeardown = () => {};
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
@@ -396,13 +451,7 @@
     const domains = Array.from(domainToLinks.keys()).slice(0, LINK_SCAN.maxDomains);
     if (!domains.length) return;
 
-    let inspectDomainFn = null;
-    try {
-      const module = await import(chrome.runtime.getURL("popup/inspection.js"));
-      inspectDomainFn = module?.inspectDomain;
-    } catch (error) {
-      console.warn("CorgPhish: link scan import failed", error);
-    }
+    const inspectDomainFn = await getInspectDomainFn();
     if (!inspectDomainFn) return;
 
     let index = 0;
@@ -543,6 +592,243 @@
     }
     if (result.verdict === "phishing") return dict.phishing;
     return dict.suspicious;
+  };
+
+  const getSensitiveHints = () => {
+    const lang = getLinkLanguage();
+    return SENSITIVE_HINTS[lang] || SENSITIVE_HINTS.ru;
+  };
+
+  const getInspectDomainFn = async () => {
+    if (!inspectDomainFnPromise) {
+      inspectDomainFnPromise = import(chrome.runtime.getURL("popup/inspection.js"))
+        .then((module) => module?.inspectDomain || null)
+        .catch((error) => {
+          inspectDomainFnPromise = null;
+          console.warn("CorgPhish: inspection import failed", error);
+          return null;
+        });
+    }
+    return inspectDomainFnPromise;
+  };
+
+  const parseHttpUrl = (value, base = window.location.href) => {
+    if (!value) return null;
+    const variants = [String(value).trim()];
+    try {
+      const decoded = decodeURIComponent(variants[0]);
+      if (decoded && decoded !== variants[0]) variants.push(decoded.trim());
+    } catch (error) {
+      // ignore malformed URI
+    }
+    for (const candidate of variants) {
+      if (!candidate) continue;
+      let url = null;
+      try {
+        url = new URL(candidate, base);
+      } catch (error) {
+        if (/^[a-z0-9.-]+\.[a-z]{2,}(?:[/?#]|$)/i.test(candidate)) {
+          try {
+            url = new URL(`https://${candidate}`);
+          } catch (nestedError) {
+            url = null;
+          }
+        }
+      }
+      if (!url) continue;
+      if (!/^https?:$/i.test(url.protocol)) continue;
+      return url;
+    }
+    return null;
+  };
+
+  const extractNextRedirectUrl = (url) => {
+    for (const key of REDIRECT_PARAM_KEYS) {
+      const raw = url.searchParams.get(key);
+      const parsed = parseHttpUrl(raw, url.toString());
+      if (parsed && parsed.toString() !== url.toString()) {
+        return parsed;
+      }
+    }
+    if (url.hash && url.hash.length > 1) {
+      const hashCandidate = url.hash.slice(1);
+      const parsed = parseHttpUrl(hashCandidate, url.toString());
+      if (parsed && parsed.toString() !== url.toString()) {
+        return parsed;
+      }
+    }
+    return null;
+  };
+
+  const analyzeRedirectChain = (rawUrl) => {
+    const first = parseHttpUrl(rawUrl, window.location.href);
+    if (!first) return [];
+    const chain = [first];
+    const seen = new Set([first.toString()]);
+    let current = first;
+    for (let i = 0; i < REDIRECT_ANALYSIS_LIMIT; i += 1) {
+      const next = extractNextRedirectUrl(current);
+      if (!next) break;
+      const serialized = next.toString();
+      if (seen.has(serialized)) break;
+      seen.add(serialized);
+      chain.push(next);
+      current = next;
+    }
+    return chain;
+  };
+
+  const isRiskVerdict = (verdict = "") => verdict === "phishing" || verdict === "blacklisted";
+
+  const pickWorseVerdict = (left = "trusted", right = "trusted") =>
+    (VERDICT_PRIORITY[right] || 0) > (VERDICT_PRIORITY[left] || 0) ? right : left;
+
+  const evaluateNavigationRisk = async (targetUrl) => {
+    const normalizedTarget = targetUrl.toString();
+    const cached = preClickCache.get(normalizedTarget);
+    if (cached && Date.now() - cached.ts < PRECLICK_CACHE_TTL) {
+      return cached.result;
+    }
+
+    const chain = analyzeRedirectChain(normalizedTarget);
+    if (!chain.length) {
+      const fallback = { verdict: "trusted", chainHosts: [], riskyHost: "", riskyResult: null };
+      preClickCache.set(normalizedTarget, { ts: Date.now(), result: fallback });
+      return fallback;
+    }
+
+    const inspectDomain = await getInspectDomainFn();
+    if (!inspectDomain) {
+      const fallback = { verdict: "trusted", chainHosts: [], riskyHost: "", riskyResult: null };
+      preClickCache.set(normalizedTarget, { ts: Date.now(), result: fallback });
+      return fallback;
+    }
+
+    const whitelist = await loadWhitelist();
+    let verdict = "trusted";
+    let riskyHost = "";
+    let riskyResult = null;
+    const chainHosts = [];
+
+    for (const hop of chain) {
+      const host = normalizeHost(hop.hostname || "");
+      if (!host) continue;
+      chainHosts.push(host);
+      if (await isTemporarilyAllowed(host)) {
+        continue;
+      }
+      try {
+        const result = await inspectDomain(host, whitelist, hop.toString(), {});
+        verdict = pickWorseVerdict(verdict, result.verdict || "trusted");
+        if (!riskyResult || isRiskVerdict(result.verdict) || result.verdict === "suspicious") {
+          riskyHost = host;
+          riskyResult = result;
+        }
+        if (isRiskVerdict(result.verdict)) {
+          break;
+        }
+      } catch (error) {
+        console.warn("CorgPhish: pre-click inspection failed", error);
+      }
+    }
+
+    const analysis = { verdict, chainHosts, riskyHost, riskyResult };
+    preClickCache.set(normalizedTarget, { ts: Date.now(), result: analysis });
+    return analysis;
+  };
+
+  const createSensitiveBanner = () => {
+    const existing = document.getElementById("corgphish-sensitive-banner");
+    if (existing) return existing;
+    const banner = document.createElement("div");
+    banner.id = "corgphish-sensitive-banner";
+    banner.style.position = "fixed";
+    banner.style.right = "16px";
+    banner.style.bottom = "16px";
+    banner.style.zIndex = "2147483646";
+    banner.style.maxWidth = "360px";
+    banner.style.padding = "12px 14px";
+    banner.style.borderRadius = "12px";
+    banner.style.background = "rgba(214, 90, 90, 0.96)";
+    banner.style.color = "#fff";
+    banner.style.fontFamily = '"Nunito","Manrope","Inter",system-ui,-apple-system,sans-serif';
+    banner.style.fontSize = "13px";
+    banner.style.lineHeight = "1.35";
+    banner.style.fontWeight = "700";
+    banner.style.boxShadow = "0 14px 30px rgba(0,0,0,0.26)";
+    banner.style.opacity = "0";
+    banner.style.transform = "translateY(8px)";
+    banner.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+    banner.style.pointerEvents = "none";
+    document.documentElement.appendChild(banner);
+    return banner;
+  };
+
+  const showSensitiveWarning = (hintType = "field") => {
+    if (state.active || pageRiskVerdict === "trusted") return;
+    const now = Date.now();
+    if (now - sensitiveWarnAt < SENSITIVE_WARN_COOLDOWN_MS) return;
+    sensitiveWarnAt = now;
+    const hints = getSensitiveHints();
+    const banner = createSensitiveBanner();
+    banner.textContent = hints[hintType] || hints.field;
+    banner.style.opacity = "1";
+    banner.style.transform = "translateY(0)";
+    clearTimeout(showSensitiveWarning.timer);
+    showSensitiveWarning.timer = setTimeout(() => {
+      banner.style.opacity = "0";
+      banner.style.transform = "translateY(8px)";
+    }, 3800);
+  };
+
+  const isSensitiveInput = (element) => {
+    if (!element || !(element instanceof HTMLElement)) return false;
+    const input = element.closest("input, textarea");
+    if (!input) return false;
+    const type = (input.getAttribute("type") || input.type || "").toLowerCase();
+    const autocomplete = (input.getAttribute("autocomplete") || "").toLowerCase();
+    const descriptor = `${input.name || ""} ${input.id || ""} ${input.placeholder || ""} ${autocomplete}`;
+    if (type === "password") return true;
+    if (["email", "tel"].includes(type)) return true;
+    if (/(one-time-code|cc-|current-password|new-password)/.test(autocomplete)) return true;
+    return SENSITIVE_FIELD_RE.test(descriptor);
+  };
+
+  const detectSensitiveText = (text = "") => {
+    if (!text) return false;
+    const sample = String(text).trim();
+    if (!sample) return false;
+    if (sample.length >= 12 && SENSITIVE_DATA_RE.card.test(sample)) return true;
+    if (SENSITIVE_DATA_RE.email.test(sample)) return true;
+    if (SENSITIVE_DATA_RE.phone.test(sample)) return true;
+    if (SENSITIVE_DATA_RE.otp.test(sample) && /\b(code|otp|sms|код|смс)\b/i.test(sample)) return true;
+    return false;
+  };
+
+  const setupSensitiveDataGuard = () => {
+    sensitiveGuardTeardown?.();
+    const onInput = (event) => {
+      if (pageRiskVerdict === "trusted") return;
+      const target = event.target;
+      if (!isSensitiveInput(target)) return;
+      const value = target?.value;
+      if (!value || String(value).trim().length < 2) return;
+      showSensitiveWarning("field");
+    };
+    const onPaste = (event) => {
+      if (pageRiskVerdict === "trusted") return;
+      const target = event.target;
+      if (!isSensitiveInput(target)) return;
+      const text = event.clipboardData?.getData("text") || "";
+      if (!detectSensitiveText(text)) return;
+      showSensitiveWarning("paste");
+    };
+    document.addEventListener("input", onInput, true);
+    document.addEventListener("paste", onPaste, true);
+    sensitiveGuardTeardown = () => {
+      document.removeEventListener("input", onInput, true);
+      document.removeEventListener("paste", onPaste, true);
+    };
   };
 
   const loadSyncSettings = () =>
@@ -883,13 +1169,17 @@
 
   const state = { active: false, domain: hostname };
   let teardown = () => {};
-  let overlayRef = null;
+  const setPageRiskVerdict = (verdict = "trusted") => {
+    pageRiskVerdict = verdict || "trusted";
+  };
 
   const redirectToBlockedPage = (reason = "phishing", details = {}) => {
+    const blockedDomain = normalizeHost(details.domain || hostname);
+    const blockedUrl = details.url || window.location.href;
     const params = new URLSearchParams();
-    params.set("domain", hostname);
+    params.set("domain", blockedDomain || hostname);
     params.set("reason", reason);
-    params.set("url", window.location.href);
+    params.set("url", blockedUrl);
     if (details.officialDomain) {
       params.set("official", details.officialDomain);
     }
@@ -915,24 +1205,124 @@
     teardown = blockInteractions(state);
   };
 
+  const navigateToLink = (url, sourceLink) => {
+    const href = url.toString();
+    const target = (sourceLink?.target || "").toLowerCase();
+    if (target === "_blank") {
+      window.open(href, "_blank", "noopener");
+      return;
+    }
+    window.location.assign(href);
+  };
+
+  const handlePreClickNavigation = () => {
+    const shouldSkip = (event, link) => {
+      if (state.active) return true;
+      if (!link) return true;
+      if (event.defaultPrevented) return true;
+      if (event.button !== 0) return true;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return true;
+      if (link.hasAttribute("download")) return true;
+      return false;
+    };
+
+    const toLinkUrl = (link) => {
+      const rawHref = link?.getAttribute?.("href") || "";
+      if (!rawHref || rawHref.startsWith("#")) return null;
+      if (/^(mailto|tel|javascript|data|file|about|chrome|edge):/i.test(rawHref)) return null;
+      try {
+        const resolved = new URL(rawHref, window.location.href);
+        if (!/^https?:$/i.test(resolved.protocol)) return null;
+        return resolved;
+      } catch (error) {
+        return null;
+      }
+    };
+
+    const formatSuspiciousPrompt = (targetHost, chainHosts = []) => {
+      const hasChain = Array.isArray(chainHosts) && chainHosts.length > 1;
+      if (getLinkLanguage() === "en") {
+        const chainText = hasChain ? `\nRedirect chain: ${chainHosts.join(" -> ")}` : "";
+        return `Suspicious link: ${targetHost}.${chainText}\nOpen anyway?`;
+      }
+      const chainText = hasChain ? `\nЦепочка редиректов: ${chainHosts.join(" -> ")}` : "";
+      return `Подозрительная ссылка: ${targetHost}.${chainText}\nОткрыть всё равно?`;
+    };
+
+    const onClick = (event) => {
+      const link = event.target?.closest?.("a[href]");
+      if (shouldSkip(event, link)) return;
+      const targetUrl = toLinkUrl(link);
+      if (!targetUrl) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      (async () => {
+        const targetHost = normalizeHost(targetUrl.hostname || "");
+        if (!targetHost) return;
+        if (await isTemporarilyAllowed(targetHost)) {
+          navigateToLink(targetUrl, link);
+          return;
+        }
+        const analysis = await evaluateNavigationRisk(targetUrl);
+        if (analysis.verdict === "blacklisted" || analysis.verdict === "phishing") {
+          const isRedirectHit =
+            analysis.riskyHost &&
+            analysis.riskyHost !== targetHost &&
+            Array.isArray(analysis.chainHosts) &&
+            analysis.chainHosts.length > 1;
+          redirectToBlockedPage(
+            isRedirectHit ? "redirectPhishing" : analysis.verdict === "blacklisted" ? "linkBlacklist" : "linkPhishing",
+            {
+              domain: analysis.riskyHost || targetHost,
+              url: targetUrl.toString(),
+              officialDomain: analysis.riskyResult?.officialDomain
+            }
+          );
+          return;
+        }
+        if (analysis.verdict === "suspicious") {
+          const proceed = window.confirm(
+            formatSuspiciousPrompt(targetHost, analysis.chainHosts || [])
+          );
+          if (!proceed) return;
+        }
+        navigateToLink(targetUrl, link);
+      })();
+    };
+
+    document.addEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+    };
+  };
+
   // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
   // EN: Init: auto inspection, temp allow handling, blacklist check.
   const init = async () => {
+    handlePreClickNavigation();
+    setupSensitiveDataGuard();
     const settings = await loadSyncSettings();
     applyLinkHighlightSetting(settings.linkHighlightEnabled);
     if (await isTemporarilyAllowed(hostname)) {
+      setPageRiskVerdict("trusted");
       return;
     }
     const blacklist = await loadBlacklist();
     if (blacklist.includes(hostname)) {
+      setPageRiskVerdict("blacklisted");
       activateBlock("blacklist");
       return;
     }
     try {
-      const { inspectDomain } = await import(chrome.runtime.getURL("popup/inspection.js"));
+      const inspectDomain = await getInspectDomainFn();
+      if (!inspectDomain) return;
       const whitelist = await loadWhitelist();
       const initial = await inspectDomain(hostname, whitelist, window.location.href, {});
+      setPageRiskVerdict(initial.verdict);
       if (await isTemporarilyAllowed(hostname)) {
+        setPageRiskVerdict("trusted");
         return;
       }
       if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
@@ -943,7 +1333,9 @@
       }
       const signals = await collectPageSignals({ waitForDom: true });
       const result = await inspectDomain(hostname, whitelist, window.location.href, signals);
+      setPageRiskVerdict(result.verdict);
       if (await isTemporarilyAllowed(hostname)) {
+        setPageRiskVerdict("trusted");
         return;
       }
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
@@ -971,6 +1363,7 @@
     if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
       isTemporarilyAllowed(hostname).then((allowed) => {
         if (!allowed) {
+          setPageRiskVerdict("phishing");
           activateBlock("phishing", { officialDomain: message.officialDomain });
         }
       });
@@ -981,12 +1374,16 @@
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "sync") return;
-    if (!Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) return;
-    const nextValue = changes.linkHighlightEnabled?.newValue;
-    applyLinkHighlightSetting(
-      nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
-    );
+    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) {
+      const nextValue = changes.linkHighlightEnabled?.newValue;
+      applyLinkHighlightSetting(
+        nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
+      );
+    }
+    if (area === "local" || area === "sync") {
+      preClickCache.clear();
+      linkDomainCache.clear();
+    }
   });
 
   init();
