@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] / [В разработке]
 
+## [2.2.3]
+- Restored the previous popup layout while keeping clearer action buttons for risky pages.
+- Fixed form/download blocking on untrusted pages when the block-input setting is enabled.
+- Split the content script into source modules and added automatic `content.js` build in verify/package scripts.
+- Added repository navigation, contributing, and security documentation.
+
 ## [2.2.2]
 - Added Anti-scam banner mode with social-engineering text detection on page content.
 - Added settings toggle to enable/disable Anti-scam banners.

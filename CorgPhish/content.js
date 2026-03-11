@@ -5,7 +5,7 @@
   const EXIT_ALERT = "Вы вышли с потенциально опасного сайта";
   const FORM_ALERT = "Не вводите личные данные: сайт может быть фишинговым.";
   const DOWNLOAD_ALERT = "Загрузка файлов заблокирована: сайт может быть фишинговым.";
-  const BLOCKED_FILE_EXT = /\.((exe)|(msi)|(scr)|(zip)|(rar)|(7z)|(tar)|(gz)|(dmg)|(apk))$/i;
+  const BLOCKED_FILE_EXT = /\.((exe)|(msi)|(scr)|(zip)|(rar)|(7z)|(tar)|(gz)|(dmg)|(apk)|(jpg)|(png)|(html)|(txt)|(md))$/i;
   const BRAND_COLORS = {
     bg: "#FFF8F1",
     surface: "#FFFFFF",
@@ -96,7 +96,8 @@
   };
   const SETTINGS_DEFAULTS = {
     linkHighlightEnabled: true,
-    antiScamBannerEnabled: true
+    antiScamBannerEnabled: true,
+    blockOnUntrusted: false
   };
   const REDIRECT_PARAM_KEYS = [
     "url",
@@ -152,13 +153,13 @@
     pressure:
       /(urgent|act now|immediately|suspended|blocked|limited|expire|security alert|срочно|немедленно|заблокир|ограничен|истекает|угроза)/i,
     credentials:
-      /(password|passcode|otp|2fa|mfa|verification code|pin|парол|код подтверждения|одноразовый код|смс[- ]?код)/i,
+      /(password|passcode|otp|2fa|mfa|verification code|one[- ]time code|парол|код подтверждения|одноразовый код|смс[- ]?код)/i,
     payment:
       /(card|cvv|cvc|bank transfer|wallet|payment|invoice|crypto|карт|оплат|банковск|перевод|кошелек|крипт)/i,
     authority:
-      /(security service|support team|bank security|tax service|government|служба безопасности|поддержк|банк|налогов|госуслуг|полици)/i,
+      /(security service|bank security|fraud department|tax service|government service|служба безопасности|безопасности банка|сотрудник банка|налогов(ая|ой)|госуслуг[аи]?|полици[яи])/i,
     messenger:
-      /(telegram|whatsapp|t\.me\/|@\w{3,}|напишите в телеграм|свяжитесь в whatsapp)/i,
+      /(telegram|whatsapp|t\.me\/|wa\.me\/|напишите в телеграм|свяжитесь в whatsapp|перейдите в telegram|напишите в whatsapp)/i,
     lure:
       /(refund|compensation|bonus|prize|lottery|выигрыш|бонус|компенсац|возврат)/i
   };
@@ -207,7 +208,6 @@
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
-
   // RU: Нормализуем хостнейм (URL/пути → домен, без www/точек, в нижний регистр).
   // EN: Normalize hostname (URL/paths → domain, strip www/trailing dot, lowercase).
   const normalizeHost = (hostname = "") => {
@@ -654,8 +654,12 @@
 
   const detectAntiScamSignals = () => {
     const baseSamples = getTextSamples();
-    const bodySample = (document.body?.innerText || "").slice(0, 5000);
-    const mergedText = [...baseSamples, bodySample].join(" ").toLowerCase();
+    const paragraphSamples = Array.from(document.querySelectorAll("p, [role='alert'], [class*='alert' i], [class*='warning' i]"))
+      .slice(0, 6)
+      .map((node) => node?.textContent || "")
+      .filter(Boolean)
+      .map((text) => text.trim().slice(0, 220));
+    const mergedText = [...baseSamples, ...paragraphSamples].join(" ").toLowerCase();
     if (!mergedText.trim()) {
       return { score: 0, reasons: [], shouldWarn: false, signature: "" };
     }
@@ -668,9 +672,16 @@
     if (reasons.includes("pressure") && reasons.includes("credentials")) score += 1;
     if (reasons.includes("pressure") && reasons.includes("payment")) score += 1;
     if (reasons.includes("messenger") && reasons.includes("authority")) score += 1;
+    if (reasons.includes("messenger") && (reasons.includes("credentials") || reasons.includes("payment"))) score += 1;
+    if (reasons.includes("lure") && (reasons.includes("credentials") || reasons.includes("payment"))) score += 1;
 
     const trustedPage = pageRiskVerdict === "trusted";
-    const shouldWarn = trustedPage ? score >= 4 : score >= 3;
+    const hasSensitiveAsk = reasons.includes("credentials") || reasons.includes("payment");
+    const hasEscalation = reasons.includes("messenger") || reasons.includes("lure");
+    const hasPressureAuthority = reasons.includes("pressure") && reasons.includes("authority");
+    const shouldWarn = trustedPage
+      ? score >= 5 && hasSensitiveAsk && (hasEscalation || hasPressureAuthority)
+      : score >= 3 && (hasSensitiveAsk || hasEscalation);
     const signature = `${score}:${reasons.sort().join("|")}:${trustedPage ? "t" : "r"}`;
     return { score, reasons, shouldWarn, signature };
   };
@@ -936,7 +947,6 @@
     preClickCache.set(normalizedTarget, { ts: Date.now(), result: analysis });
     return analysis;
   };
-
   const createSensitiveBanner = () => {
     const existing = document.getElementById("corgphish-sensitive-banner");
     if (existing) return existing;
@@ -1302,20 +1312,26 @@
 
   // RU: Блокируем формы и скачивания, пока блокировка активна.
   // EN: Block forms and downloads while blocking is active.
-  const blockInteractions = (state) => {
+  const blockInteractions = ({ isFormBlocked, isDownloadBlocked }) => {
     const onSubmit = (event) => {
-      if (!state.active) return;
+      if (!isFormBlocked()) return;
       event.preventDefault();
       event.stopPropagation();
       alert(FORM_ALERT);
     };
     const onClick = (event) => {
-      if (!state.active) return;
       const target = event.target;
       const link = target?.closest?.("a");
+      if (!link || !isDownloadBlocked()) return;
       const href = link?.getAttribute?.("href") || "";
+      let resolvedHref = href;
+      try {
+        resolvedHref = new URL(href, window.location.href).toString();
+      } catch (error) {
+        // keep raw href
+      }
       const downloadLink =
-        link && (link.hasAttribute("download") || BLOCKED_FILE_EXT.test(href));
+        link && (link.hasAttribute("download") || BLOCKED_FILE_EXT.test(resolvedHref));
       if (downloadLink) {
         event.preventDefault();
         event.stopPropagation();
@@ -1323,7 +1339,7 @@
       }
     };
     const onBeforeRequest = (event) => {
-      if (!state.active) return;
+      if (!isDownloadBlocked()) return;
       const url = event?.target?.url || "";
       if (BLOCKED_FILE_EXT.test(url)) {
         event.preventDefault?.();
@@ -1331,19 +1347,19 @@
       }
     };
     const onFileInput = (event) => {
-      if (!state.active) return;
+      if (!isFormBlocked()) return;
       const input = event.target?.closest?.('input[type="file"]');
       if (input) {
         event.preventDefault();
         event.stopPropagation();
         input.value = "";
-        alert(DOWNLOAD_ALERT);
+        alert(FORM_ALERT);
       }
     };
 
     const nativeSubmit = HTMLFormElement.prototype.submit;
     HTMLFormElement.prototype.submit = function patchedSubmit(...args) {
-      if (state.active) {
+      if (isFormBlocked()) {
         alert(FORM_ALERT);
         return;
       }
@@ -1368,7 +1384,20 @@
   if (!hostname || !/^https?:/i.test(window.location.href)) return;
 
   const state = { active: false, domain: hostname };
-  let teardown = () => {};
+  let blockOnUntrustedEnabled = SETTINGS_DEFAULTS.blockOnUntrusted;
+  let temporarilyAllowedPage = false;
+  const refreshTemporaryAllowState = async () => {
+    temporarilyAllowedPage = await isTemporarilyAllowed(hostname);
+    return temporarilyAllowedPage;
+  };
+  const shouldBlockForms = () =>
+    state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
+  const shouldBlockDownloads = () =>
+    state.active || (pageRiskVerdict !== "trusted" && (blockOnUntrustedEnabled || temporarilyAllowedPage));
+  const detachInteractionGuards = blockInteractions({
+    isFormBlocked: shouldBlockForms,
+    isDownloadBlocked: shouldBlockDownloads
+  });
   const setPageRiskVerdict = (verdict = "trusted") => {
     pageRiskVerdict = verdict || "trusted";
     if (antiScamBannerEnabled && !state.active) {
@@ -1407,7 +1436,6 @@
     clearAntiScamBanner();
     stopAntiScamObserver();
     redirectToBlockedPage(reason, details);
-    teardown = blockInteractions(state);
   };
 
   const navigateToLink = (url, sourceLink) => {
@@ -1511,14 +1539,14 @@
     const settings = await loadSyncSettings();
     applyLinkHighlightSetting(settings.linkHighlightEnabled);
     applyAntiScamSetting(settings.antiScamBannerEnabled);
-    if (await isTemporarilyAllowed(hostname)) {
-      setPageRiskVerdict("trusted");
-      return;
-    }
+    blockOnUntrustedEnabled = Boolean(settings.blockOnUntrusted);
+    await refreshTemporaryAllowState();
     const blacklist = await loadBlacklist();
     if (blacklist.includes(hostname)) {
       setPageRiskVerdict("blacklisted");
-      activateBlock("blacklist");
+      if (!temporarilyAllowedPage) {
+        activateBlock("blacklist");
+      }
       return;
     }
     try {
@@ -1527,27 +1555,25 @@
       const whitelist = await loadWhitelist();
       const initial = await inspectDomain(hostname, whitelist, window.location.href, {});
       setPageRiskVerdict(initial.verdict);
-      if (await isTemporarilyAllowed(hostname)) {
-        setPageRiskVerdict("trusted");
-        return;
-      }
+      await refreshTemporaryAllowState();
       if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
-        activateBlock(initial.verdict === "blacklisted" ? "blacklist" : "phishing", {
-          officialDomain: initial.officialDomain
-        });
+        if (!temporarilyAllowedPage) {
+          activateBlock(initial.verdict === "blacklisted" ? "blacklist" : "phishing", {
+            officialDomain: initial.officialDomain
+          });
+        }
         return;
       }
       const signals = await collectPageSignals({ waitForDom: true });
       const result = await inspectDomain(hostname, whitelist, window.location.href, signals);
       setPageRiskVerdict(result.verdict);
-      if (await isTemporarilyAllowed(hostname)) {
-        setPageRiskVerdict("trusted");
-        return;
-      }
+      await refreshTemporaryAllowState();
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
-        activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing", {
-          officialDomain: result.officialDomain
-        });
+        if (!temporarilyAllowedPage) {
+          activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing", {
+            officialDomain: result.officialDomain
+          });
+        }
       }
     } catch (error) {
       console.warn("CorgPhish: auto inspect failed in content", error);
@@ -1568,9 +1594,9 @@
       return true;
     }
     if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
-      isTemporarilyAllowed(hostname).then((allowed) => {
+      refreshTemporaryAllowState().then((allowed) => {
+        setPageRiskVerdict("phishing");
         if (!allowed) {
-          setPageRiskVerdict("phishing");
           activateBlock("phishing", { officialDomain: message.officialDomain });
         }
       });
@@ -1593,10 +1619,24 @@
         nextValue === undefined ? SETTINGS_DEFAULTS.antiScamBannerEnabled : nextValue
       );
     }
+    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "blockOnUntrusted")) {
+      const nextValue = changes.blockOnUntrusted?.newValue;
+      blockOnUntrustedEnabled =
+        nextValue === undefined ? SETTINGS_DEFAULTS.blockOnUntrusted : Boolean(nextValue);
+    }
+    if (area === "local" && Object.prototype.hasOwnProperty.call(changes, TEMP_ALLOW_KEY)) {
+      const map = changes[TEMP_ALLOW_KEY]?.newValue;
+      const expiry = Number((map && typeof map === "object" ? map[hostname] : 0) || 0);
+      temporarilyAllowedPage = expiry > Date.now();
+    }
     if (area === "local" || area === "sync") {
       preClickCache.clear();
       linkDomainCache.clear();
     }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    detachInteractionGuards?.();
   });
 
   init();
