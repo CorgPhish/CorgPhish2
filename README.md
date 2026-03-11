@@ -87,6 +87,13 @@
 - `scripts/` — скрипты проверки и упаковки.
 - `dist/` — готовые ZIP-архивы для релизов.
 
+## Что надо менять для тонкой настройки
+- trusted список: `CorgPhish/trusted.json`
+- тексты UI: `CorgPhish/popup/config.js`
+- логика вердикта: `CorgPhish/popup/inspection.js`
+- внешний вид попапа: `CorgPhish/popup.html`, `CorgPhish/popup.css`
+- блокировка и поведение на странице: `CorgPhish/content.js`
+
 ## Где чаще всего вносят изменения
 - Логика вердикта: `CorgPhish/popup/inspection.js`
 - Модель и fallback: `CorgPhish/popup/model.js`
