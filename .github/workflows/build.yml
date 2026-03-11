@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Verify bundle
         run: ./scripts/verify.sh
@@ -18,7 +18,7 @@ jobs:
         run: ./scripts/package.sh
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: corgphish-extension
           path: dist/*.zip
