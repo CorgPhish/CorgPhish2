@@ -19,7 +19,7 @@
                         <p class="brand__subtitle" data-i18n="main.subtitle">Главная панель защиты</p>
                     </div>
                 </div>
-                <div class="topbar__actions">
+                <div class="topbar__nav">
                     <button class="icon-button" id="openHistoryBtn" type="button">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8" />
@@ -34,54 +34,67 @@
                         </svg>
                         <span class="sr-only" data-i18n="actions.settings">Настройки</span>
                     </button>
-                    <button class="button button--ghost button--compact" id="checkAllBtn" type="button" data-i18n="actions.scanAll">
-                        Проверить всё
-                    </button>
-                    <button class="button" id="refreshBtn" type="button" data-i18n="actions.refresh">
-                        Перепроверить
-                    </button>
                 </div>
             </header>
 
+            <div class="toolbar">
+                <button class="button button--secondary button--compact" id="checkAllBtn" type="button" data-i18n="actions.scanAll">
+                    Проверить всё
+                </button>
+                <button class="button button--primary" id="refreshBtn" type="button" data-i18n="actions.refresh">
+                    Перепроверить
+                </button>
+            </div>
+
             <section class="card status-card">
-                <div class="status-top">
-                    <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
-                    <span class="pill" id="riskLevel">—</span>
-                </div>
-                <div class="status-card__hero">
-                    <div class="status-figure" aria-hidden="true">
-                        <div class="status-figure__icon">
-                            <svg viewBox="0 0 64 64" role="presentation">
-                                <path d="M32 10 48 16v15c0 12-8.3 17-16 23-7.7-6-16-11-16-23V16l16-6Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
-                                <path class="icon-check" d="m24 32 6 6 10-12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path class="icon-cross" d="M32 26v10m0 6v2" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
+                <div class="status-shell">
+                    <div class="status-main">
+                        <div class="status-top">
+                            <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
+                            <span class="pill" id="riskLevel">—</span>
                         </div>
+                        <div class="status-card__hero">
+                            <div class="status-card__copy">
+                                <h2 class="status-card__title" id="statusTitle" data-i18n="status.pending.title">Анализируем активную вкладку</h2>
+                                <p class="status-card__hint" id="statusHint" data-i18n="status.pending.hint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
+                            </div>
+                            <div class="status-figure" aria-hidden="true">
+                                <div class="status-figure__icon">
+                                    <svg viewBox="0 0 64 64" role="presentation">
+                                        <path d="M32 10 48 16v15c0 12-8.3 17-16 23-7.7-6-16-11-16-23V16l16-6Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+                                        <path class="icon-check" d="m24 32 6 6 10-12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path class="icon-cross" d="M32 26v10m0 6v2" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="status-meta">
+                            <span class="tag" id="riskTag">—</span>
+                            <span class="pill pill--ghost" id="domainValue">—</span>
+                        </div>
+                        <div class="status-banner is-hidden" id="statusBanner"></div>
                     </div>
-                    <div class="status-card__copy">
-                        <h2 class="status-card__title" id="statusTitle" data-i18n="status.pending.title">Анализируем активную вкладку</h2>
-                        <p class="status-card__hint" id="statusHint" data-i18n="status.pending.hint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
-                    </div>
+                    <aside class="status-side">
+                        <p class="status-side__eyebrow" data-i18n="status.actions.title">Быстрые действия</p>
+                        <div class="status-actions" id="statusActions">
+                            <button class="button button--primary is-hidden" id="officialSiteBtn" type="button" data-i18n="actions.official.open">
+                                Открыть официальный сайт
+                            </button>
+                            <button class="button button--secondary is-hidden" id="reportPhishingBtn" type="button" data-i18n="actions.report.phishing">
+                                Сообщить о фишинге
+                            </button>
+                            <button class="button button--safe is-hidden" id="quickAddBtn" type="button" data-i18n="actions.whitelist.addQuick">
+                                Добавить в белый список
+                            </button>
+                            <button class="button button--danger-subtle is-hidden" id="blacklistBtn" type="button" data-i18n="actions.blacklist.add">
+                                Добавить в чёрный список
+                            </button>
+                        </div>
+                        <p class="status-side__hint" data-i18n="status.actions.hint">
+                            Для рискованных страниц сначала возвращайтесь назад или открывайте официальный домен, а уже потом меняйте списки.
+                        </p>
+                    </aside>
                 </div>
-                <div class="status-meta">
-                    <span class="tag" id="riskTag">—</span>
-                    <span class="pill pill--ghost" id="domainValue">—</span>
-                </div>
-                <div class="status-actions" id="statusActions">
-                    <button class="button button--ghost is-hidden" id="quickAddBtn" type="button" data-i18n="actions.whitelist.addQuick">
-                        Добавить в белый список
-                    </button>
-                    <button class="button button--ghost is-hidden" id="blacklistBtn" type="button" data-i18n="actions.blacklist.add">
-                        Добавить в чёрный список
-                    </button>
-                    <button class="button button--ghost is-hidden" id="reportPhishingBtn" type="button" data-i18n="actions.report.phishing">
-                        Сообщить о фишинге
-                    </button>
-                    <button class="button button--ghost is-hidden" id="officialSiteBtn" type="button" data-i18n="actions.official.open">
-                        Открыть официальный сайт
-                    </button>
-                </div>
-                <div class="status-banner is-hidden" id="statusBanner"></div>
             </section>
         </section>
 
