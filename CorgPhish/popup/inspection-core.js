@@ -13,6 +13,11 @@ export const resolveInspection = async ({
   predict = async () => ({ verdict: null, status: "error" }),
   now = Date.now
 }) => {
+  const reasonTrace = [];
+  const pushTrace = (key, params = {}) => {
+    reasonTrace.push({ key, params });
+  };
+
   // Собираем единый trusted-набор из встроенного списка и пользовательского whitelist.
   const safeWhitelist = (customWhitelist || [])
     .map((domain) => normalizeHost(domain))
@@ -33,6 +38,8 @@ export const resolveInspection = async ({
     (domain) => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
   );
   if (inBlacklist) {
+    pushTrace("reasonTrace.step.blacklist");
+    pushTrace("reasonTrace.step.finalBlacklisted");
     return {
       domain: cleanDomain,
       verdict: "blacklisted",
@@ -41,6 +48,7 @@ export const resolveInspection = async ({
       mlVerdict: null,
       mlStatus: "skipped",
       officialDomain: null,
+      reasonTrace,
       checkedAt: now(),
       detectionSource: "status.sourceValue.blacklist",
       cached: false
@@ -55,6 +63,12 @@ export const resolveInspection = async ({
   const isTrusted = Boolean(matchedDomain);
 
   if (isTrusted && formRisk?.actionHost) {
+    pushTrace(whitelistMatch ? "reasonTrace.step.whitelist" : "reasonTrace.step.trustedList");
+    pushTrace("reasonTrace.step.formAction", { host: formRisk.actionHost });
+    if (formRisk.hasSensitive) {
+      pushTrace("reasonTrace.step.formSensitive");
+    }
+    pushTrace("reasonTrace.step.finalSuspicious");
     return {
       domain: cleanDomain,
       verdict: "suspicious",
@@ -67,6 +81,7 @@ export const resolveInspection = async ({
       formRisk,
       officialDomain: null,
       matchedDomain: null,
+      reasonTrace,
       checkedAt: now(),
       detectionSource: "status.sourceValue.form",
       cached: false
@@ -74,6 +89,8 @@ export const resolveInspection = async ({
   }
 
   if (isTrusted) {
+    pushTrace(whitelistMatch ? "reasonTrace.step.whitelist" : "reasonTrace.step.trustedList");
+    pushTrace("reasonTrace.step.finalTrusted");
     return {
       domain: cleanDomain,
       verdict: "trusted",
@@ -83,6 +100,7 @@ export const resolveInspection = async ({
       mlStatus: "skipped",
       officialDomain: null,
       matchedDomain,
+      reasonTrace,
       checkedAt: now(),
       detectionSource: whitelistMatch
         ? "status.sourceValue.whitelist"
@@ -90,6 +108,8 @@ export const resolveInspection = async ({
       cached: false
     };
   }
+
+  pushTrace(hasListData ? "reasonTrace.step.unlisted" : "reasonTrace.step.listMissing");
 
   const spoofTarget = hasListData ? brandDomain || findSpoofCandidate(cleanDomain, trustedList) : brandDomain;
   const officialDomain = spoofTarget || null;
@@ -103,6 +123,21 @@ export const resolveInspection = async ({
   const hasContentSignal = contentRisk?.level === "medium" || contentRisk?.level === "high";
   const hasSpoof = Boolean(spoofTarget);
   const hasSignals = Boolean(brandDomain || formRisk || hasContentSignal);
+  if (hasSpoof) {
+    pushTrace("reasonTrace.step.spoof", { spoofTarget });
+  }
+  if (brandDomain) {
+    pushTrace("reasonTrace.step.brand", { brand: brandDomain });
+  }
+  if (formRisk?.actionHost) {
+    pushTrace("reasonTrace.step.formAction", { host: formRisk.actionHost });
+    if (formRisk.hasSensitive) {
+      pushTrace("reasonTrace.step.formSensitive");
+    }
+  }
+  if (contentRisk?.primaryReason) {
+    pushTrace(contentRisk.primaryReason, {});
+  }
   let suspicionKey = null;
   let suspicionParams = null;
   if (brandDomain) {
@@ -126,6 +161,19 @@ export const resolveInspection = async ({
   }
 
   if (mlStatus === "ok" || mlStatus === "fallback") {
+    if (mlStatus === "ok") {
+      pushTrace(
+        mlVerdict === "phishing"
+          ? "reasonTrace.step.mlPhishing"
+          : "reasonTrace.step.mlTrusted"
+      );
+    } else {
+      pushTrace(
+        mlVerdict === "phishing"
+          ? "reasonTrace.step.mlFallbackPhishing"
+          : "reasonTrace.step.mlFallbackTrusted"
+      );
+    }
     if (mlVerdict === "phishing") {
       verdict = "phishing";
       sourceKey = mlStatus === "fallback" ? "status.sourceValue.heuristic" : "status.sourceValue.ml";
@@ -141,6 +189,9 @@ export const resolveInspection = async ({
           : "status.sourceValue.ml"
         : "status.sourceValue.listMissing";
     }
+  }
+  if (mlStatus === "error") {
+    pushTrace("reasonTrace.step.mlUnavailable");
   }
   if (mlStatus === "fallback" && sourceKey === "status.sourceValue.ml") {
     sourceKey = "status.sourceValue.heuristic";
@@ -169,10 +220,19 @@ export const resolveInspection = async ({
   if (strictMode && verdict === "trusted") {
     verdict = "suspicious";
     sourceKey = "status.sourceValue.strict";
+    pushTrace("reasonTrace.step.strict");
     if (!suspicionKey) {
       suspicionKey = "status.suspicious.strict";
       suspicionParams = {};
     }
+  }
+
+  if (verdict === "phishing") {
+    pushTrace("reasonTrace.step.finalPhishing");
+  } else if (verdict === "suspicious") {
+    pushTrace("reasonTrace.step.finalSuspicious");
+  } else if (verdict === "trusted") {
+    pushTrace("reasonTrace.step.finalTrusted");
   }
 
   // Возвращаем не только verdict, но и диагностические поля для popup/history/tests.
@@ -188,6 +248,7 @@ export const resolveInspection = async ({
     suspicionParams,
     formRisk,
     officialDomain,
+    reasonTrace,
     matchedDomain: null,
     checkedAt: now(),
     detectionSource: sourceKey,

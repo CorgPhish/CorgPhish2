@@ -15,6 +15,8 @@ export const dom = {
   sourceValue: document.getElementById("sourceValue"),
   mlScore: document.getElementById("mlScore"),
   checkedAt: document.getElementById("checkedAt"),
+  reasonTraceList: document.getElementById("reasonTraceList"),
+  reasonTraceEmpty: document.getElementById("reasonTraceEmpty"),
   recommendationsList: document.getElementById("recommendationsList"),
   riskLevel: document.getElementById("riskLevel"),
   riskTag: document.getElementById("riskTag"),

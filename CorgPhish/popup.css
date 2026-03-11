@@ -616,6 +616,50 @@ body {
     background: var(--accent);
 }
 
+.reason-trace {
+    margin-top: 14px;
+}
+
+.reason-trace__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.reason-trace__list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+
+.reason-trace__bullet {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tone-bg, var(--info-bg));
+    color: var(--tone, var(--info));
+    font-size: 12px;
+    font-weight: 800;
+    margin-top: 1px;
+}
+
+.reason-trace__text {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text);
+}
+
 .recommendations {
     border-color: var(--border);
 }

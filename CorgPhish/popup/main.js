@@ -335,6 +335,7 @@ const applyInspectionResult = async (result, options = {}) => {
     match: result.matchedDomain || "",
     suspicionKey: result.suspicionKey,
     suspicionParams: result.suspicionParams,
+    reasonTrace: result.reasonTrace || [],
     officialDomain: result.officialDomain
   });
   if (!fromCache) {

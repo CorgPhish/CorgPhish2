@@ -27,6 +27,7 @@ const tests = [
   ["exact blacklist blocks domain", async () => {
     const result = await runInspection({ hostname: "bad.com", blacklist: ["bad.com"] });
     assert.equal(result.verdict, "blacklisted");
+    assert.equal(result.reasonTrace.some((step) => step.key === "reasonTrace.step.blacklist"), true);
   }],
   ["blacklist covers subdomains", async () => {
     const result = await runInspection({ hostname: "login.bad.com", blacklist: ["bad.com"] });
@@ -45,6 +46,7 @@ const tests = [
     const result = await runInspection({ hostname: "bank.ru", baseTrusted: ["bank.ru"] });
     assert.equal(result.verdict, "trusted");
     assert.equal(result.detectionSource, "status.sourceValue.list");
+    assert.equal(result.reasonTrace.some((step) => step.key === "reasonTrace.step.trustedList"), true);
   }],
   ["trusted list covers subdomains", async () => {
     const result = await runInspection({ hostname: "lk.bank.ru", baseTrusted: ["bank.ru"] });

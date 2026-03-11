@@ -52,6 +52,32 @@ export const updateRecommendations = (dom, items = []) => {
   });
 };
 
+export const renderReasonTrace = (dom, translate, steps = []) => {
+  if (!dom.reasonTraceList || !dom.reasonTraceEmpty) return;
+  dom.reasonTraceList.innerHTML = "";
+  if (!steps.length) {
+    dom.reasonTraceEmpty.hidden = false;
+    dom.reasonTraceEmpty.textContent = translate("reasonTrace.empty");
+    return;
+  }
+  dom.reasonTraceEmpty.hidden = true;
+  steps.forEach((step, index) => {
+    const li = document.createElement("li");
+
+    const bullet = document.createElement("span");
+    bullet.className = "reason-trace__bullet";
+    bullet.textContent = String(index + 1);
+
+    const text = document.createElement("span");
+    text.className = "reason-trace__text";
+    text.textContent = translate(step.key, step.params || {});
+
+    li.appendChild(bullet);
+    li.appendChild(text);
+    dom.reasonTraceList.appendChild(li);
+  });
+};
+
 export const setQuickAddState = (dom, domain, isTrusted) => {
   if (!dom.quickAddBtn) return;
   const hidden = !domain || isTrusted;
@@ -179,6 +205,17 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
     const sourceKey = context.sourceKey || "status.sourceValue";
     dom.sourceValue.textContent = translate(sourceKey, context);
   }
+  const fallbackTraceKey = {
+    pending: "reasonTrace.pending",
+    unsupported: "reasonTrace.unsupported",
+    error: "reasonTrace.error"
+  }[stateKey];
+  const traceSteps = Array.isArray(context.reasonTrace) && context.reasonTrace.length
+    ? context.reasonTrace
+    : fallbackTraceKey
+      ? [{ key: fallbackTraceKey, params: context }]
+      : [];
+  renderReasonTrace(dom, translate, traceSteps);
   const isTrustedState = Boolean(context.isTrusted);
   const canBlacklist = stateKey === "phishing" || stateKey === "suspicious";
   const canReport = stateKey === "phishing" || stateKey === "suspicious" || stateKey === "blacklisted";

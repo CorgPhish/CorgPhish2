@@ -34,6 +34,10 @@ const tests = [
   ["fallback phishing blocks domain", async () => {
     const result = await runInspection({ predict: async () => ({ status: "fallback", verdict: "phishing" }) });
     assert.equal(result.verdict, "phishing");
+    assert.equal(
+      result.reasonTrace.some((step) => step.key === "reasonTrace.step.mlFallbackPhishing"),
+      true
+    );
   }],
   ["fallback phishing keeps heuristic source", async () => {
     const result = await runInspection({ predict: async () => ({ status: "fallback", verdict: "phishing" }) });
