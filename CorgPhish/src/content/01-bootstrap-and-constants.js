@@ -1,4 +1,5 @@
-// Контент-скрипт: реагирует на вердикт ML/ЧС, блокирует страницу, формы и загрузки.
+// RU: Модуль 1. Общие константы, единое состояние content script и служебные helper-функции.
+// EN: Module 1. Shared constants, content-script state and common helpers.
 (() => {
   const BLACKLIST_KEY = "customBlockedDomains";
   const TEMP_ALLOW_KEY = "tempAllowDomains";
@@ -18,6 +19,7 @@
     bad: "#D65A5A",
     overlay: "rgba(43, 42, 40, 0.45)"
   };
+  // Бесплатные хостинги и конструкторы часто встречаются в фишинговых кампаниях.
   const FREE_HOST_SUFFIXES = [
     "wixsite.com",
     "wordpress.com",
@@ -41,6 +43,7 @@
     urgent:
       /(urgent|immediately|suspend|blocked|disable|limited|expire|risk|срочно|немедленно|заблок|огранич|истек|риск|под угрозой)/i
   };
+  // Ограничиваем массовое сканирование ссылок, чтобы не перегружать тяжёлые страницы.
   const LINK_SCAN = {
     maxLinks: 220,
     maxDomains: 50,

@@ -1,5 +1,8 @@
+  // RU: Модуль 5. Финальная защита: блокировка действий, редирект на blocked.html и init listeners.
+  // EN: Module 5. Final guard: interaction blocking, redirect to blocked.html and event wiring.
   // RU: Создаём блокирующий оверлей с кнопками действий.
   // EN: Create blocking overlay with action buttons.
+  // Оверлей остаётся запасным вариантом. Основной сценарий сейчас — быстрый редирект на blocked.html.
   const createOverlay = (domain, onExit, onBlacklist, onAllow) => {
     const overlayHost = document.createElement("div");
     const shadow = overlayHost.attachShadow({ mode: "open" });

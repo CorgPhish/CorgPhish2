@@ -11,13 +11,12 @@
 - `README.md` — основная документация репозитория.
 - `CONTRIBUTING.md` — правила внесения изменений.
 - `LICENSE` — лицензия MIT.
-- `testing_feedback_2025_2026.csv` — файл с отзывами тестирования.
 
 ## 2) Расширение (папка `CorgPhish/`)
 
 ### Точки входа
 
-- `manifest.json` — конфигурация MV3, permissions, content/background, ресурсы.
+- `manifest.json` — версия расширения, permissions, popup, background, content script и web-accessible ресурсы.
 - `background.js` — service worker: trusted-кэш, уведомления, фоновые сообщения.
 - `content.js` — итоговый собранный content script (загружается на все `http/https` страницы).
 - `popup.html` + `popup.css` — интерфейс popup.
@@ -69,11 +68,14 @@
 
 ## 5) Документация и релизы
 
+- `docs/testing/` — методика и результаты unit, integration и user testing.
 - `docs/meta/CHANGELOG.md` — история изменений.
 - `docs/meta/RELEASING.md` — порядок подготовки релиза.
 - `docs/meta/SECURITY.md` — политика по безопасности.
+- `.github/dependabot.yml` — обновления GitHub Actions.
 - `.github/workflows/build.yml` — CI-проверка и сборка артефакта.
 - `.github/workflows/release.yml` — выпуск релиза по тегу `vX.Y.Z`.
+- `tests/` — исполняемые unit/integration тесты и test helpers.
 
 ## 6) Быстрые маршруты по задачам
 
@@ -83,9 +85,11 @@
 - Нужно поменять настройки в UI: `popup.html`, `popup/main.js`, `popup/config.js`.
 - Нужно обновить trusted-список: `trusted.json`.
 - Нужно поменять экран блокировки: `blocked.html`, `blocked.js`, `blocked.css`.
+- Нужно поменять сборку content script: `scripts/build-content.sh`.
+- Нужно обновить описание тестирования: `docs/testing/*`.
 
 ## 7) Что сейчас с `website-angular/`
 
 На данный момент в `website-angular/` остались служебные директории (`node_modules`, `.angular`, `dist`),  
 без исходников приложения (`src`, `package.json` и т.д.).  
-Если сайт нужен в репозитории, его структуру нужно восстановить отдельно.
+Папка исключена из текущего релизного контура и в работу расширения не входит.

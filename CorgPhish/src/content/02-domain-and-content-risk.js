@@ -1,3 +1,5 @@
+  // RU: Модуль 2. Доменная аналитика, похожесть на бренды и оценка риска по DOM-сигналам.
+  // EN: Module 2. Domain analytics, brand similarity and DOM-based risk scoring.
   // RU: Нормализуем хостнейм (URL/пути → домен, без www/точек, в нижний регистр).
   // EN: Normalize hostname (URL/paths → domain, strip www/trailing dot, lowercase).
   const normalizeHost = (hostname = "") => {
@@ -152,4 +154,3 @@
       scored.sort((a, b) => b.weight - a.weight)[0]?.key || reasons[0];
     return { score, level, reasons, primaryReason };
   };
-

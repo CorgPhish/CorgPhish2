@@ -1,4 +1,5 @@
-// Конфигурация: дефолтные настройки, словари переводов и константы UI.
+// RU: Центральная конфигурация popup и shared-логики: настройки, storage-ключи и тексты интерфейса.
+// EN: Central popup/shared config: defaults, storage keys and UI translations.
 export const DEFAULT_SETTINGS = {
   autoCheckOnOpen: true,
   warnOnUntrusted: false,
@@ -13,7 +14,8 @@ export const DEFAULT_SETTINGS = {
   antiScamBannerEnabled: true
 };
 
-// Единый порог модели/эвристики (используется popup/content/offscreen/background).
+// RU: Общие пороги для ML и fallback-эвристики во всех контекстах расширения.
+// EN: Shared thresholds for ML and heuristic fallback across extension contexts.
 export const MODEL_THRESHOLD = 0.7;
 export const HEURISTIC_THRESHOLD = 0.6;
 

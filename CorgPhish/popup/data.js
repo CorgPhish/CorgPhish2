@@ -6,12 +6,17 @@ import {
   DEFAULT_SETTINGS,
   HISTORY_LIMIT
 } from "./config.js";
+import { buildHistorySnapshot, pruneHistoryByRetention } from "./history-core.js";
 import { isLikelyDomain, normalizeHost } from "./utils.js";
 
 let trustedCache = null;
 const normalizeDomainList = (domains = []) =>
   domains.map((domain) => normalizeHost(domain)).filter(Boolean);
 const normalizeTrustedList = (domains = []) => normalizeDomainList(domains).filter(isLikelyDomain);
+
+export const __resetDataCachesForTests = () => {
+  trustedCache = null;
+};
 
 // RU: Загружаем trusted через service worker.
 // EN: Load trusted domains via service worker.
@@ -112,22 +117,11 @@ export const saveBlacklist = (domains) =>
     chrome.storage.local.set({ [CUSTOM_BLACKLIST_KEY]: normalizeDomainList(domains) }, resolve);
   });
 
-// RU: Ограничиваем историю по давности.
-// EN: Prune history by retention window.
-const pruneByRetention = (items = [], days = 0) => {
-  const retentionDays = Number(days) || 0;
-  if (retentionDays <= 0) {
-    return items;
-  }
-  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
-  return items.filter((entry) => Number(entry.checkedAt || 0) >= cutoff);
-};
-
 export const loadHistory = (retentionDays) =>
   new Promise((resolve) => {
     chrome.storage.local.get({ scanHistory: [] }, (result) => {
       const history = Array.isArray(result.scanHistory) ? result.scanHistory : [];
-      resolve(pruneByRetention(history, retentionDays));
+      resolve(pruneHistoryByRetention(history, retentionDays));
     });
   });
 
@@ -144,17 +138,7 @@ export const recordHistory = (entry, retentionDays) =>
   new Promise((resolve) => {
     chrome.storage.local.get({ scanHistory: [] }, (result) => {
       const history = Array.isArray(result.scanHistory) ? result.scanHistory : [];
-      const normalized = {
-        domain: entry.domain,
-        verdict: entry.verdict,
-        checkedAt: entry.checkedAt ?? Date.now(),
-        spoofTarget: entry.spoofTarget,
-        source: entry.source ?? "active",
-        detectionSource: entry.detectionSource ?? null,
-        mlVerdict: entry.mlVerdict ?? null,
-        mlStatus: entry.mlStatus ?? null
-      };
-      const next = pruneByRetention([normalized, ...history], retentionDays).slice(0, HISTORY_LIMIT);
+      const next = buildHistorySnapshot(history, entry, retentionDays, Date.now(), HISTORY_LIMIT);
       chrome.storage.local.set({ scanHistory: next }, resolve);
     });
   });

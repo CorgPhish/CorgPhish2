@@ -1,3 +1,6 @@
+  // RU: Модуль 3. До-кликовая защита: ссылки, редиректы, local storage и anti-scam баннеры.
+  // EN: Module 3. Pre-click protection: links, redirects, local storage and anti-scam banners.
+  // Частые DOM-изменения группируем, чтобы не сканировать страницу на каждый mutation.
   const scheduleLinkScan = () => {
     if (!linkHighlightEnabled) return;
     if (linkScanTimer) return;
@@ -77,6 +80,7 @@
     }
   };
 
+  // Сканируем ограниченное число ссылок и проверяем их батчами, чтобы не подвесить страницу.
   const scanLinkTargets = async () => {
     if (!linkHighlightEnabled) return;
     ensureLinkStyles();

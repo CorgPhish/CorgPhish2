@@ -1,6 +1,8 @@
+// Экран блокировки: показывает причину, даёт выйти, временно разрешить домен или отправить репорт.
 const BLACKLIST_KEY = "customBlockedDomains";
 const TEMP_ALLOW_KEY = "tempAllowDomains";
 
+// blocked.html работает отдельно от popup/content, поэтому держит собственные storage-утилиты.
 const normalizeHost = (hostname = "") => {
   const trimmed = hostname.trim();
   if (!trimmed) return "";
@@ -25,6 +27,7 @@ const saveBlacklist = (domains) =>
     chrome.storage.local.set({ [BLACKLIST_KEY]: domains }, resolve);
   });
 
+// Добавление в ЧС здесь дублируется локально, потому что blocked page живёт отдельно от popup.
 const addToBlacklist = async (domain) => {
   if (!domain) return;
   const current = await loadBlacklist();
@@ -45,6 +48,7 @@ const saveTempAllow = (map) =>
     chrome.storage.local.set({ [TEMP_ALLOW_KEY]: map }, resolve);
   });
 
+// Временное разрешение удобно для ложных срабатываний и ручной перепроверки пользователем.
 const allowTemporarily = async (domain, minutes = 5) => {
   if (!domain) return;
   const map = await loadTempAllow();
@@ -52,6 +56,7 @@ const allowTemporarily = async (domain, minutes = 5) => {
   await saveTempAllow(map);
 };
 
+// Весь контекст blocked page получает из query-параметров, переданных content script.
 const params = new URLSearchParams(window.location.search);
 const domain = normalizeHost(params.get("domain") || "");
 const reason = params.get("reason") || "phishing";
@@ -77,6 +82,7 @@ const reasonLabels = {
   redirectPhishing: "Опасный редирект"
 };
 
+// Меняем копирайт и заголовок страницы в зависимости от сценария блокировки.
 reasonBadge.textContent = reasonLabels[reason] || reasonLabels.phishing;
 
 if (reason === "blacklist" || reason === "linkBlacklist") {
@@ -106,6 +112,7 @@ if (official) {
   officialBtn.classList.remove("is-hidden");
 }
 
+// Если history назад пустой, просим background закрыть текущую вкладку.
 const closeTab = () => {
   chrome.runtime.sendMessage({ type: "closeTab" });
 };
@@ -121,6 +128,7 @@ backBtn.addEventListener("click", () => {
 allowBtn.addEventListener("click", async () => {
   if (!domain || !originalUrl) return;
   await allowTemporarily(domain, 5);
+  // Возвращаем пользователя именно на исходный URL, а не просто на домен.
   chrome.tabs.update({ url: originalUrl });
 });
 
@@ -139,6 +147,7 @@ officialBtn.addEventListener("click", () => {
 reportBtn.addEventListener("click", async () => {
   const targetUrl = originalUrl || (domain ? `https://${domain}` : "");
   if (!targetUrl) return;
+  // Одновременно готовим текст отчёта для буфера и открываем форму Safe Browsing.
   const reportText = [
     "CorgPhish phishing report",
     `URL: ${targetUrl}`,

@@ -35,9 +35,10 @@ let historyFilter = "all";
 let settingsTab = "options";
 let lastInspectedUrl = "";
 
+// Текущий translator строится из активных настроек, поэтому язык можно менять без перезагрузки popup.
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
 
-
+// Короткие статусы в настройках живут отдельно от главного status banner и автоматически гаснут.
 const showSettingsStatus = (key, params = {}, isError = false) => {
   if (!dom.settingsStatus) return;
   const t = getTranslator();
@@ -63,6 +64,7 @@ const setStatusMessage = (text = "", tone = "info") => {
   dom.statusBanner.classList.remove("is-hidden");
 };
 
+// Для кнопки репорта стараемся собрать полноценный URL даже если в результате есть только домен.
 const resolveReportUrl = (rawUrl, domain) => {
   const candidate = String(rawUrl || "").trim();
   if (candidate) {
@@ -135,6 +137,7 @@ const fetchPageSignals = (tabId) =>
 
 const getInspectOptions = () => ({ strictMode: currentSettings.strictMode });
 
+// Поиск и фильтрация истории идут поверх сохранённых записей без повторной проверки сайтов.
 const filterHistoryItems = (items = []) => {
   const query = historyQuery.trim().toLowerCase();
   return items.filter((item) => {
@@ -268,6 +271,7 @@ const addDomainToWhitelist = async (rawDomain) => {
   showSettingsStatus("whitelist.status.added", { domain: clean });
 };
 
+// Быстрые remove-хендлеры не читают storage повторно: работают от текущего локального state popup.
 const removeDomainFromWhitelist = async (domain) => {
   const clean = normalizeHost(domain);
   await updateWhitelistStorage(customWhitelist.filter((entry) => entry !== clean));
@@ -293,6 +297,7 @@ const refreshHistory = async () => {
 
 const sendPhishingBlock = (tabId, payload) => {
   if (!tabId) return;
+  // Popup не блокирует страницу сам, а делегирует это уже загруженному content script.
   chrome.tabs.sendMessage(tabId, { type: "phishingBlock", ...payload }, () => {
     if (chrome.runtime.lastError) {
       const msg = chrome.runtime.lastError?.message || "";
@@ -306,6 +311,7 @@ const sendPhishingBlock = (tabId, payload) => {
 
 // RU: Применяем результат инспекции к UI и истории.
 // EN: Apply inspection result to UI and history.
+// Синхронизируем вердикт одновременно в UI, истории и активной вкладке.
 const applyInspectionResult = async (result, options = {}) => {
   const { shouldAlert = false, source = "active", tabId, inspectedUrl = "" } = options;
   const t = getTranslator();
@@ -332,6 +338,7 @@ const applyInspectionResult = async (result, options = {}) => {
     officialDomain: result.officialDomain
   });
   if (!fromCache) {
+    // Историю пишем только для новых проверок, чтобы переприменение кэшированного результата не плодило дубли.
     await recordHistory(
       {
         domain: result.domain,
@@ -347,6 +354,7 @@ const applyInspectionResult = async (result, options = {}) => {
     );
   }
   if (isRisk) {
+    // Для phishing/blacklisted шлём отдельную команду content script, чтобы он закрыл форму/скачивание/страницу.
     sendPhishingBlock(tabId, {
       domain: result.domain,
       verdict: result.verdict,
@@ -371,6 +379,7 @@ const applyInspectionResult = async (result, options = {}) => {
   }
 };
 
+// Основной сценарий popup: читаем текущую вкладку, получаем сигналы content script и считаем вердикт.
 const checkActiveTab = async () => {
   const t = getTranslator();
   setStatusMessage("");
@@ -390,6 +399,7 @@ const checkActiveTab = async () => {
     }
     lastInspectedUrl = tabUrl;
     const url = new URL(tabUrl);
+    // Popup использует и hostname, и page signals: только по домену многие кейсы были бы слишком грубыми.
     const result = await inspectDomain(
       url.hostname,
       customWhitelist,
@@ -417,6 +427,7 @@ const checkActiveTab = async () => {
   }
 };
 
+// Ручная проверка использует тот же инспектор, но без данных активной вкладки и без авто-блокировки.
 const handleManualSubmit = async (event) => {
   event.preventDefault();
   if (!dom.manualInput) return;
@@ -481,6 +492,7 @@ const handleSettingsChange = async () => {
     compactMode: dom.compactModeToggle?.checked ?? DEFAULT_SETTINGS.compactMode
   };
   currentSettings = await saveSettings(nextSettings);
+  // После сохранения сразу пересинхронизируем UI, не дожидаясь нового открытия popup.
   applyTheme(currentSettings.theme, currentSettings.compactMode);
   applyLanguage(dom, getTranslator(), currentSettings.language);
   updateSettingsControls();
@@ -488,6 +500,7 @@ const handleSettingsChange = async () => {
   showSettingsStatus("settings.status.saved");
 };
 
+// Перекладывает сохранённые настройки обратно в контролы формы.
 const updateSettingsControls = () => {
   if (dom.autoCheckInput) {
     dom.autoCheckInput.checked = currentSettings.autoCheckOnOpen;
@@ -527,6 +540,7 @@ const updateSettingsControls = () => {
 const handleQuickAddClick = async () => {
   const domain = dom.quickAddBtn?.dataset.domain;
   if (!domain) return;
+  // После добавления в whitelist сразу прогоняем домен ещё раз, чтобы popup обновил статус.
   await addDomainToWhitelist(domain);
   const result = await inspectDomain(domain, customWhitelist, domain, {}, getInspectOptions());
   await applyInspectionResult(result, { shouldAlert: false, source: "manual" });
@@ -542,6 +556,7 @@ function handleBlacklistClick() {
   try {
     const [tab] = await queryActiveTab();
     if (tab?.id) {
+      // После явного занесения в ЧС закрываем текущую вкладку, чтобы не оставлять пользователя на сайте.
       chrome.tabs.remove(tab.id);
     }
   } catch (error) {
@@ -604,6 +619,7 @@ const checkAllTabs = async () => {
       return;
     }
     let riskCount = 0;
+    // Массовая проверка идёт последовательно: так проще контролировать ошибки content script по вкладкам.
     for (const tab of candidates) {
       try {
         const signalsPayload = await fetchPageSignals(tab.id);
@@ -673,10 +689,11 @@ const init = async () => {
   updateSettingsControls();
   refreshHistory();
 
-  // Всегда запускаем проверку при открытии попапа, чтобы не требовать ручного клика.
+  // При открытии popup сразу показываем свежий статус текущей вкладки, без лишнего клика пользователя.
   checkActiveTab();
 };
 
+// Привязка DOM-событий собрана внизу, чтобы init-логика выше читалась как сценарий, а не как список обработчиков.
 safeAddEvent(dom.refreshBtn, "click", checkActiveTab);
 safeAddEvent(dom.checkAllBtn, "click", checkAllTabs);
 safeAddEvent(dom.openHistoryBtn, "click", () => switchView("history"));

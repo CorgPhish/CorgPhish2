@@ -1,37 +1,12 @@
 // RU: Локальный инференс ONNX-модели (onnxruntime-web, wasm) с бинарным вердиктом.
 // EN: Local ONNX inference (onnxruntime-web, wasm) with binary verdict only.
 import { HEURISTIC_THRESHOLD, MODEL_THRESHOLD } from "./config.js";
+import { FEATURE_COLUMNS, extractFeatures, heuristicVerdict } from "./model-core.js";
 
 const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
 const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
 const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
-
-const FEATURE_COLUMNS = [
-  "length_url",
-  "qty_dot_url",
-  "qty_hyphen_url",
-  "qty_underline_url",
-  "qty_slash_url",
-  "qty_questionmark_url",
-  "qty_equal_url",
-  "qty_at_url",
-  "qty_and_url",
-  "qty_exclamation_url",
-  "qty_space_url",
-  "qty_tilde_url",
-  "qty_comma_url",
-  "qty_plus_url",
-  "qty_asterisk_url",
-  "qty_hashtag_url",
-  "qty_dollar_url",
-  "qty_percent_url",
-  "domain_length",
-  "qty_dot_domain",
-  "qty_hyphen_domain",
-  "qty_underline_domain",
-  "domain_in_ip"
-];
 
 let ortScriptPromise = null;
 let sessionPromise = null;
@@ -140,89 +115,7 @@ const ensureSession = async () => {
   return sessionPromise;
 };
 
-// RU: Проверка IP-домена и безопасный URL.
-// EN: IP-domain check and safe URL builder.
-const isIpDomain = (domain = "") => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(domain);
-const safeUrl = (input = "") => {
-  if (!input) return "";
-  try {
-    return new URL(input.includes("://") ? input : `https://${input}`).toString();
-  } catch (error) {
-    return "";
-  }
-};
-
-// RU: Извлечение числовых признаков для модели.
-// EN: Extract numeric features for the model.
-const extractFeatures = (rawUrl = "") => {
-  const url = safeUrl(rawUrl);
-  const features = {};
-  FEATURE_COLUMNS.forEach((col) => {
-    features[col] = 0;
-  });
-  if (!url) {
-    return { url: "", features };
-  }
-  const domain = (() => {
-    try {
-      return new URL(url).hostname || "";
-    } catch (error) {
-      return "";
-    }
-  })();
-
-  const count = (ch) => (url.match(new RegExp(`\\${ch}`, "g")) || []).length;
-
-  features.length_url = url.length;
-  features.qty_dot_url = count(".");
-  features.qty_hyphen_url = count("-");
-  features.qty_underline_url = count("_");
-  features.qty_slash_url = count("/");
-  features.qty_questionmark_url = count("?");
-  features.qty_equal_url = count("=");
-  features.qty_at_url = count("@");
-  features.qty_and_url = count("&");
-  features.qty_exclamation_url = count("!");
-  features.qty_space_url = count(" ");
-  features.qty_tilde_url = count("~");
-  features.qty_comma_url = count(",");
-  features.qty_plus_url = count("+");
-  features.qty_asterisk_url = count("*");
-  features.qty_hashtag_url = count("#");
-  features.qty_dollar_url = count("$");
-  features.qty_percent_url = count("%");
-
-  features.domain_length = domain.length;
-  features.qty_dot_domain = (domain.match(/\./g) || []).length;
-  features.qty_hyphen_domain = (domain.match(/-/g) || []).length;
-  features.qty_underline_domain = (domain.match(/_/g) || []).length;
-  features.domain_in_ip = isIpDomain(domain) ? 1 : 0;
-
-  return { url, features };
-};
-
-// RU: Простая эвристика, если ONNX недоступен.
-// EN: Simple heuristic if ONNX unavailable.
-const heuristicVerdict = (features) => {
-  const riskyChars =
-    features.qty_at_url +
-    features.qty_questionmark_url +
-    features.qty_equal_url +
-    features.qty_percent_url +
-    features.qty_hashtag_url +
-    features.qty_dollar_url +
-    features.qty_exclamation_url +
-    features.qty_space_url;
-  const lenScore = Math.min(features.length_url / 160, 2);
-  const hyphenScore = features.qty_hyphen_domain * 0.2;
-  const dotScore = features.qty_dot_domain * 0.12;
-  const ipScore = features.domain_in_ip ? 3 : 0;
-  const brandPenalty = features.qty_dot_domain >= 2 ? 0.3 : 0; // субдоменов много — чуть выше риск
-  const raw = riskyChars * 0.25 + lenScore + hyphenScore + dotScore + ipScore + brandPenalty;
-  const probability = 1 / (1 + Math.exp(-raw)); // sigmoid
-  return probability >= DEFAULT_THRESHOLD ? "phishing" : "trusted";
-};
-
+// background — основной путь предсказания, потому что он не зависит от CSP открытого сайта.
 const predictViaBackground = (rawUrl, threshold) =>
   new Promise((resolve, reject) => {
     try {
@@ -262,8 +155,8 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     try {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");
-      const verdict = heuristicVerdict(features, FALLBACK_THRESHOLD);
-      return { status: "fallback", verdict, error: "ort_disabled" };
+      const fallback = heuristicVerdict(features, FALLBACK_THRESHOLD, { includeBrandPenalty: true });
+      return { status: "fallback", verdict: fallback.verdict, probability: fallback.probability, error: "ort_disabled" };
     } catch (inner) {
       return {
         status: "error",
@@ -273,7 +166,7 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     }
   }
 
-  // 2) Пытаемся локальный ORT (если не заблокирован CSP).
+  // 2) Если background не помог, пробуем локальный ORT прямо в popup.
   try {
     const { url, features } = extractFeatures(rawUrl);
     if (!url) {
@@ -319,6 +212,7 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   } catch (error) {
     console.warn("ML predict failed", error);
     const message = String(error?.message || error || "");
+    // Известные падения ORT отключают повторные попытки, чтобы не спамить одними и теми же ошибками.
     if (
       /NormalizerNorm/i.test(message) ||
       /tensor\(float\).*tensor\(double\)/i.test(message) ||
@@ -329,8 +223,8 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
     try {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");
-      const verdict = heuristicVerdict(features, FALLBACK_THRESHOLD);
-      return { status: "fallback", verdict, error: error?.message || String(error) };
+      const fallback = heuristicVerdict(features, FALLBACK_THRESHOLD, { includeBrandPenalty: true });
+      return { status: "fallback", verdict: fallback.verdict, probability: fallback.probability, error: error?.message || String(error) };
     } catch (inner) {
       return {
         status: "error",

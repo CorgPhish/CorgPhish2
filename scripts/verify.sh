@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# RU: Проверка проекта перед релизом и CI: пересборка content script, версия и обязательные файлы.
+# EN: Release/CI verification script.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST="$ROOT_DIR/CorgPhish/manifest.json"
 BUILD_CONTENT="$ROOT_DIR/scripts/build-content.sh"
@@ -39,6 +41,7 @@ if not version:
 print(f"Version: {version}")
 PY
 
+# Минимальный набор файлов, без которого расширение нельзя публиковать или проверять локально.
 required_files=(
   "CorgPhish/trusted.json"
   "CorgPhish/models/hybrid_tfidf_num.onnx"

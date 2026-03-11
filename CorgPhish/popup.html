@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <!-- Popup расширения: главная панель, история и настройки. -->
     <meta charset="UTF-8" />
     <title>CorgPhish — защита от фишинга</title>
     <link rel="stylesheet" href="popup.css" />
@@ -8,6 +9,7 @@
 <body data-theme="light">
 <div class="app" id="app" data-state="pending" data-view="main">
     <div class="view-container">
+        <!-- Основной экран: текущий вердикт, быстрые действия и перепроверка. -->
         <section class="view view--main" id="viewMain">
             <header class="topbar">
                 <div class="hero__brand">
@@ -85,6 +87,7 @@
             </section>
         </section>
 
+        <!-- Экран истории: локальные результаты последних проверок. -->
         <section class="view view--history" id="viewHistory">
             <header class="subpage__header">
                 <button class="button button--ghost subpage__back" id="closeHistoryBtn" type="button" data-i18n="actions.back">Назад</button>
@@ -117,6 +120,7 @@
             </p>
         </section>
 
+        <!-- Экран настроек: язык, тема, trusted/blocked lists и защитные флаги. -->
         <section class="view view--settings" id="viewSettings">
             <header class="subpage__header">
                 <button class="button button--ghost subpage__back" id="closeSettingsBtn" type="button" data-i18n="actions.back">Назад</button>

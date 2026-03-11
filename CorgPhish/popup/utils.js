@@ -59,6 +59,7 @@ export const levenshteinDistance = (a = "", b = "") => {
 
 const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
 
+// Выделяем регистрабельную основу домена, чтобы сравнивать бренды без шума от поддоменов.
 const getRegistrableDomain = (domain) => {
   const labels = normalizeHost(domain).split(".").filter(Boolean);
   if (labels.length < 2) return normalizeHost(domain);
@@ -91,6 +92,7 @@ const isBrandTokenSpoof = (targetLabel, brandToken) => {
   return false;
 };
 
+// Возвращает наиболее вероятный trusted-домен, под который маскируется текущий хост.
 export const findSpoofCandidate = (target, trustedList) => {
   const cleanTarget = normalizeHost(target);
   if (!cleanTarget) return null;

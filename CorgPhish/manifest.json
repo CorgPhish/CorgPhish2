@@ -1,6 +1,6 @@
 {
   "name": "CorgPhish",
-  "description": "Ai powered phishing detection extension",
+  "description": "Local phishing detection extension for Chrome/Chromium",
   "version": "2.2.3",
   "manifest_version": 3,
   "icons": {
@@ -35,10 +35,13 @@
         "blocked.css",
         "blocked.js",
         "popup/inspection.js",
+        "popup/inspection-core.js",
         "popup/model.js",
+        "popup/model-core.js",
         "popup/utils.js",
         "popup/config.js",
-        "popup/data.js"
+        "popup/data.js",
+        "popup/history-core.js"
       ],
       "matches": ["<all_urls>"]
     }

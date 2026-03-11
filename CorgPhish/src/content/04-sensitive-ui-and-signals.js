@@ -1,3 +1,6 @@
+  // RU: Модуль 4. Баннеры предупреждений и сбор page signals для popup/inspection.
+  // EN: Module 4. On-page warnings and page signal collection for popup/inspection.
+  // Баннер живёт в DOM самой страницы и не требует отдельного layout-файла.
   const createSensitiveBanner = () => {
     const existing = document.getElementById("corgphish-sensitive-banner");
     if (existing) return existing;
@@ -25,6 +28,7 @@
     return banner;
   };
 
+  // Баннер срабатывает ещё до полной блокировки, когда пользователь начинает вводить чувствительные данные.
   const showSensitiveWarning = (hintType = "field") => {
     if (state.active || pageRiskVerdict === "trusted") return;
     const now = Date.now();
@@ -233,4 +237,3 @@
     const content = detectContentRisk(hostname, form, brand);
     return { brand, form, content };
   };
-

@@ -1,4 +1,5 @@
-// Контент-скрипт: реагирует на вердикт ML/ЧС, блокирует страницу, формы и загрузки.
+// RU: Модуль 1. Общие константы, единое состояние content script и служебные helper-функции.
+// EN: Module 1. Shared constants, content-script state and common helpers.
 (() => {
   const BLACKLIST_KEY = "customBlockedDomains";
   const TEMP_ALLOW_KEY = "tempAllowDomains";
@@ -18,6 +19,7 @@
     bad: "#D65A5A",
     overlay: "rgba(43, 42, 40, 0.45)"
   };
+  // Бесплатные хостинги и конструкторы часто встречаются в фишинговых кампаниях.
   const FREE_HOST_SUFFIXES = [
     "wixsite.com",
     "wordpress.com",
@@ -41,6 +43,7 @@
     urgent:
       /(urgent|immediately|suspend|blocked|disable|limited|expire|risk|срочно|немедленно|заблок|огранич|истек|риск|под угрозой)/i
   };
+  // Ограничиваем массовое сканирование ссылок, чтобы не перегружать тяжёлые страницы.
   const LINK_SCAN = {
     maxLinks: 220,
     maxDomains: 50,
@@ -208,6 +211,8 @@
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
+  // RU: Модуль 2. Доменная аналитика, похожесть на бренды и оценка риска по DOM-сигналам.
+  // EN: Module 2. Domain analytics, brand similarity and DOM-based risk scoring.
   // RU: Нормализуем хостнейм (URL/пути → домен, без www/точек, в нижний регистр).
   // EN: Normalize hostname (URL/paths → domain, strip www/trailing dot, lowercase).
   const normalizeHost = (hostname = "") => {
@@ -362,7 +367,9 @@
       scored.sort((a, b) => b.weight - a.weight)[0]?.key || reasons[0];
     return { score, level, reasons, primaryReason };
   };
-
+  // RU: Модуль 3. До-кликовая защита: ссылки, редиректы, local storage и anti-scam баннеры.
+  // EN: Module 3. Pre-click protection: links, redirects, local storage and anti-scam banners.
+  // Частые DOM-изменения группируем, чтобы не сканировать страницу на каждый mutation.
   const scheduleLinkScan = () => {
     if (!linkHighlightEnabled) return;
     if (linkScanTimer) return;
@@ -442,6 +449,7 @@
     }
   };
 
+  // Сканируем ограниченное число ссылок и проверяем их батчами, чтобы не подвесить страницу.
   const scanLinkTargets = async () => {
     if (!linkHighlightEnabled) return;
     ensureLinkStyles();
@@ -947,6 +955,9 @@
     preClickCache.set(normalizedTarget, { ts: Date.now(), result: analysis });
     return analysis;
   };
+  // RU: Модуль 4. Баннеры предупреждений и сбор page signals для popup/inspection.
+  // EN: Module 4. On-page warnings and page signal collection for popup/inspection.
+  // Баннер живёт в DOM самой страницы и не требует отдельного layout-файла.
   const createSensitiveBanner = () => {
     const existing = document.getElementById("corgphish-sensitive-banner");
     if (existing) return existing;
@@ -974,6 +985,7 @@
     return banner;
   };
 
+  // Баннер срабатывает ещё до полной блокировки, когда пользователь начинает вводить чувствительные данные.
   const showSensitiveWarning = (hintType = "field") => {
     if (state.active || pageRiskVerdict === "trusted") return;
     const now = Date.now();
@@ -1182,9 +1194,11 @@
     const content = detectContentRisk(hostname, form, brand);
     return { brand, form, content };
   };
-
+  // RU: Модуль 5. Финальная защита: блокировка действий, редирект на blocked.html и init listeners.
+  // EN: Module 5. Final guard: interaction blocking, redirect to blocked.html and event wiring.
   // RU: Создаём блокирующий оверлей с кнопками действий.
   // EN: Create blocking overlay with action buttons.
+  // Оверлей остаётся запасным вариантом. Основной сценарий сейчас — быстрый редирект на blocked.html.
   const createOverlay = (domain, onExit, onBlacklist, onAllow) => {
     const overlayHost = document.createElement("div");
     const shadow = overlayHost.attachShadow({ mode: "open" });

@@ -1,4 +1,5 @@
-// Переводы и вспомогательные функции локализации.
+// RU: Минимальный слой локализации popup: берёт строку по ключу и подставляет параметры.
+// EN: Minimal popup i18n helper: resolves translation key and interpolates params.
 import { DEFAULT_SETTINGS, translations } from "./config.js";
 
 export const translate = (language, key, params = {}) => {

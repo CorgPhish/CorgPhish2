@@ -1,13 +1,16 @@
-// UI-утилиты: темы, языки, состояния, рендер списков.
+// RU: UI-утилиты popup: тема, локализация, рендер состояний, история и списки.
+// EN: Popup UI helpers: theme, locale, state rendering, history and lists.
 import { VIEW_STATES } from "./config.js";
 import { formatTime } from "./utils.js";
 
+// Тема и плотность интерфейса задаются через data-атрибуты body.
 export const applyTheme = (theme, compactMode = false) => {
   const resolved = theme === "light" ? "light" : "dark";
   document.body.dataset.theme = resolved;
   document.body.dataset.density = compactMode ? "compact" : "cozy";
 };
 
+// Центрально обновляем тексты интерфейса, чтобы переключение языка не ломало текущее состояние.
 export const applyLanguage = (dom, translate, language) => {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.dataset.i18n;
@@ -127,6 +130,7 @@ export const renderBlacklist = (dom, translate, domains = []) => {
   renderDomainList(dom.blacklistList, translate, domains, "blacklist.empty");
 };
 
+// Главный рендерер карточки статуса в popup.
 export const applyState = (dom, translate, stateKey, context = {}) => {
   const resolveTone = (key) => {
     if (key === "phishing" || key === "blacklisted") return "bad";

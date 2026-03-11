@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 Все значимые изменения проекта фиксируются здесь.
 
 ## [Unreleased] / [В разработке]
+- Added a dedicated testing documentation pack with unit, integration, and user testing summaries.
+- Added executable `node:test` unit tests, integration runner, coverage script, and testing helpers.
 
 ## [2.2.3]
 - Restored the previous popup layout while keeping clearer action buttons for risky pages.

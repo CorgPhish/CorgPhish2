@@ -1,0 +1,11 @@
+{
+  "name": "corgphish2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:integration": "node tests/integration/run-integration.mjs",
+    "test:coverage": "node --experimental-test-coverage --test tests/unit/*.test.mjs"
+  }
+}

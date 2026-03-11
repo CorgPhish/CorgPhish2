@@ -1,0 +1,74 @@
+{
+  "integration_runs_total": 348,
+  "test_data_sources": {
+    "safe_urls": "internal_safe_set",
+    "phishing_urls": "internal_phishing_sample",
+    "synthetic_urls": "edge_and_boundary_cases",
+    "manual_ui_scenarios": "warning_and_blocking_flow"
+  },
+  "unit_tests": {
+    "total": 96,
+    "groups": {
+      "url_parsing_and_domain_normalization": 24,
+      "rule_risk_scoring": 28,
+      "trusted_and_blacklist_logic": 18,
+      "ml_fallback": 14,
+      "local_storage_and_history": 12
+    },
+    "first_run": {
+      "passed": 94,
+      "total": 96,
+      "rate": 97.9
+    },
+    "second_run": {
+      "passed": 96,
+      "total": 96,
+      "rate": 100.0
+    },
+    "coverage": {
+      "lines": 87,
+      "branches": 82,
+      "functions": 91
+    }
+  },
+  "integration_tests": {
+    "successful_runs": 340,
+    "total_runs": 348,
+    "success_rate": 97.7,
+    "phishing_detected": 51,
+    "phishing_total": 55,
+    "phishing_detection_rate": 92.7,
+    "false_positives_safe_sites": 6,
+    "safe_sites_total": 144,
+    "false_positive_rate": 4.2,
+    "median_verdict_time_ms": 65,
+    "fallback_successful": 24,
+    "fallback_total": 24,
+    "fallback_rate": 100.0,
+    "defects": {
+      "critical": 0,
+      "significant": 2,
+      "minor": 6
+    }
+  },
+  "failed_or_fixed_tests": [
+    {
+      "id": "UT-17",
+      "title": "Empty subdomain after normalization",
+      "status": "passed_after_fix"
+    },
+    {
+      "id": "INT-42",
+      "title": "Shortener redirect with delayed warning",
+      "status": "requires_improvement"
+    }
+  ],
+  "user_testing": {
+    "core_sample_size": 70,
+    "groups": {
+      "teen_and_young_users": 30,
+      "age_30_50": 20,
+      "age_70_plus": 20
+    }
+  }
+}

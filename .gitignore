@@ -3,7 +3,21 @@
 
 # IDE
 .idea/
+.vscode/
+.venv/
 
 # Release artifacts
 *.zip
 dist/
+
+# Logs and local env
+*.log
+.env
+.env.*
+
+# Python caches
+.pytest_cache/
+__pycache__/
+
+# Local experimental site copy
+website-angular/

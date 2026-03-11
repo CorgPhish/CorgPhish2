@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# RU: Собирает релизный ZIP с актуальным content.js и версией из manifest.json.
+# EN: Packages the extension into a release ZIP.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST="$ROOT_DIR/CorgPhish/manifest.json"
 BUILD_CONTENT="$ROOT_DIR/scripts/build-content.sh"
@@ -15,6 +17,7 @@ if [[ ! -x "$BUILD_CONTENT" ]]; then
   exit 1
 fi
 
+# Перед упаковкой всегда обновляем content.js из модульных исходников.
 "$BUILD_CONTENT"
 
 VERSION=$(python3 - <<'PY'
@@ -28,6 +31,7 @@ PY
 OUT_DIR="$ROOT_DIR/dist"
 OUT_FILE="${1:-$OUT_DIR/corgphish-release-v${VERSION}.zip}"
 
+# Каталог релизов создаётся лениво, чтобы скрипт работал и в чистом клоне.
 mkdir -p "$OUT_DIR"
 rm -f "$OUT_FILE"
 
