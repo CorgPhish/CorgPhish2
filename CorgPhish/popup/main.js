@@ -34,6 +34,15 @@ let historyQuery = "";
 let historyFilter = "all";
 let settingsTab = "options";
 let lastInspectedUrl = "";
+let lastRenderedState = {
+  stateKey: "pending",
+  context: { language: DEFAULT_SETTINGS.language }
+};
+let lastRenderedTarget = {
+  source: null,
+  tabId: null,
+  domain: ""
+};
 
 // Текущий translator строится из активных настроек, поэтому язык можно менять без перезагрузки popup.
 const getTranslator = () => (key, params) => baseTranslate(currentSettings.language, key, params);
@@ -89,6 +98,15 @@ const copyReportToClipboard = async (text) => {
   } catch (error) {
     return false;
   }
+};
+
+const renderPopupState = (stateKey, context = {}) => {
+  const nextContext = { ...context };
+  if (!nextContext.language) {
+    nextContext.language = currentSettings.language;
+  }
+  lastRenderedState = { stateKey, context: nextContext };
+  applyState(dom, getTranslator(), stateKey, nextContext);
 };
 
 // RU: Получаем активную вкладку.
@@ -323,7 +341,12 @@ const applyInspectionResult = async (result, options = {}) => {
   if (inspectedUrl) {
     lastInspectedUrl = inspectedUrl;
   }
-  applyState(dom, t, result.verdict, {
+  lastRenderedTarget = {
+    source,
+    tabId: source === "active" ? tabId ?? null : null,
+    domain: result.domain
+  };
+  renderPopupState(result.verdict, {
     domain: result.domain,
     url: resolvedUrl,
     checkedAt: result.checkedAt ? new Date(result.checkedAt) : new Date(),
@@ -384,18 +407,18 @@ const applyInspectionResult = async (result, options = {}) => {
 const checkActiveTab = async () => {
   const t = getTranslator();
   setStatusMessage("");
-  applyState(dom, t, "pending", { language: currentSettings.language });
+  renderPopupState("pending", { language: currentSettings.language });
   dom.refreshBtn.disabled = true;
   try {
     const [activeTab] = await queryActiveTab();
     const signalsPayload = activeTab?.id ? await fetchPageSignals(activeTab.id) : null;
     const tabUrl = activeTab?.url || signalsPayload?.url || "";
     if (!tabUrl) {
-      applyState(dom, t, "unsupported", { language: currentSettings.language });
+      renderPopupState("unsupported", { language: currentSettings.language });
       return;
     }
     if (!/^https?:\/\//i.test(tabUrl)) {
-      applyState(dom, t, "unsupported", { language: currentSettings.language });
+      renderPopupState("unsupported", { language: currentSettings.language });
       return;
     }
     lastInspectedUrl = tabUrl;
@@ -421,7 +444,7 @@ const checkActiveTab = async () => {
       errorKey && baseTranslate(currentSettings.language, errorKey) !== errorKey
         ? baseTranslate(currentSettings.language, errorKey)
         : error?.message || "";
-    applyState(dom, t, "error", { error: errorText, language: currentSettings.language });
+    renderPopupState("error", { error: errorText, language: currentSettings.language });
     setStatusMessage(errorText || t("status.error.title"), "error");
   } finally {
     dom.refreshBtn.disabled = false;
@@ -498,6 +521,10 @@ const handleSettingsChange = async () => {
   applyLanguage(dom, getTranslator(), currentSettings.language);
   updateSettingsControls();
   refreshHistory();
+  renderPopupState(lastRenderedState.stateKey, {
+    ...lastRenderedState.context,
+    language: currentSettings.language
+  });
   showSettingsStatus("settings.status.saved");
 };
 
@@ -551,17 +578,21 @@ function handleBlacklistClick() {
   (async () => {
     const domain = dom.blacklistBtn?.dataset.domain;
   if (!domain) return;
+  const shouldCloseCurrentTab =
+    lastRenderedTarget.source === "active" &&
+    lastRenderedTarget.tabId &&
+    normalizeHost(domain) === normalizeHost(lastRenderedTarget.domain);
+  const tabIdToClose = shouldCloseCurrentTab ? lastRenderedTarget.tabId : null;
   await addDomainToBlacklist(domain);
   const result = await inspectDomain(domain, customWhitelist, domain, {}, getInspectOptions());
   await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
-  try {
-    const [tab] = await queryActiveTab();
-    if (tab?.id) {
-      // После явного занесения в ЧС закрываем текущую вкладку, чтобы не оставлять пользователя на сайте.
-      chrome.tabs.remove(tab.id);
+  if (tabIdToClose) {
+    try {
+      // Закрываем только ту вкладку, результат которой сейчас реально показан в popup.
+      chrome.tabs.remove(tabIdToClose);
+    } catch (error) {
+      console.warn("CorgPhish: failed to close tab after blacklist", error);
     }
-  } catch (error) {
-    console.warn("CorgPhish: failed to close tab after blacklist", error);
   }
 })();
 }
@@ -690,8 +721,12 @@ const init = async () => {
   updateSettingsControls();
   refreshHistory();
 
-  // При открытии popup сразу показываем свежий статус текущей вкладки, без лишнего клика пользователя.
-  checkActiveTab();
+  // Автопроверка зависит от настройки пользователя.
+  if (currentSettings.autoCheckOnOpen) {
+    checkActiveTab();
+  } else {
+    renderPopupState("pending", { language: currentSettings.language });
+  }
 };
 
 // Привязка DOM-событий собрана внизу, чтобы init-логика выше читалась как сценарий, а не как список обработчиков.
