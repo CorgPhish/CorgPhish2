@@ -3,8 +3,8 @@
 Локальное anti-phishing расширение для Chrome/Chromium. Проверяет домены, сигналы страницы и ссылки прямо в браузере без внешних API.
 
 <p align="left">
-  <a href="https://github.com/physcorgi/CorgPhish2/actions/workflows/build.yml">
-    <img src="https://github.com/physcorgi/CorgPhish2/actions/workflows/build.yml/badge.svg" alt="build status" />
+  <a href="https://github.com/CorgPhish/CorgPhish2/actions/workflows/build.yml">
+    <img src="https://github.com/CorgPhish/CorgPhish2/actions/workflows/build.yml/badge.svg" alt="build status" />
   </a>
   <img src="docs/badges/offline.svg" alt="offline badge" />
   <img src="docs/badges/mv3.svg" alt="mv3 badge" />
