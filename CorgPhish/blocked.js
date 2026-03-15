@@ -106,7 +106,9 @@ const reasonLabels = {
   blacklist: "Домен в чёрном списке",
   linkPhishing: "Опасная ссылка",
   linkBlacklist: "Ссылка на домен из ЧС",
-  redirectPhishing: "Опасный редирект"
+  redirectPhishing: "Опасный редирект",
+  guardForm: "Защита ввода",
+  guardDownload: "Защита загрузки"
 };
 
 // Меняем копирайт и заголовок страницы в зависимости от сценария блокировки.
@@ -123,6 +125,12 @@ if (reason === "blacklist" || reason === "linkBlacklist") {
 } else if (reason === "linkPhishing") {
   title.textContent = "Переход заблокирован";
   subtitle.textContent = "Ссылка ведёт на сайт с признаками фишинга.";
+} else if (reason === "guardForm") {
+  title.textContent = "Отправка формы заблокирована";
+  subtitle.textContent = "CorgPhish остановил ввод и отправку данных на подозрительном сайте.";
+} else if (reason === "guardDownload") {
+  title.textContent = "Загрузка заблокирована";
+  subtitle.textContent = "CorgPhish остановил скачивание файла на подозрительном сайте.";
 } else {
   title.textContent = "Опасный сайт";
   subtitle.textContent = "Обнаружены признаки фишинга. Переход заблокирован.";
@@ -207,5 +215,11 @@ reportBtn.addEventListener("click", async () => {
 });
 
 if (note) {
-  note.textContent = "CorgPhish блокирует переход, чтобы вы не успели открыть вредоносную страницу.";
+  if (reason === "guardForm") {
+    note.textContent = "Разрешайте сайт только если уверены в нём. Иначе не вводите логины, пароли, SMS-коды и данные карты.";
+  } else if (reason === "guardDownload") {
+    note.textContent = "Разрешайте сайт только если уверены в нём. Иначе не скачивайте файлы с этой страницы.";
+  } else {
+    note.textContent = "CorgPhish блокирует переход, чтобы вы не успели открыть вредоносную страницу.";
+  }
 }

@@ -130,8 +130,8 @@
 
   // RU: Блокируем формы и скачивания, пока блокировка активна.
   // EN: Block forms and downloads while blocking is active.
-  const blockInteractions = ({ isFormBlocked, isDownloadBlocked }) => {
-    const stopEvent = (event, message) => {
+  const blockInteractions = ({ isFormBlocked, isDownloadBlocked, onBlockedAction }) => {
+    const stopEvent = (event, kind) => {
       event.preventDefault?.();
       event.stopPropagation?.();
       event.stopImmediatePropagation?.();
@@ -141,7 +141,7 @@
       if ("cancelBubble" in event) {
         event.cancelBubble = true;
       }
-      alert(message);
+      onBlockedAction?.(kind);
     };
 
     const resolveUrl = (rawValue = "") => {
@@ -179,23 +179,23 @@
 
     const onSubmit = (event) => {
       if (!isFormBlocked()) return;
-      stopEvent(event, FORM_ALERT);
+      stopEvent(event, "form");
     };
     const onClick = (event) => {
       const target = event.target;
       if (isFormBlocked() && isSubmitControl(target)) {
-        stopEvent(event, FORM_ALERT);
+        stopEvent(event, "form");
         return;
       }
       if (isDownloadBlocked() && isDownloadTarget(target)) {
-        stopEvent(event, DOWNLOAD_ALERT);
+        stopEvent(event, "download");
       }
     };
     const onBeforeRequest = (event) => {
       if (!isDownloadBlocked()) return;
       const url = event?.target?.url || "";
       if (BLOCKED_FILE_EXT.test(url)) {
-        stopEvent(event, DOWNLOAD_ALERT);
+        stopEvent(event, "download");
       }
     };
     const onFileInput = (event) => {
@@ -206,7 +206,7 @@
         event.stopPropagation?.();
         event.stopImmediatePropagation?.();
         input.value = "";
-        alert(FORM_ALERT);
+        onBlockedAction?.("form");
       }
     };
     const onKeyDown = (event) => {
@@ -214,7 +214,7 @@
       if (event.key !== "Enter") return;
       const target = event.target;
       if (!target?.closest?.("form")) return;
-      stopEvent(event, FORM_ALERT);
+      stopEvent(event, "form");
     };
 
     const nativeSubmit = HTMLFormElement.prototype.submit;
@@ -224,7 +224,7 @@
     const nativeInputClick = HTMLInputElement.prototype.click;
     HTMLFormElement.prototype.submit = function patchedSubmit(...args) {
       if (isFormBlocked()) {
-        alert(FORM_ALERT);
+        onBlockedAction?.("form");
         return;
       }
       return nativeSubmit.apply(this, args);
@@ -232,7 +232,7 @@
     if (typeof nativeRequestSubmit === "function") {
       HTMLFormElement.prototype.requestSubmit = function patchedRequestSubmit(...args) {
         if (isFormBlocked()) {
-          alert(FORM_ALERT);
+          onBlockedAction?.("form");
           return;
         }
         return nativeRequestSubmit.apply(this, args);
@@ -240,29 +240,29 @@
     }
     HTMLAnchorElement.prototype.click = function patchedAnchorClick(...args) {
       if (isDownloadBlocked() && isDownloadTarget(this)) {
-        alert(DOWNLOAD_ALERT);
+        onBlockedAction?.("download");
         return;
       }
       return nativeAnchorClick.apply(this, args);
     };
     HTMLButtonElement.prototype.click = function patchedButtonClick(...args) {
       if (isFormBlocked() && isSubmitControl(this)) {
-        alert(FORM_ALERT);
+        onBlockedAction?.("form");
         return;
       }
       if (isDownloadBlocked() && isDownloadTarget(this)) {
-        alert(DOWNLOAD_ALERT);
+        onBlockedAction?.("download");
         return;
       }
       return nativeButtonClick.apply(this, args);
     };
     HTMLInputElement.prototype.click = function patchedInputClick(...args) {
       if (this.matches?.('input[type="file"]') && isFormBlocked()) {
-        alert(FORM_ALERT);
+        onBlockedAction?.("form");
         return;
       }
       if (isFormBlocked() && isSubmitControl(this)) {
-        alert(FORM_ALERT);
+        onBlockedAction?.("form");
         return;
       }
       return nativeInputClick.apply(this, args);
@@ -304,10 +304,6 @@
     state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
   const shouldBlockDownloads = () =>
     state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
-  const detachInteractionGuards = blockInteractions({
-    isFormBlocked: shouldBlockForms,
-    isDownloadBlocked: shouldBlockDownloads
-  });
   const setPageRiskVerdict = (verdict = "trusted") => {
     pageRiskVerdict = verdict || "trusted";
     if (antiScamBannerEnabled && !state.active) {
@@ -339,6 +335,20 @@
       window.location.replace(targetUrl);
     }
   };
+
+  function handleBlockedInteraction(kind = "form") {
+    if (state.active || temporarilyAllowedPage) return;
+    redirectToBlockedPage(kind === "download" ? "guardDownload" : "guardForm", {
+      domain: hostname,
+      url: window.location.href
+    });
+  }
+
+  const detachInteractionGuards = blockInteractions({
+    isFormBlocked: shouldBlockForms,
+    isDownloadBlocked: shouldBlockDownloads,
+    onBlockedAction: handleBlockedInteraction
+  });
 
   // RU: Блокируем страницу и перенаправляем на экран блокировки.
   // EN: Block the page and redirect to the warning screen.
