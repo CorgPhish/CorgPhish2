@@ -220,6 +220,6 @@ if (note) {
   } else if (reason === "guardDownload") {
     note.textContent = "Открывайте сайт только если уверены в нём. Иначе не скачивайте файлы с этой страницы.";
   } else {
-    note.textContent = "CorgPhish блокирует переход, чтобы вы не успели открыть вредоносную страницу.";
+    note.textContent = "";
   }
 }
