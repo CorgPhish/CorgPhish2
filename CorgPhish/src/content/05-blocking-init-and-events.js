@@ -575,11 +575,18 @@
   // EN: Init: auto inspection, temp allow handling, blacklist check.
   const init = async () => {
     handlePreClickNavigation();
-    setupSensitiveDataGuard();
     const settings = await loadSyncSettings();
     applyLinkHighlightSetting(settings.linkHighlightEnabled);
     applyAntiScamSetting(settings.antiScamBannerEnabled);
     blockOnUntrustedEnabled = Boolean(settings.blockOnUntrusted);
+    console.info("CorgPhish sensitive guard debug", {
+      stage: "init-settings-loaded",
+      blockOnUntrustedEnabled,
+      antiScamBannerEnabled: settings.antiScamBannerEnabled,
+      linkHighlightEnabled: settings.linkHighlightEnabled,
+      href: window.location.href
+    });
+    setupSensitiveDataGuard();
     await refreshTemporaryAllowState();
     const blacklist = await loadBlacklist();
     if (blacklist.includes(hostname)) {

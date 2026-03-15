@@ -28,10 +28,26 @@
     return banner;
   };
 
+  const clearSensitiveBanner = () => {
+    const existing = document.getElementById("corgphish-sensitive-banner");
+    if (existing) {
+      existing.remove();
+    }
+  };
+
   // Баннер срабатывает ещё до полной блокировки, когда пользователь начинает вводить чувствительные данные.
   const showSensitiveWarning = (hintType = "field") => {
     if (state.active || pageRiskVerdict === "trusted") return;
+    console.info("CorgPhish sensitive guard debug", {
+      stage: "showSensitiveWarning",
+      hintType,
+      verdict: pageRiskVerdict,
+      blockOnUntrustedEnabled,
+      temporarilyAllowedPage,
+      href: window.location.href
+    });
     if (blockOnUntrustedEnabled && !temporarilyAllowedPage) {
+      clearSensitiveBanner();
       console.info("CorgPhish form guard debug", {
         source: "sensitive-warning-escalated",
         hintType,
