@@ -527,6 +527,18 @@ const handleSettingsChange = async () => {
   showSettingsStatus("settings.status.saved");
 };
 
+// Для критичного toggle пишем значение сразу на click/input, чтобы закрытие popup не успело потерять изменение.
+const persistBlockToggleImmediately = (event) => {
+  const nextValue = Boolean(event?.target?.checked);
+  currentSettings = { ...currentSettings, blockOnUntrusted: nextValue };
+  try {
+    chrome.storage.local.set({ blockOnUntrusted: nextValue });
+    chrome.storage.sync.set({ blockOnUntrusted: nextValue });
+  } catch (error) {
+    console.warn("CorgPhish: failed to persist blockOnUntrusted immediately", error);
+  }
+};
+
 // Перекладывает сохранённые настройки обратно в контролы формы.
 const updateSettingsControls = () => {
   if (dom.autoCheckInput) {
@@ -740,6 +752,8 @@ safeAddEvent(dom.antiScamToggle, "change", handleSettingsChange);
 safeAddEvent(dom.strictModeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.themeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.languageSelect, "change", handleSettingsChange);
+safeAddEvent(dom.blockInputToggle, "input", persistBlockToggleImmediately);
+safeAddEvent(dom.blockInputToggle, "click", persistBlockToggleImmediately);
 safeAddEvent(dom.blockInputToggle, "change", handleSettingsChange);
 safeAddEvent(dom.systemNotifyToggle, "change", handleSettingsChange);
 safeAddEvent(dom.historyRetentionSelect, "change", handleSettingsChange);

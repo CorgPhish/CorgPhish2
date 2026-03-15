@@ -1490,7 +1490,8 @@
   const PAGE_GUARD_STATE_EVENT = "corgphish:page-guard-state";
   const PAGE_GUARD_BLOCKED_EVENT = "corgphish:page-guard-blocked";
 
-  // Перехват fetch/XHR/beacon надо ставить в page world, иначе SPA-формы обходят content script.
+  // Перехват fetch/XHR/beacon надо ставить в page world, но без inline-скрипта:
+  // страницы с жёстким CSP режут script.textContent.
   const installPageWorldFormGuard = (onBlockedAction) => {
     const relayBlockedAction = (event) => {
       if (event?.detail?.kind !== "form") return;
@@ -1498,112 +1499,72 @@
     };
 
     document.addEventListener(PAGE_GUARD_BLOCKED_EVENT, relayBlockedAction, true);
+    let latestBlockForms = false;
+    let injectionPromise = null;
 
-    if (!document.getElementById("corgphish-page-guard-script")) {
-      const script = document.createElement("script");
-      script.id = "corgphish-page-guard-script";
-      script.textContent = `
-        (() => {
-          if (window.__corgphishPageGuardInstalled) return;
-          window.__corgphishPageGuardInstalled = true;
-          const UPDATE_EVENT = ${JSON.stringify(PAGE_GUARD_STATE_EVENT)};
-          const BLOCKED_EVENT = ${JSON.stringify(PAGE_GUARD_BLOCKED_EVENT)};
-          const state = { blockForms: false };
-          const signalBlocked = () => {
-            document.dispatchEvent(new CustomEvent(BLOCKED_EVENT, { detail: { kind: "form" } }));
-          };
-          const shouldBlockRequest = (method, body) => {
-            if (!state.blockForms) return false;
-            const cleanMethod = String(method || "GET").toUpperCase();
-            return body != null || !["GET", "HEAD", "OPTIONS"].includes(cleanMethod);
-          };
-          document.addEventListener(
-            UPDATE_EVENT,
-            (event) => {
-              state.blockForms = Boolean(event?.detail?.blockForms);
-            },
-            true
-          );
+    const dispatchGuardState = () => {
+      document.dispatchEvent(
+        new CustomEvent(PAGE_GUARD_STATE_EVENT, {
+          detail: { blockForms: latestBlockForms }
+        })
+      );
+    };
 
-          const nativeSubmit = HTMLFormElement.prototype.submit;
-          HTMLFormElement.prototype.submit = function patchedSubmit(...args) {
-            if (state.blockForms) {
-              signalBlocked();
-              return;
-            }
-            return nativeSubmit.apply(this, args);
-          };
-
-          if (typeof HTMLFormElement.prototype.requestSubmit === "function") {
-            const nativeRequestSubmit = HTMLFormElement.prototype.requestSubmit;
-            HTMLFormElement.prototype.requestSubmit = function patchedRequestSubmit(...args) {
-              if (state.blockForms) {
-                signalBlocked();
-                return;
-              }
-              return nativeRequestSubmit.apply(this, args);
-            };
-          }
-
-          if (typeof window.fetch === "function") {
-            const nativeFetch = window.fetch;
-            window.fetch = function patchedFetch(input, init = {}) {
-              let method = init?.method;
-              let body = init?.body;
-              if (typeof Request !== "undefined" && input instanceof Request) {
-                method = method || input.method;
-                body = body ?? input.body;
-              }
-              if (shouldBlockRequest(method, body)) {
-                signalBlocked();
-                return Promise.reject(new Error("corgphish_blocked_request"));
-              }
-              return nativeFetch.apply(this, arguments);
-            };
-          }
-
-          const nativeXhrOpen = XMLHttpRequest.prototype.open;
-          const nativeXhrSend = XMLHttpRequest.prototype.send;
-          XMLHttpRequest.prototype.open = function patchedOpen(method, url, ...rest) {
-            this.__corgphishMethod = method;
-            return nativeXhrOpen.call(this, method, url, ...rest);
-          };
-          XMLHttpRequest.prototype.send = function patchedSend(body) {
-            if (shouldBlockRequest(this.__corgphishMethod, body)) {
-              signalBlocked();
-              try {
-                this.abort();
-              } catch (error) {
-                // noop
-              }
-              return;
-            }
-            return nativeXhrSend.call(this, body);
-          };
-
-          if (typeof navigator.sendBeacon === "function") {
-            const nativeBeacon = navigator.sendBeacon;
-            navigator.sendBeacon = function patchedSendBeacon(url, data) {
-              if (state.blockForms && data != null) {
-                signalBlocked();
-                return false;
-              }
-              return nativeBeacon.call(this, url, data);
-            };
-          }
-        })();
-      `;
-      (document.documentElement || document.head || document).appendChild(script);
-      script.remove();
-    }
+    const ensureGuardScript = () => {
+      if (document.documentElement?.dataset.corgphishPageGuardInstalled === "1") {
+        return Promise.resolve(true);
+      }
+      if (injectionPromise) {
+        return injectionPromise;
+      }
+      const scriptUrl = safeRuntimeGetUrl("page-form-guard.js");
+      if (!scriptUrl) {
+        return Promise.resolve(false);
+      }
+      injectionPromise = new Promise((resolve) => {
+        const existing = document.getElementById("corgphish-page-guard-script");
+        if (existing) {
+          resolve(false);
+          return;
+        }
+        const script = document.createElement("script");
+        script.id = "corgphish-page-guard-script";
+        script.src = scriptUrl;
+        script.async = false;
+        const finish = (ok) => {
+          script.remove();
+          resolve(ok);
+        };
+        script.addEventListener(
+          "load",
+          () => {
+            finish(document.documentElement?.dataset.corgphishPageGuardInstalled === "1");
+          },
+          { once: true }
+        );
+        script.addEventListener(
+          "error",
+          () => {
+            console.warn("CorgPhish: failed to load page-form-guard.js");
+            finish(false);
+          },
+          { once: true }
+        );
+        (document.documentElement || document.head || document).appendChild(script);
+      }).finally(() => {
+        injectionPromise = null;
+      });
+      return injectionPromise;
+    };
 
     return {
       sync(blockForms) {
-        document.dispatchEvent(
-          new CustomEvent(PAGE_GUARD_STATE_EVENT, {
-            detail: { blockForms: Boolean(blockForms) }
-          })
-        );
+        latestBlockForms = Boolean(blockForms);
+        ensureGuardScript().then((installed) => {
+          if (installed) {
+            dispatchGuardState();
+          }
+        });
       },
       teardown() {
         document.removeEventListener(PAGE_GUARD_BLOCKED_EVENT, relayBlockedAction, true);
