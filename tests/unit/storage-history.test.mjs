@@ -55,6 +55,13 @@ const tests = [
     assert.equal(settings.blockOnUntrusted, true);
     assert.equal(settings.linkHighlightEnabled, false);
   }],
+  ["loadSettings prefers local mirror over stale sync values", async () => {
+    resetState();
+    chromeMock.state.sync.blockOnUntrusted = false;
+    chromeMock.state.local.blockOnUntrusted = true;
+    const settings = await loadSettings();
+    assert.equal(settings.blockOnUntrusted, true);
+  }],
   ["saveWhitelist normalizes entries", async () => {
     resetState();
     await saveWhitelist(["https://WWW.Google.com", "bank.ru"]);

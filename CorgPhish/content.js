@@ -1216,8 +1216,8 @@
         ([localSettings, syncSettings]) => {
           resolve({
             ...SETTINGS_DEFAULTS,
-            ...pickRuntimeSettings(localSettings),
-            ...pickRuntimeSettings(syncSettings)
+            ...pickRuntimeSettings(syncSettings),
+            ...pickRuntimeSettings(localSettings)
           });
         }
       );

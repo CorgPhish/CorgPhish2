@@ -94,7 +94,7 @@ export const loadSettings = async () => {
       });
     })
   ]);
-  return { ...DEFAULT_SETTINGS, ...localSettings, ...syncSettings };
+  return { ...DEFAULT_SETTINGS, ...syncSettings, ...localSettings };
 };
 
 // RU: Сохраняем настройки в sync storage.
