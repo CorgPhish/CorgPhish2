@@ -17,6 +17,7 @@ export const resolveDownloadHost = (rawUrl = "") => {
 export const createGuardedTabEntry = (payload = {}, now = Date.now()) => {
   const domain = normalizeHost(payload.domain || "");
   const urlHost = resolveDownloadHost(payload.url || "");
+  const pageUrl = String(payload.url || "").trim();
   const blockDownloads = Boolean(payload.blockDownloads);
   if (!blockDownloads || (!domain && !urlHost)) {
     return null;
@@ -25,6 +26,7 @@ export const createGuardedTabEntry = (payload = {}, now = Date.now()) => {
     tabId: Number(payload.tabId),
     domain: domain || urlHost,
     urlHost: urlHost || domain,
+    pageUrl,
     verdict: String(payload.verdict || "suspicious"),
     updatedAt: Number(payload.updatedAt || now)
   };

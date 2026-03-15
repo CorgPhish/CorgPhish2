@@ -1405,12 +1405,13 @@
     };
     const onClick = (event) => {
       const target = event.target;
+      if (isDownloadBlocked() && isDownloadTarget(target)) {
+        stopEvent(event, "download");
+        return;
+      }
       if (isFormBlocked() && isSubmitControl(target)) {
         stopEvent(event, "form");
         return;
-      }
-      if (isDownloadBlocked() && isDownloadTarget(target)) {
-        stopEvent(event, "download");
       }
     };
     const onBeforeRequest = (event) => {
@@ -1468,12 +1469,12 @@
       return nativeAnchorClick.apply(this, args);
     };
     HTMLButtonElement.prototype.click = function patchedButtonClick(...args) {
-      if (isFormBlocked() && isSubmitControl(this)) {
-        onBlockedAction?.("form");
-        return;
-      }
       if (isDownloadBlocked() && isDownloadTarget(this)) {
         onBlockedAction?.("download");
+        return;
+      }
+      if (isFormBlocked() && isSubmitControl(this)) {
+        onBlockedAction?.("form");
         return;
       }
       return nativeButtonClick.apply(this, args);

@@ -105,6 +105,28 @@ const cancelGuardedDownload = (downloadItem) => {
       matchedBy: match.matchedBy,
       matchedHost: match.matchedHost
     });
+    const tabId = Number(match.entry.tabId);
+    if (Number.isFinite(tabId) && tabId > 0) {
+      const blockedUrl = buildBlockedPageUrl({
+        domain: match.entry.domain || match.entry.urlHost || "",
+        reason: "guardDownload",
+        url: match.entry.pageUrl || downloadItem.referrer || "",
+        officialDomain: ""
+      });
+      chrome.tabs.update(tabId, { url: blockedUrl }, () => {
+        const updateError = chrome.runtime.lastError?.message || "";
+        if (updateError) {
+          console.warn("CorgPhish: failed to open guarded download block page", updateError);
+          return;
+        }
+        console.info("CorgPhish inspect debug", {
+          stage: "background-download-block-page",
+          tabId,
+          domain: match.entry.domain || match.entry.urlHost || "",
+          reason: "guardDownload"
+        });
+      });
+    }
   });
 };
 
