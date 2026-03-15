@@ -4,15 +4,18 @@
   // Нижний banner удалён: для чувствительного ввода на рискованной странице используем только full-screen блокировку.
   const showSensitiveWarning = (hintType = "field") => {
     if (state.active || pageRiskVerdict === "trusted") return;
+    const forceBlockForRisk =
+      pageRiskVerdict === "phishing" || pageRiskVerdict === "blacklisted";
     console.info("CorgPhish sensitive guard debug", {
       stage: "showSensitiveWarning",
       hintType,
       verdict: pageRiskVerdict,
       blockOnUntrustedEnabled,
       temporarilyAllowedPage,
+      forceBlockForRisk,
       href: window.location.href
     });
-    if (!blockOnUntrustedEnabled || temporarilyAllowedPage) {
+    if (!forceBlockForRisk && (!blockOnUntrustedEnabled || temporarilyAllowedPage)) {
       return;
     }
     console.info("CorgPhish form guard debug", {
@@ -21,6 +24,7 @@
       verdict: pageRiskVerdict,
       blockOnUntrustedEnabled,
       temporarilyAllowedPage,
+      forceBlockForRisk,
       href: window.location.href
     });
     redirectToBlockedPage("guardForm", {
