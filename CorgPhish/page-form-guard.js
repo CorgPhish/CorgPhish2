@@ -6,14 +6,37 @@
 
   const UPDATE_EVENT = "corgphish:page-guard-state";
   const BLOCKED_EVENT = "corgphish:page-guard-blocked";
+  const SUBMIT_INTENT_WINDOW_MS = 2500;
+  const BLOCK_SIGNAL_THROTTLE_MS = 1200;
   const guardRoot = document.documentElement;
-  const state = { blockForms: false };
+  const state = {
+    blockForms: false,
+    submitIntentUntil: 0,
+    lastBlockedAt: 0
+  };
 
   if (guardRoot) {
     guardRoot.dataset.corgphishPageGuardInstalled = "1";
   }
 
+  const armSubmitIntent = (source, extra = {}) => {
+    if (!state.blockForms) return;
+    state.submitIntentUntil = Date.now() + SUBMIT_INTENT_WINDOW_MS;
+    console.info("CorgPhish form guard debug", {
+      source,
+      href: window.location.href,
+      blockForms: state.blockForms,
+      ...extra
+    });
+  };
+
   const signalBlocked = (source, extra = {}) => {
+    const now = Date.now();
+    if (now - state.lastBlockedAt < BLOCK_SIGNAL_THROTTLE_MS) {
+      return;
+    }
+    state.lastBlockedAt = now;
+    state.submitIntentUntil = 0;
     console.info("CorgPhish form guard debug", {
       source,
       href: window.location.href,
@@ -28,8 +51,21 @@
 
   const shouldBlockRequest = (method, body) => {
     if (!state.blockForms) return false;
+    if (Date.now() > state.submitIntentUntil) return false;
     const cleanMethod = String(method || "GET").toUpperCase();
     return body != null || !["GET", "HEAD", "OPTIONS"].includes(cleanMethod);
+  };
+
+  const isSubmitLikeControl = (node) => {
+    const control = node?.closest?.("button,input,[role='button']");
+    if (!control) return false;
+    if (control.matches?.('input[type="submit"], input[type="image"], input[type="button"]')) {
+      return true;
+    }
+    if (control.matches?.('button, [role="button"]')) {
+      return true;
+    }
+    return false;
   };
 
   document.addEventListener(
@@ -41,6 +77,43 @@
         blockForms: state.blockForms,
         href: window.location.href
       });
+    },
+    true
+  );
+
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!state.blockForms) return;
+      const target = event.target;
+      if (!target) return;
+      if (target.closest?.("form") || isSubmitLikeControl(target)) {
+        armSubmitIntent("click-intent");
+      }
+    },
+    true
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (!state.blockForms) return;
+      if (event.key !== "Enter") return;
+      if (!event.target?.closest?.("form")) return;
+      armSubmitIntent("keydown-intent");
+    },
+    true
+  );
+
+  document.addEventListener(
+    "submit",
+    (event) => {
+      if (!state.blockForms) return;
+      armSubmitIntent("submit-intent");
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.stopImmediatePropagation?.();
+      signalBlocked("submit-event");
     },
     true
   );
