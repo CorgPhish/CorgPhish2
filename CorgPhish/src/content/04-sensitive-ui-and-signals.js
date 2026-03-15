@@ -31,6 +31,21 @@
   // Баннер срабатывает ещё до полной блокировки, когда пользователь начинает вводить чувствительные данные.
   const showSensitiveWarning = (hintType = "field") => {
     if (state.active || pageRiskVerdict === "trusted") return;
+    if (blockOnUntrustedEnabled && !temporarilyAllowedPage) {
+      console.info("CorgPhish form guard debug", {
+        source: "sensitive-warning-escalated",
+        hintType,
+        verdict: pageRiskVerdict,
+        blockOnUntrustedEnabled,
+        temporarilyAllowedPage,
+        href: window.location.href
+      });
+      redirectToBlockedPage("guardForm", {
+        domain: hostname,
+        url: window.location.href
+      });
+      return;
+    }
     const now = Date.now();
     if (now - sensitiveWarnAt < SENSITIVE_WARN_COOLDOWN_MS) return;
     sensitiveWarnAt = now;
