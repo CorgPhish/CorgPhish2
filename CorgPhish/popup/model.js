@@ -17,6 +17,18 @@ const isExpectedOrtFailure = (message = "") =>
   /ort_load_failed/i.test(message) ||
   /offscreen_failed/i.test(message) ||
   /bg_predict_failed/i.test(message);
+const logPredictionDebug = (stage, rawUrl, result = {}, extra = {}) => {
+  console.info("CorgPhish ML debug", {
+    stage,
+    url: rawUrl,
+    status: result?.status ?? null,
+    verdict: result?.verdict ?? null,
+    probability: result?.probability ?? null,
+    threshold: result?.threshold ?? null,
+    error: result?.error ?? null,
+    ...extra
+  });
+};
 
 // RU: загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
 // EN:  onnxruntime via classic `<script>` so `ort` lands on global scope.
@@ -151,10 +163,13 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
   try {
     const bgResult = await predictViaBackground(rawUrl, threshold);
     if (bgResult?.verdict) {
-      return { ...bgResult, status: bgResult.status || "ok" };
+      const result = { ...bgResult, status: bgResult.status || "ok" };
+      logPredictionDebug("background", rawUrl, result);
+      return result;
     }
   } catch (error) {
     const message = String(error?.message || error || "");
+    logPredictionDebug("background-error", rawUrl, null, { error: message });
     if (!isExpectedOrtFailure(message)) {
       console.warn("CorgPhish: bg predict failed", message);
     }
@@ -165,13 +180,22 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");
       const fallback = heuristicVerdict(features, FALLBACK_THRESHOLD, { includeBrandPenalty: true });
-      return { status: "fallback", verdict: fallback.verdict, probability: fallback.probability, error: "ort_disabled" };
+      const result = {
+        status: "fallback",
+        verdict: fallback.verdict,
+        probability: fallback.probability,
+        error: "ort_disabled"
+      };
+      logPredictionDebug("ort-disabled-fallback", rawUrl, result);
+      return result;
     } catch (inner) {
-      return {
+      const result = {
         status: "error",
         verdict: null,
         error: "ort_disabled"
       };
+      logPredictionDebug("ort-disabled-error", rawUrl, result);
+      return result;
     }
   }
 
@@ -212,12 +236,14 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
       verdict = Number(labelTensor.data[0]) === 1 ? "phishing" : "trusted";
     }
 
-    return {
+    const result = {
       status: "ok",
       verdict,
       probability,
       threshold
     };
+    logPredictionDebug("popup-ort", rawUrl, result);
+    return result;
   } catch (error) {
     const message = String(error?.message || error || "");
     // Известные падения ORT отключают повторные попытки, чтобы не спамить одними и теми же ошибками.
@@ -230,13 +256,24 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
       const { url, features } = extractFeatures(rawUrl);
       if (!url) throw new Error("invalid_url");
       const fallback = heuristicVerdict(features, FALLBACK_THRESHOLD, { includeBrandPenalty: true });
-      return { status: "fallback", verdict: fallback.verdict, probability: fallback.probability, error: error?.message || String(error) };
+      const result = {
+        status: "fallback",
+        verdict: fallback.verdict,
+        probability: fallback.probability,
+        error: error?.message || String(error)
+      };
+      logPredictionDebug("popup-fallback", rawUrl, result);
+      return result;
     } catch (inner) {
-      return {
+      const result = {
         status: "error",
         verdict: null,
         error: error?.message || String(error)
       };
+      logPredictionDebug("popup-error", rawUrl, result, {
+        innerError: inner?.message || String(inner)
+      });
+      return result;
     }
   }
 };
