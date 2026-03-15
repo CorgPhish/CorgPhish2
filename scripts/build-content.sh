@@ -6,6 +6,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC_DIR="$ROOT_DIR/CorgPhish/src/content"
 OUT_FILE="$ROOT_DIR/CorgPhish/content.js"
+TMP_FILE="$(mktemp "${OUT_FILE}.tmp.XXXXXX")"
+
+cleanup() {
+  rm -f "$TMP_FILE"
+}
+trap cleanup EXIT
 
 # Порядок важен: каждый следующий модуль опирается на состояние и helper-функции предыдущих.
 parts=(
@@ -23,10 +29,14 @@ for part in "${parts[@]}"; do
   fi
 done
 
-# Пересобираем файл с нуля, чтобы в нём не оставалось старого кода после перестановки модулей.
-: > "$OUT_FILE"
+# Пишем во временный файл и только потом атомарно заменяем content.js,
+# чтобы параллельная сборка или чтение не видели частично записанный файл.
+: > "$TMP_FILE"
 for part in "${parts[@]}"; do
-  cat "$part" >> "$OUT_FILE"
+  cat "$part" >> "$TMP_FILE"
 done
+
+mv "$TMP_FILE" "$OUT_FILE"
+trap - EXIT
 
 echo "Built content script: $OUT_FILE"
