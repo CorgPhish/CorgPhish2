@@ -420,9 +420,6 @@
   const setPageRiskVerdict = (verdict = "trusted") => {
     pageRiskVerdict = verdict || "trusted";
     syncRuntimeGuards();
-    if (antiScamBannerEnabled && !state.active) {
-      scheduleAntiScamScan();
-    }
   };
 
   const redirectToBlockedPage = (reason = "phishing", details = {}) => {
@@ -554,8 +551,6 @@
     if (state.active) return;
     state.active = true;
     syncRuntimeGuards();
-    clearAntiScamBanner();
-    stopAntiScamObserver();
     redirectToBlockedPage(reason, details);
   };
 
@@ -658,14 +653,12 @@
     handlePreClickNavigation();
     const settings = await loadSyncSettings();
     applyLinkHighlightSetting(settings.linkHighlightEnabled);
-    applyAntiScamSetting(settings.antiScamBannerEnabled);
     blockOnUntrustedEnabled = Boolean(settings.blockOnUntrusted);
     const strictModeEnabled = Boolean(settings.strictMode);
     console.info("CorgPhish sensitive guard debug", {
       stage: "init-settings-loaded",
       blockOnUntrustedEnabled,
       strictModeEnabled,
-      antiScamBannerEnabled: settings.antiScamBannerEnabled,
       linkHighlightEnabled: settings.linkHighlightEnabled,
       href: window.location.href
     });
@@ -708,7 +701,6 @@
       console.warn("CorgPhish: auto inspect failed in content", error);
     } finally {
       startLinkObserver();
-      startAntiScamObserver();
     }
   };
 
@@ -741,12 +733,6 @@
       const nextValue = changes.linkHighlightEnabled?.newValue;
       applyLinkHighlightSetting(
         nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
-      );
-    }
-    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "antiScamBannerEnabled")) {
-      const nextValue = changes.antiScamBannerEnabled?.newValue;
-      applyAntiScamSetting(
-        nextValue === undefined ? SETTINGS_DEFAULTS.antiScamBannerEnabled : nextValue
       );
     }
     if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "blockOnUntrusted")) {

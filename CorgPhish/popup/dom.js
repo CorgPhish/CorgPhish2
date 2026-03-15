@@ -30,7 +30,6 @@ export const dom = {
   clearHistoryBtn: document.getElementById("clearHistoryBtn"),
   autoCheckInput: document.getElementById("autoCheckInput"),
   linkHighlightToggle: document.getElementById("linkHighlightToggle"),
-  antiScamToggle: document.getElementById("antiScamToggle"),
   themeToggle: document.getElementById("themeToggle"),
   languageSelect: document.getElementById("languageSelect"),
   strictModeToggle: document.getElementById("strictModeToggle"),

@@ -502,8 +502,6 @@ const handleSettingsChange = async () => {
     autoCheckOnOpen: dom.autoCheckInput?.checked ?? DEFAULT_SETTINGS.autoCheckOnOpen,
     linkHighlightEnabled:
       dom.linkHighlightToggle?.checked ?? DEFAULT_SETTINGS.linkHighlightEnabled,
-    antiScamBannerEnabled:
-      dom.antiScamToggle?.checked ?? DEFAULT_SETTINGS.antiScamBannerEnabled,
     strictMode: dom.strictModeToggle?.checked ?? DEFAULT_SETTINGS.strictMode,
     theme: dom.themeToggle?.checked ? "light" : "dark",
     language: dom.languageSelect?.value ?? DEFAULT_SETTINGS.language,
@@ -554,9 +552,6 @@ const updateSettingsControls = () => {
   }
   if (dom.linkHighlightToggle) {
     dom.linkHighlightToggle.checked = currentSettings.linkHighlightEnabled;
-  }
-  if (dom.antiScamToggle) {
-    dom.antiScamToggle.checked = currentSettings.antiScamBannerEnabled;
   }
   if (dom.strictModeToggle) {
     dom.strictModeToggle.checked = currentSettings.strictMode;
@@ -749,7 +744,6 @@ safeAddEvent(dom.clearHistoryBtn, "click", async () => {
 
 safeAddEvent(dom.autoCheckInput, "change", handleSettingsChange);
 safeAddEvent(dom.linkHighlightToggle, "change", handleSettingsChange);
-safeAddEvent(dom.antiScamToggle, "change", handleSettingsChange);
 safeAddEvent(dom.strictModeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.themeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.languageSelect, "change", handleSettingsChange);

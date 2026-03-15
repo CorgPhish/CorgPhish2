@@ -99,7 +99,6 @@
   };
   const SETTINGS_DEFAULTS = {
     linkHighlightEnabled: true,
-    antiScamBannerEnabled: true,
     blockOnUntrusted: false,
     strictMode: false
   };
@@ -152,58 +151,11 @@
         "Sensitive data patterns detected in pasted text. Verify the domain before submitting."
     }
   };
-  const ANTI_SCAM_PATTERNS = {
-    pressure:
-      /(urgent|act now|immediately|suspended|blocked|limited|expire|security alert|срочно|немедленно|заблокир|ограничен|истекает|угроза)/i,
-    credentials:
-      /(password|passcode|otp|2fa|mfa|verification code|one[- ]time code|парол|код подтверждения|одноразовый код|смс[- ]?код)/i,
-    payment:
-      /(card|cvv|cvc|bank transfer|wallet|payment|invoice|crypto|карт|оплат|банковск|перевод|кошелек|крипт)/i,
-    authority:
-      /(security service|bank security|fraud department|tax service|government service|служба безопасности|безопасности банка|сотрудник банка|налогов(ая|ой)|госуслуг[аи]?|полици[яи])/i,
-    messenger:
-      /(telegram|whatsapp|t\.me\/|wa\.me\/|напишите в телеграм|свяжитесь в whatsapp|перейдите в telegram|напишите в whatsapp)/i,
-    lure:
-      /(refund|compensation|bonus|prize|lottery|выигрыш|бонус|компенсац|возврат)/i
-  };
-  const ANTI_SCAM_I18N = {
-    ru: {
-      title: "Anti-scam: замечены признаки мошенничества",
-      text: "Страница использует паттерны социальной инженерии. Не вводите коды, пароли и платежные данные.",
-      dismiss: "Скрыть",
-      reasonMap: {
-        pressure: "давление и срочность",
-        credentials: "запрос кодов/паролей",
-        payment: "запрос платежных данных",
-        authority: "имитация официальной службы",
-        messenger: "перевод в мессенджер",
-        lure: "обещание выплаты/бонуса"
-      }
-    },
-    en: {
-      title: "Anti-scam: suspicious social engineering patterns",
-      text: "This page shows scam-like pressure tactics. Avoid entering passwords, OTP codes, or payment details.",
-      dismiss: "Dismiss",
-      reasonMap: {
-        pressure: "urgency and pressure",
-        credentials: "credential/OTP request",
-        payment: "payment data request",
-        authority: "fake official authority",
-        messenger: "messenger handoff pattern",
-        lure: "bonus/refund bait"
-      }
-    }
-  };
   const linkDomainCache = new Map();
   const preClickCache = new Map();
   let linkScanTimer = null;
   let linkHighlightEnabled = SETTINGS_DEFAULTS.linkHighlightEnabled;
-  let antiScamBannerEnabled = SETTINGS_DEFAULTS.antiScamBannerEnabled;
   let linkObserver = null;
-  let antiScamObserver = null;
-  let antiScamTimer = null;
-  let antiScamDismissed = false;
-  let lastAntiScamSignature = "";
   let inspectDomainFnPromise = null;
   let pageRiskVerdict = "trusted";
   let sensitiveGuardTeardown = () => {};

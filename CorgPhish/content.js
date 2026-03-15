@@ -99,7 +99,6 @@
   };
   const SETTINGS_DEFAULTS = {
     linkHighlightEnabled: true,
-    antiScamBannerEnabled: true,
     blockOnUntrusted: false,
     strictMode: false
   };
@@ -152,58 +151,11 @@
         "Sensitive data patterns detected in pasted text. Verify the domain before submitting."
     }
   };
-  const ANTI_SCAM_PATTERNS = {
-    pressure:
-      /(urgent|act now|immediately|suspended|blocked|limited|expire|security alert|срочно|немедленно|заблокир|ограничен|истекает|угроза)/i,
-    credentials:
-      /(password|passcode|otp|2fa|mfa|verification code|one[- ]time code|парол|код подтверждения|одноразовый код|смс[- ]?код)/i,
-    payment:
-      /(card|cvv|cvc|bank transfer|wallet|payment|invoice|crypto|карт|оплат|банковск|перевод|кошелек|крипт)/i,
-    authority:
-      /(security service|bank security|fraud department|tax service|government service|служба безопасности|безопасности банка|сотрудник банка|налогов(ая|ой)|госуслуг[аи]?|полици[яи])/i,
-    messenger:
-      /(telegram|whatsapp|t\.me\/|wa\.me\/|напишите в телеграм|свяжитесь в whatsapp|перейдите в telegram|напишите в whatsapp)/i,
-    lure:
-      /(refund|compensation|bonus|prize|lottery|выигрыш|бонус|компенсац|возврат)/i
-  };
-  const ANTI_SCAM_I18N = {
-    ru: {
-      title: "Anti-scam: замечены признаки мошенничества",
-      text: "Страница использует паттерны социальной инженерии. Не вводите коды, пароли и платежные данные.",
-      dismiss: "Скрыть",
-      reasonMap: {
-        pressure: "давление и срочность",
-        credentials: "запрос кодов/паролей",
-        payment: "запрос платежных данных",
-        authority: "имитация официальной службы",
-        messenger: "перевод в мессенджер",
-        lure: "обещание выплаты/бонуса"
-      }
-    },
-    en: {
-      title: "Anti-scam: suspicious social engineering patterns",
-      text: "This page shows scam-like pressure tactics. Avoid entering passwords, OTP codes, or payment details.",
-      dismiss: "Dismiss",
-      reasonMap: {
-        pressure: "urgency and pressure",
-        credentials: "credential/OTP request",
-        payment: "payment data request",
-        authority: "fake official authority",
-        messenger: "messenger handoff pattern",
-        lure: "bonus/refund bait"
-      }
-    }
-  };
   const linkDomainCache = new Map();
   const preClickCache = new Map();
   let linkScanTimer = null;
   let linkHighlightEnabled = SETTINGS_DEFAULTS.linkHighlightEnabled;
-  let antiScamBannerEnabled = SETTINGS_DEFAULTS.antiScamBannerEnabled;
   let linkObserver = null;
-  let antiScamObserver = null;
-  let antiScamTimer = null;
-  let antiScamDismissed = false;
-  let lastAntiScamSignature = "";
   let inspectDomainFnPromise = null;
   let pageRiskVerdict = "trusted";
   let sensitiveGuardTeardown = () => {};
@@ -510,8 +462,8 @@
       scored.sort((a, b) => b.weight - a.weight)[0]?.key || reasons[0];
     return { score, level, reasons, primaryReason };
   };
-  // RU: Модуль 3. До-кликовая защита: ссылки, редиректы, local storage и anti-scam баннеры.
-  // EN: Module 3. Pre-click protection: links, redirects, local storage and anti-scam banners.
+  // RU: Модуль 3. До-кликовая защита: ссылки, редиректы и local storage.
+  // EN: Module 3. Pre-click protection: links, redirects, and local storage.
   // Частые DOM-изменения группируем, чтобы не сканировать страницу на каждый mutation.
   const scheduleLinkScan = () => {
     if (!linkHighlightEnabled) return;
@@ -792,169 +744,6 @@
   const getSensitiveHints = () => {
     const lang = getLinkLanguage();
     return SENSITIVE_HINTS[lang] || SENSITIVE_HINTS.ru;
-  };
-
-  const getAntiScamDict = () => {
-    const lang = getLinkLanguage();
-    return ANTI_SCAM_I18N[lang] || ANTI_SCAM_I18N.ru;
-  };
-
-  const detectAntiScamSignals = () => {
-    const baseSamples = getTextSamples();
-    const paragraphSamples = Array.from(document.querySelectorAll("p, [role='alert'], [class*='alert' i], [class*='warning' i]"))
-      .slice(0, 6)
-      .map((node) => node?.textContent || "")
-      .filter(Boolean)
-      .map((text) => text.trim().slice(0, 220));
-    const mergedText = [...baseSamples, ...paragraphSamples].join(" ").toLowerCase();
-    if (!mergedText.trim()) {
-      return { score: 0, reasons: [], shouldWarn: false, signature: "" };
-    }
-
-    const reasons = Object.entries(ANTI_SCAM_PATTERNS)
-      .filter(([, pattern]) => pattern.test(mergedText))
-      .map(([key]) => key);
-
-    let score = reasons.length;
-    if (reasons.includes("pressure") && reasons.includes("credentials")) score += 1;
-    if (reasons.includes("pressure") && reasons.includes("payment")) score += 1;
-    if (reasons.includes("messenger") && reasons.includes("authority")) score += 1;
-    if (reasons.includes("messenger") && (reasons.includes("credentials") || reasons.includes("payment"))) score += 1;
-    if (reasons.includes("lure") && (reasons.includes("credentials") || reasons.includes("payment"))) score += 1;
-
-    const trustedPage = pageRiskVerdict === "trusted";
-    const hasSensitiveAsk = reasons.includes("credentials") || reasons.includes("payment");
-    const hasEscalation = reasons.includes("messenger") || reasons.includes("lure");
-    const hasPressureAuthority = reasons.includes("pressure") && reasons.includes("authority");
-    const shouldWarn = trustedPage
-      ? score >= 5 && hasSensitiveAsk && (hasEscalation || hasPressureAuthority)
-      : score >= 3 && (hasSensitiveAsk || hasEscalation);
-    const signature = `${score}:${reasons.sort().join("|")}:${trustedPage ? "t" : "r"}`;
-    return { score, reasons, shouldWarn, signature };
-  };
-
-  const clearAntiScamBanner = () => {
-    const existing = document.getElementById("corgphish-anti-scam-banner");
-    existing?.remove?.();
-    lastAntiScamSignature = "";
-  };
-
-  const showAntiScamBanner = (signal) => {
-    if (!antiScamBannerEnabled || antiScamDismissed || !signal?.shouldWarn || state.active) {
-      clearAntiScamBanner();
-      return;
-    }
-    if (lastAntiScamSignature === signal.signature) return;
-    lastAntiScamSignature = signal.signature;
-    const dict = getAntiScamDict();
-
-    let banner = document.getElementById("corgphish-anti-scam-banner");
-    if (!banner) {
-      banner = document.createElement("div");
-      banner.id = "corgphish-anti-scam-banner";
-      banner.style.position = "fixed";
-      banner.style.left = "16px";
-      banner.style.right = "16px";
-      banner.style.top = "12px";
-      banner.style.zIndex = "2147483646";
-      banner.style.display = "flex";
-      banner.style.alignItems = "flex-start";
-      banner.style.gap = "10px";
-      banner.style.padding = "12px 14px";
-      banner.style.borderRadius = "12px";
-      banner.style.background = "rgba(191, 66, 66, 0.97)";
-      banner.style.color = "#fff";
-      banner.style.fontFamily = '"Nunito","Manrope","Inter",system-ui,-apple-system,sans-serif';
-      banner.style.boxShadow = "0 12px 28px rgba(0,0,0,0.24)";
-      banner.style.backdropFilter = "blur(6px)";
-      banner.style.maxWidth = "920px";
-      banner.style.margin = "0 auto";
-      banner.style.pointerEvents = "auto";
-      document.documentElement.appendChild(banner);
-    }
-    const reasonsText = signal.reasons
-      .map((reason) => dict.reasonMap?.[reason] || reason)
-      .join(", ");
-    banner.innerHTML = "";
-    const body = document.createElement("div");
-    body.style.flex = "1";
-    const title = document.createElement("div");
-    title.textContent = dict.title;
-    title.style.fontSize = "14px";
-    title.style.fontWeight = "800";
-    title.style.marginBottom = "4px";
-    const text = document.createElement("div");
-    text.textContent = `${dict.text}${reasonsText ? ` (${reasonsText})` : ""}`;
-    text.style.fontSize = "13px";
-    text.style.lineHeight = "1.35";
-    body.appendChild(title);
-    body.appendChild(text);
-
-    const closeBtn = document.createElement("button");
-    closeBtn.type = "button";
-    closeBtn.textContent = dict.dismiss;
-    closeBtn.style.border = "1px solid rgba(255,255,255,0.38)";
-    closeBtn.style.background = "rgba(255,255,255,0.16)";
-    closeBtn.style.color = "#fff";
-    closeBtn.style.borderRadius = "8px";
-    closeBtn.style.padding = "6px 10px";
-    closeBtn.style.cursor = "pointer";
-    closeBtn.style.fontWeight = "700";
-    closeBtn.addEventListener("click", () => {
-      antiScamDismissed = true;
-      clearAntiScamBanner();
-    });
-
-    banner.appendChild(body);
-    banner.appendChild(closeBtn);
-  };
-
-  const runAntiScamScan = () => {
-    if (!antiScamBannerEnabled || antiScamDismissed) return;
-    const signal = detectAntiScamSignals();
-    if (!signal.shouldWarn) {
-      clearAntiScamBanner();
-      return;
-    }
-    showAntiScamBanner(signal);
-  };
-
-  const scheduleAntiScamScan = () => {
-    if (!antiScamBannerEnabled || antiScamDismissed) return;
-    if (antiScamTimer) return;
-    antiScamTimer = setTimeout(() => {
-      antiScamTimer = null;
-      runAntiScamScan();
-    }, 900);
-  };
-
-  const startAntiScamObserver = () => {
-    if (antiScamObserver || !antiScamBannerEnabled) return;
-    const root = document.documentElement;
-    if (!root) return;
-    scheduleAntiScamScan();
-    antiScamObserver = new MutationObserver(() => {
-      scheduleAntiScamScan();
-    });
-    antiScamObserver.observe(root, { childList: true, subtree: true, characterData: true });
-  };
-
-  const stopAntiScamObserver = () => {
-    if (!antiScamObserver) return;
-    antiScamObserver.disconnect();
-    antiScamObserver = null;
-  };
-
-  const applyAntiScamSetting = (enabled) => {
-    antiScamBannerEnabled = Boolean(enabled);
-    if (!antiScamBannerEnabled) {
-      stopAntiScamObserver();
-      clearAntiScamBanner();
-      return;
-    }
-    antiScamDismissed = false;
-    startAntiScamObserver();
-    scheduleAntiScamScan();
   };
 
   const getInspectDomainFn = async () => {
@@ -1757,9 +1546,6 @@
   const setPageRiskVerdict = (verdict = "trusted") => {
     pageRiskVerdict = verdict || "trusted";
     syncRuntimeGuards();
-    if (antiScamBannerEnabled && !state.active) {
-      scheduleAntiScamScan();
-    }
   };
 
   const redirectToBlockedPage = (reason = "phishing", details = {}) => {
@@ -1891,8 +1677,6 @@
     if (state.active) return;
     state.active = true;
     syncRuntimeGuards();
-    clearAntiScamBanner();
-    stopAntiScamObserver();
     redirectToBlockedPage(reason, details);
   };
 
@@ -1995,14 +1779,12 @@
     handlePreClickNavigation();
     const settings = await loadSyncSettings();
     applyLinkHighlightSetting(settings.linkHighlightEnabled);
-    applyAntiScamSetting(settings.antiScamBannerEnabled);
     blockOnUntrustedEnabled = Boolean(settings.blockOnUntrusted);
     const strictModeEnabled = Boolean(settings.strictMode);
     console.info("CorgPhish sensitive guard debug", {
       stage: "init-settings-loaded",
       blockOnUntrustedEnabled,
       strictModeEnabled,
-      antiScamBannerEnabled: settings.antiScamBannerEnabled,
       linkHighlightEnabled: settings.linkHighlightEnabled,
       href: window.location.href
     });
@@ -2045,7 +1827,6 @@
       console.warn("CorgPhish: auto inspect failed in content", error);
     } finally {
       startLinkObserver();
-      startAntiScamObserver();
     }
   };
 
@@ -2078,12 +1859,6 @@
       const nextValue = changes.linkHighlightEnabled?.newValue;
       applyLinkHighlightSetting(
         nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
-      );
-    }
-    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "antiScamBannerEnabled")) {
-      const nextValue = changes.antiScamBannerEnabled?.newValue;
-      applyAntiScamSetting(
-        nextValue === undefined ? SETTINGS_DEFAULTS.antiScamBannerEnabled : nextValue
       );
     }
     if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "blockOnUntrusted")) {

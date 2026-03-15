@@ -8,8 +8,7 @@ export const DEFAULT_SETTINGS = {
   historyRetentionDays: 30,
   compactMode: false,
   blockOnUntrusted: false,
-  linkHighlightEnabled: true,
-  antiScamBannerEnabled: true
+  linkHighlightEnabled: true
 };
 
 // RU: Общие пороги для ML и fallback-эвристики во всех контекстах расширения.
