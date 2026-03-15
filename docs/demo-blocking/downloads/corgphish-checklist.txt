@@ -1,0 +1,7 @@
+CorgPhish demo checklist
+
+1. Enable "Block input" in the extension.
+2. Open the demo page over HTTP.
+3. Try to submit forms.
+4. Try to pick a file.
+5. Try to download ZIP, PDF, and TXT assets.

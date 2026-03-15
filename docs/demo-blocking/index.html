@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CorgPhish Demo: блокировка форм и загрузок</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <p class="hero__eyebrow">CorgPhish Demo</p>
+      <h1>Тестовый сайт для демонстрации блокировки форм и загрузок</h1>
+      <p class="hero__lead">
+        Эта страница нужна для показа того, как расширение перехватывает отправку форм,
+        загрузку файлов и выбор локальных файлов на подозрительном сайте.
+      </p>
+      <div class="hero__callout">
+        <strong>Как показывать:</strong>
+        <span>1. Запусти страницу через локальный HTTP-сервер.</span>
+        <span>2. Открой её по <code>http://127.0.0.1:8080</code> или другому локальному адресу.</span>
+        <span>3. В расширении включи <code>Блокировка ввода</code>.</span>
+        <span>4. Попробуй отправить формы, выбрать файл и нажать на кнопки скачивания.</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="card__header">
+          <p class="card__kicker">Сценарий 1</p>
+          <h2>Форма входа</h2>
+        </div>
+        <p class="card__text">
+          Показывает блокировку обычного <code>submit</code> и программного
+          <code>requestSubmit()</code>.
+        </p>
+        <form id="loginForm" class="demo-form">
+          <label>
+            <span>E-mail</span>
+            <input type="email" name="email" placeholder="user@example.com" required />
+          </label>
+          <label>
+            <span>Пароль</span>
+            <input type="password" name="password" placeholder="Введите пароль" required />
+          </label>
+          <label>
+            <span>SMS-код</span>
+            <input type="text" name="otp" placeholder="123456" maxlength="6" />
+          </label>
+          <div class="form-actions">
+            <button class="action action--primary" type="submit">Отправить форму</button>
+            <button class="action action--ghost" id="requestSubmitBtn" type="button">
+              Вызвать requestSubmit()
+            </button>
+          </div>
+        </form>
+      </article>
+
+      <article class="card">
+        <div class="card__header">
+          <p class="card__kicker">Сценарий 2</p>
+          <h2>Форма оплаты</h2>
+        </div>
+        <p class="card__text">
+          В этой форме есть поля карты и CVV. На странице без защиты форма отправится,
+          а при активной блокировке будет остановлена.
+        </p>
+        <form id="paymentForm" class="demo-form">
+          <label>
+            <span>Имя владельца</span>
+            <input type="text" name="cardholder" placeholder="IVAN IVANOV" required />
+          </label>
+          <label>
+            <span>Номер карты</span>
+            <input type="text" name="card" placeholder="4111 1111 1111 1111" required />
+          </label>
+          <div class="split">
+            <label>
+              <span>Срок</span>
+              <input type="text" name="expiry" placeholder="12/28" required />
+            </label>
+            <label>
+              <span>CVV</span>
+              <input type="password" name="cvv" placeholder="123" required />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="action action--danger" type="submit">Оплатить</button>
+          </div>
+        </form>
+      </article>
+
+      <article class="card">
+        <div class="card__header">
+          <p class="card__kicker">Сценарий 3</p>
+          <h2>Upload и выбор файла</h2>
+        </div>
+        <p class="card__text">
+          Нажатие на <code>input[type=file]</code> и отправка файла тоже должны
+          блокироваться на рискованной странице.
+        </p>
+        <form id="uploadForm" class="demo-form">
+          <label>
+            <span>Выберите локальный файл</span>
+            <input id="uploadInput" type="file" name="statement" />
+          </label>
+          <div class="form-actions">
+            <button class="action action--primary" type="submit">Загрузить файл</button>
+          </div>
+        </form>
+      </article>
+
+      <article class="card">
+        <div class="card__header">
+          <p class="card__kicker">Сценарий 4</p>
+          <h2>Загрузка файлов</h2>
+        </div>
+        <p class="card__text">
+          Тут есть обычная ссылка на скачивание и кнопка с <code>data-url</code>,
+          чтобы проверить оба режима блокировки.
+        </p>
+        <div class="download-actions">
+          <a class="action action--primary" href="./downloads/corgphish-demo.zip" download>
+            Скачать demo-архив
+          </a>
+          <button
+            class="action action--ghost"
+            id="downloadButton"
+            type="button"
+            data-url="./downloads/corgphish-report.pdf"
+          >
+            Скачать PDF-кнопкой
+          </button>
+          <button
+            class="action action--ghost"
+            id="downloadChecklistBtn"
+            type="button"
+            data-download="./downloads/corgphish-checklist.txt"
+          >
+            Скачать TXT-кнопкой
+          </button>
+        </div>
+      </article>
+    </section>
+
+    <section class="log-card">
+      <div class="log-card__header">
+        <div>
+          <p class="card__kicker">Журнал</p>
+          <h2>Что произошло на странице</h2>
+        </div>
+        <button class="action action--ghost" id="clearLogBtn" type="button">Очистить журнал</button>
+      </div>
+      <p class="card__text">
+        Если расширение не вмешивается, здесь появятся записи об отправке формы и запуске загрузки.
+        Если CorgPhish сработал правильно, действие будет остановлено до появления новой строки.
+      </p>
+      <div class="log" id="eventLog" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
