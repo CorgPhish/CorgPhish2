@@ -539,6 +539,11 @@ const persistBlockToggleImmediately = (event) => {
   try {
     chrome.storage.local.set({ blockOnUntrusted: nextValue });
     chrome.storage.sync.set({ blockOnUntrusted: nextValue });
+    chrome.runtime.sendMessage({
+      type: "persistRuntimeSetting",
+      key: "blockOnUntrusted",
+      value: nextValue
+    });
   } catch (error) {
     console.warn("CorgPhish: failed to persist blockOnUntrusted immediately", error);
   }

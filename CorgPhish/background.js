@@ -95,6 +95,25 @@ const loadSettings = () =>
     });
   });
 
+const persistRuntimeSetting = (key, value) =>
+  new Promise((resolve) => {
+    const patch = { [key]: value };
+    let pending = 2;
+    const finish = () => {
+      pending -= 1;
+      if (pending <= 0) {
+        console.info("CorgPhish settings debug", {
+          stage: "background-persistRuntimeSetting",
+          key,
+          value
+        });
+        resolve(true);
+      }
+    };
+    chrome.storage.local.set(patch, finish);
+    chrome.storage.sync.set(patch, finish);
+  });
+
 // RU: Обрабатываем сообщения попапа/контента.
 // EN: Handle messages from popup/content.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -181,6 +200,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         },
         () => sendResponse?.({ ok: true })
       );
+    });
+    return true;
+  }
+
+  if (message.type === "persistRuntimeSetting" && typeof message.key === "string") {
+    persistRuntimeSetting(message.key, message.value).then(() => {
+      sendResponse?.({ ok: true });
     });
     return true;
   }

@@ -123,7 +123,6 @@
   ];
   const REDIRECT_ANALYSIS_LIMIT = 6;
   const PRECLICK_CACHE_TTL = 2 * 60 * 1000;
-  const SENSITIVE_WARN_COOLDOWN_MS = 12 * 1000;
   const VERDICT_PRIORITY = {
     trusted: 0,
     suspicious: 1,
@@ -206,7 +205,6 @@
   let lastAntiScamSignature = "";
   let inspectDomainFnPromise = null;
   let pageRiskVerdict = "trusted";
-  let sensitiveWarnAt = 0;
   let sensitiveGuardTeardown = () => {};
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
@@ -1095,44 +1093,10 @@
     preClickCache.set(normalizedTarget, { ts: Date.now(), result: analysis });
     return analysis;
   };
-  // RU: Модуль 4. Баннеры предупреждений и сбор page signals для popup/inspection.
-  // EN: Module 4. On-page warnings and page signal collection for popup/inspection.
-  // Баннер живёт в DOM самой страницы и не требует отдельного layout-файла.
-  const createSensitiveBanner = () => {
-    const existing = document.getElementById("corgphish-sensitive-banner");
-    if (existing) return existing;
-    const banner = document.createElement("div");
-    banner.id = "corgphish-sensitive-banner";
-    banner.style.position = "fixed";
-    banner.style.right = "16px";
-    banner.style.bottom = "16px";
-    banner.style.zIndex = "2147483646";
-    banner.style.maxWidth = "360px";
-    banner.style.padding = "12px 14px";
-    banner.style.borderRadius = "12px";
-    banner.style.background = "rgba(214, 90, 90, 0.96)";
-    banner.style.color = "#fff";
-    banner.style.fontFamily = '"Nunito","Manrope","Inter",system-ui,-apple-system,sans-serif';
-    banner.style.fontSize = "13px";
-    banner.style.lineHeight = "1.35";
-    banner.style.fontWeight = "700";
-    banner.style.boxShadow = "0 14px 30px rgba(0,0,0,0.26)";
-    banner.style.opacity = "0";
-    banner.style.transform = "translateY(8px)";
-    banner.style.transition = "opacity 0.2s ease, transform 0.2s ease";
-    banner.style.pointerEvents = "none";
-    document.documentElement.appendChild(banner);
-    return banner;
-  };
+  // RU: Модуль 4. Сбор page signals и перехват чувствительного ввода.
+  // EN: Module 4. Page signal collection and sensitive-input interception.
 
-  const clearSensitiveBanner = () => {
-    const existing = document.getElementById("corgphish-sensitive-banner");
-    if (existing) {
-      existing.remove();
-    }
-  };
-
-  // Баннер срабатывает ещё до полной блокировки, когда пользователь начинает вводить чувствительные данные.
+  // Нижний banner удалён: для чувствительного ввода на рискованной странице используем только full-screen блокировку.
   const showSensitiveWarning = (hintType = "field") => {
     if (state.active || pageRiskVerdict === "trusted") return;
     console.info("CorgPhish sensitive guard debug", {
@@ -1143,35 +1107,21 @@
       temporarilyAllowedPage,
       href: window.location.href
     });
-    if (blockOnUntrustedEnabled && !temporarilyAllowedPage) {
-      clearSensitiveBanner();
-      console.info("CorgPhish form guard debug", {
-        source: "sensitive-warning-escalated",
-        hintType,
-        verdict: pageRiskVerdict,
-        blockOnUntrustedEnabled,
-        temporarilyAllowedPage,
-        href: window.location.href
-      });
-      redirectToBlockedPage("guardForm", {
-        domain: hostname,
-        url: window.location.href
-      });
+    if (!blockOnUntrustedEnabled || temporarilyAllowedPage) {
       return;
     }
-    const now = Date.now();
-    if (now - sensitiveWarnAt < SENSITIVE_WARN_COOLDOWN_MS) return;
-    sensitiveWarnAt = now;
-    const hints = getSensitiveHints();
-    const banner = createSensitiveBanner();
-    banner.textContent = hints[hintType] || hints.field;
-    banner.style.opacity = "1";
-    banner.style.transform = "translateY(0)";
-    clearTimeout(showSensitiveWarning.timer);
-    showSensitiveWarning.timer = setTimeout(() => {
-      banner.style.opacity = "0";
-      banner.style.transform = "translateY(8px)";
-    }, 3800);
+    console.info("CorgPhish form guard debug", {
+      source: "sensitive-warning-escalated",
+      hintType,
+      verdict: pageRiskVerdict,
+      blockOnUntrustedEnabled,
+      temporarilyAllowedPage,
+      href: window.location.href
+    });
+    redirectToBlockedPage("guardForm", {
+      domain: hostname,
+      url: window.location.href
+    });
   };
 
   const isSensitiveInput = (element) => {
@@ -1245,11 +1195,19 @@
         safeStorageGet("sync", runtimeSettingsQuery)
       ]).then(
         ([localSettings, syncSettings]) => {
-          resolve({
+          const merged = {
             ...SETTINGS_DEFAULTS,
             ...pickRuntimeSettings(syncSettings),
             ...pickRuntimeSettings(localSettings)
+          };
+          console.info("CorgPhish settings debug", {
+            stage: "content-loadSyncSettings",
+            syncBlockOnUntrusted: syncSettings.blockOnUntrusted,
+            localBlockOnUntrusted: localSettings.blockOnUntrusted,
+            resolvedBlockOnUntrusted: merged.blockOnUntrusted,
+            href: window.location.href
           });
+          resolve(merged);
         }
       );
     });

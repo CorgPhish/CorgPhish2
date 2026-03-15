@@ -123,7 +123,6 @@
   ];
   const REDIRECT_ANALYSIS_LIMIT = 6;
   const PRECLICK_CACHE_TTL = 2 * 60 * 1000;
-  const SENSITIVE_WARN_COOLDOWN_MS = 12 * 1000;
   const VERDICT_PRIORITY = {
     trusted: 0,
     suspicious: 1,
@@ -206,7 +205,6 @@
   let lastAntiScamSignature = "";
   let inspectDomainFnPromise = null;
   let pageRiskVerdict = "trusted";
-  let sensitiveWarnAt = 0;
   let sensitiveGuardTeardown = () => {};
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
