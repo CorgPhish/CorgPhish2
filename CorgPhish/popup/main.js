@@ -598,7 +598,7 @@ function handleBlacklistClick() {
 
 const handleReportPhishingClick = async () => {
   const t = getTranslator();
-  const domain = dom.reportPhishingBtn?.dataset.domain || dom.domainValue?.textContent || "";
+  const domain = dom.reportPhishingBtn?.dataset.domain || lastRenderedTarget.domain || "";
   const reportUrl = resolveReportUrl(dom.reportPhishingBtn?.dataset.url || lastInspectedUrl, domain);
   if (!reportUrl) {
     setStatusMessage(t("status.report.failed"), "error");

@@ -169,16 +169,8 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
     hintKey = context.suspicionKey;
   }
   dom.statusHint.textContent = translate(hintKey, context);
-  const riskText = translate(config.riskKey, context);
-  [dom.riskLevel, dom.riskTag].filter(Boolean).forEach((node) => {
-    node.textContent = riskText;
-    node.dataset.tone = tone;
-  });
   if (dom.mlScore) {
     dom.mlScore.classList.add("is-hidden");
-  }
-  if (dom.domainValue) {
-    dom.domainValue.textContent = context.domain ?? "—";
   }
   if (dom.checkedAt) {
     dom.checkedAt.textContent = context.checkedAt

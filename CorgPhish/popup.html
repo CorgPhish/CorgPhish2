@@ -48,7 +48,6 @@
             <section class="card status-card">
                 <div class="status-top">
                     <div class="status-card__badge" id="statusBadge" data-i18n="status.pending.badge">Проверяем...</div>
-                    <span class="pill" id="riskLevel">—</span>
                 </div>
                 <div class="status-card__hero">
                     <div class="status-figure" aria-hidden="true">
@@ -64,10 +63,6 @@
                         <h2 class="status-card__title" id="statusTitle" data-i18n="status.pending.title">Анализируем активную вкладку</h2>
                         <p class="status-card__hint" id="statusHint" data-i18n="status.pending.hint">Сравниваем адрес с локальным списком доверенных ресурсов.</p>
                     </div>
-                </div>
-                <div class="status-meta">
-                    <span class="tag" id="riskTag">—</span>
-                    <span class="pill pill--ghost" id="domainValue">—</span>
                 </div>
                 <div class="status-actions" id="statusActions">
                     <button class="button button--secondary is-hidden" id="reportPhishingBtn" type="button" data-i18n="actions.report.phishing">
