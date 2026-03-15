@@ -8,9 +8,11 @@
   const BLOCKED_EVENT = "corgphish:page-guard-blocked";
   const SUBMIT_INTENT_WINDOW_MS = 2500;
   const BLOCK_SIGNAL_THROTTLE_MS = 1200;
+  const BLOCKED_FILE_EXT = /\.(zip|rar|7z|exe|msi|dmg|pkg|apk|pdf|docx?|xlsx?|pptx?|csv|txt)(?:$|[?#])/i;
   const guardRoot = document.documentElement;
   const state = {
     blockForms: false,
+    intentKind: "form",
     submitIntentUntil: 0,
     lastBlockedAt: 0
   };
@@ -19,11 +21,38 @@
     guardRoot.dataset.corgphishPageGuardInstalled = "1";
   }
 
-  const armSubmitIntent = (source, extra = {}) => {
+  const resolveUrl = (rawValue = "") => {
+    if (!rawValue) return "";
+    try {
+      return new URL(rawValue, window.location.href).toString();
+    } catch (error) {
+      return String(rawValue || "");
+    }
+  };
+
+  const isDownloadLikeTarget = (node) => {
+    const link = node?.closest?.("a[href]");
+    if (link) {
+      const href = resolveUrl(link.getAttribute("href") || "");
+      return Boolean(link.hasAttribute("download") || BLOCKED_FILE_EXT.test(href));
+    }
+    const button = node?.closest?.("button,[role='button'],[data-download],[data-href],[data-url]");
+    if (!button) return false;
+    const hintedUrl =
+      button.getAttribute?.("data-download") ||
+      button.getAttribute?.("data-href") ||
+      button.getAttribute?.("data-url") ||
+      "";
+    return Boolean(BLOCKED_FILE_EXT.test(resolveUrl(hintedUrl)));
+  };
+
+  const armSubmitIntent = (source, kind = "form", extra = {}) => {
     if (!state.blockForms) return;
+    state.intentKind = kind === "download" ? "download" : "form";
     state.submitIntentUntil = Date.now() + SUBMIT_INTENT_WINDOW_MS;
     console.info("CorgPhish form guard debug", {
       source,
+      kind: state.intentKind,
       href: window.location.href,
       blockForms: state.blockForms,
       ...extra
@@ -37,16 +66,19 @@
     }
     state.lastBlockedAt = now;
     state.submitIntentUntil = 0;
+    const blockedKind = state.intentKind === "download" ? "download" : "form";
     console.info("CorgPhish form guard debug", {
       source,
+      kind: blockedKind,
       href: window.location.href,
       ...extra
     });
     document.dispatchEvent(
       new CustomEvent(BLOCKED_EVENT, {
-        detail: { kind: "form", source, ...extra }
+        detail: { kind: blockedKind, source, ...extra }
       })
     );
+    state.intentKind = "form";
   };
 
   const shouldBlockRequest = (method, body) => {
@@ -87,8 +119,12 @@
       if (!state.blockForms) return;
       const target = event.target;
       if (!target) return;
+      if (isDownloadLikeTarget(target)) {
+        armSubmitIntent("click-intent", "download");
+        return;
+      }
       if (target.closest?.("form") || isSubmitLikeControl(target)) {
-        armSubmitIntent("click-intent");
+        armSubmitIntent("click-intent", "form");
       }
     },
     true
@@ -100,7 +136,7 @@
       if (!state.blockForms) return;
       if (event.key !== "Enter") return;
       if (!event.target?.closest?.("form")) return;
-      armSubmitIntent("keydown-intent");
+      armSubmitIntent("keydown-intent", "form");
     },
     true
   );
@@ -109,7 +145,7 @@
     "submit",
     (event) => {
       if (!state.blockForms) return;
-      armSubmitIntent("submit-intent");
+      armSubmitIntent("submit-intent", "form");
       event.preventDefault?.();
       event.stopPropagation?.();
       event.stopImmediatePropagation?.();

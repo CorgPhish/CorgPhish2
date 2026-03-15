@@ -135,13 +135,13 @@
   // страницы с жёстким CSP режут script.textContent.
   const installPageWorldFormGuard = (onBlockedAction) => {
     const relayBlockedAction = (event) => {
-      if (event?.detail?.kind !== "form") return;
+      const blockedKind = event?.detail?.kind === "download" ? "download" : "form";
       console.info("CorgPhish form guard debug", {
         source: "content-relay",
         detail: event.detail,
         href: window.location.href
       });
-      onBlockedAction?.("form");
+      onBlockedAction?.(blockedKind);
     };
 
     document.addEventListener(PAGE_GUARD_BLOCKED_EVENT, relayBlockedAction, true);
