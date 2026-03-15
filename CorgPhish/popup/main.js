@@ -596,13 +596,6 @@ function handleBlacklistClick() {
 })();
 }
 
-const handleOfficialSiteClick = () => {
-  const domain = dom.officialSiteBtn?.dataset.domain;
-  if (!domain) return;
-  const url = domain.includes("://") ? domain : `https://${domain}`;
-  chrome.tabs.create({ url });
-};
-
 const handleReportPhishingClick = async () => {
   const t = getTranslator();
   const domain = dom.reportPhishingBtn?.dataset.domain || dom.domainValue?.textContent || "";
@@ -758,7 +751,6 @@ safeAddEvent(dom.whitelistList, "click", handleWhitelistListClick);
 safeAddEvent(dom.quickAddBtn, "click", handleQuickAddClick);
 safeAddEvent(dom.blacklistBtn, "click", handleBlacklistClick);
 safeAddEvent(dom.reportPhishingBtn, "click", handleReportPhishingClick);
-safeAddEvent(dom.officialSiteBtn, "click", handleOfficialSiteClick);
 safeAddEvent(dom.historySearchInput, "input", handleHistorySearch);
 safeAddEvent(dom.historyFilterSelect, "change", handleHistoryFilter);
 safeAddEvent(dom.blacklistForm, "submit", async (event) => {
