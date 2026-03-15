@@ -1487,6 +1487,130 @@
     return { overlay: overlayHost, hint, subtitle, allowBtn, title, badge };
   };
 
+  const PAGE_GUARD_STATE_EVENT = "corgphish:page-guard-state";
+  const PAGE_GUARD_BLOCKED_EVENT = "corgphish:page-guard-blocked";
+
+  // Перехват fetch/XHR/beacon надо ставить в page world, иначе SPA-формы обходят content script.
+  const installPageWorldFormGuard = (onBlockedAction) => {
+    const relayBlockedAction = (event) => {
+      if (event?.detail?.kind !== "form") return;
+      onBlockedAction?.("form");
+    };
+
+    document.addEventListener(PAGE_GUARD_BLOCKED_EVENT, relayBlockedAction, true);
+
+    if (!document.getElementById("corgphish-page-guard-script")) {
+      const script = document.createElement("script");
+      script.id = "corgphish-page-guard-script";
+      script.textContent = `
+        (() => {
+          if (window.__corgphishPageGuardInstalled) return;
+          window.__corgphishPageGuardInstalled = true;
+          const UPDATE_EVENT = ${JSON.stringify(PAGE_GUARD_STATE_EVENT)};
+          const BLOCKED_EVENT = ${JSON.stringify(PAGE_GUARD_BLOCKED_EVENT)};
+          const state = { blockForms: false };
+          const signalBlocked = () => {
+            document.dispatchEvent(new CustomEvent(BLOCKED_EVENT, { detail: { kind: "form" } }));
+          };
+          const shouldBlockRequest = (method, body) => {
+            if (!state.blockForms) return false;
+            const cleanMethod = String(method || "GET").toUpperCase();
+            return body != null || !["GET", "HEAD", "OPTIONS"].includes(cleanMethod);
+          };
+          document.addEventListener(
+            UPDATE_EVENT,
+            (event) => {
+              state.blockForms = Boolean(event?.detail?.blockForms);
+            },
+            true
+          );
+
+          const nativeSubmit = HTMLFormElement.prototype.submit;
+          HTMLFormElement.prototype.submit = function patchedSubmit(...args) {
+            if (state.blockForms) {
+              signalBlocked();
+              return;
+            }
+            return nativeSubmit.apply(this, args);
+          };
+
+          if (typeof HTMLFormElement.prototype.requestSubmit === "function") {
+            const nativeRequestSubmit = HTMLFormElement.prototype.requestSubmit;
+            HTMLFormElement.prototype.requestSubmit = function patchedRequestSubmit(...args) {
+              if (state.blockForms) {
+                signalBlocked();
+                return;
+              }
+              return nativeRequestSubmit.apply(this, args);
+            };
+          }
+
+          if (typeof window.fetch === "function") {
+            const nativeFetch = window.fetch;
+            window.fetch = function patchedFetch(input, init = {}) {
+              let method = init?.method;
+              let body = init?.body;
+              if (typeof Request !== "undefined" && input instanceof Request) {
+                method = method || input.method;
+                body = body ?? input.body;
+              }
+              if (shouldBlockRequest(method, body)) {
+                signalBlocked();
+                return Promise.reject(new Error("corgphish_blocked_request"));
+              }
+              return nativeFetch.apply(this, arguments);
+            };
+          }
+
+          const nativeXhrOpen = XMLHttpRequest.prototype.open;
+          const nativeXhrSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.open = function patchedOpen(method, url, ...rest) {
+            this.__corgphishMethod = method;
+            return nativeXhrOpen.call(this, method, url, ...rest);
+          };
+          XMLHttpRequest.prototype.send = function patchedSend(body) {
+            if (shouldBlockRequest(this.__corgphishMethod, body)) {
+              signalBlocked();
+              try {
+                this.abort();
+              } catch (error) {
+                // noop
+              }
+              return;
+            }
+            return nativeXhrSend.call(this, body);
+          };
+
+          if (typeof navigator.sendBeacon === "function") {
+            const nativeBeacon = navigator.sendBeacon;
+            navigator.sendBeacon = function patchedSendBeacon(url, data) {
+              if (state.blockForms && data != null) {
+                signalBlocked();
+                return false;
+              }
+              return nativeBeacon.call(this, url, data);
+            };
+          }
+        })();
+      `;
+      (document.documentElement || document.head || document).appendChild(script);
+      script.remove();
+    }
+
+    return {
+      sync(blockForms) {
+        document.dispatchEvent(
+          new CustomEvent(PAGE_GUARD_STATE_EVENT, {
+            detail: { blockForms: Boolean(blockForms) }
+          })
+        );
+      },
+      teardown() {
+        document.removeEventListener(PAGE_GUARD_BLOCKED_EVENT, relayBlockedAction, true);
+      }
+    };
+  };
+
   // RU: Блокируем формы и скачивания, пока блокировка активна.
   // EN: Block forms and downloads while blocking is active.
   const blockInteractions = ({ isFormBlocked, isDownloadBlocked, onBlockedAction }) => {
@@ -1655,8 +1779,19 @@
   const state = { active: false, domain: hostname };
   let blockOnUntrustedEnabled = SETTINGS_DEFAULTS.blockOnUntrusted;
   let temporarilyAllowedPage = false;
+  const syncRuntimeGuards = () => {
+    pageWorldFormGuard?.sync(shouldBlockForms());
+    safeRuntimeSendMessage({
+      type: "syncPageGuard",
+      domain: hostname,
+      url: window.location.href,
+      verdict: pageRiskVerdict,
+      blockDownloads: shouldBlockDownloads()
+    });
+  };
   const refreshTemporaryAllowState = async () => {
     temporarilyAllowedPage = await isTemporarilyAllowed(hostname);
+    syncRuntimeGuards();
     return temporarilyAllowedPage;
   };
   const shouldBlockForms = () =>
@@ -1665,6 +1800,7 @@
     state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
   const setPageRiskVerdict = (verdict = "trusted") => {
     pageRiskVerdict = verdict || "trusted";
+    syncRuntimeGuards();
     if (antiScamBannerEnabled && !state.active) {
       scheduleAntiScamScan();
     }
@@ -1703,6 +1839,7 @@
     });
   }
 
+  const pageWorldFormGuard = installPageWorldFormGuard(handleBlockedInteraction);
   const detachInteractionGuards = blockInteractions({
     isFormBlocked: shouldBlockForms,
     isDownloadBlocked: shouldBlockDownloads,
@@ -1714,6 +1851,7 @@
   const activateBlock = async (reason = "phishing", details = {}) => {
     if (state.active) return;
     state.active = true;
+    syncRuntimeGuards();
     clearAntiScamBanner();
     stopAntiScamObserver();
     redirectToBlockedPage(reason, details);
@@ -1905,11 +2043,13 @@
       const nextValue = changes.blockOnUntrusted?.newValue;
       blockOnUntrustedEnabled =
         nextValue === undefined ? SETTINGS_DEFAULTS.blockOnUntrusted : Boolean(nextValue);
+      syncRuntimeGuards();
     }
     if (area === "local" && Object.prototype.hasOwnProperty.call(changes, TEMP_ALLOW_KEY)) {
       const map = changes[TEMP_ALLOW_KEY]?.newValue;
       const expiry = Number((map && typeof map === "object" ? map[hostname] : 0) || 0);
       temporarilyAllowedPage = expiry > Date.now();
+      syncRuntimeGuards();
     }
     if (area === "local" || area === "sync") {
       preClickCache.clear();
@@ -1918,6 +2058,7 @@
   });
 
   window.addEventListener("beforeunload", () => {
+    pageWorldFormGuard?.teardown?.();
     detachInteractionGuards?.();
   });
 
