@@ -10,6 +10,11 @@ const DEFAULT_SETTINGS = {
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
 const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
+const isExpectedMlFailure = (message = "") =>
+  /offscreen_failed/i.test(message) ||
+  /ort_load_failed/i.test(message) ||
+  /NormalizerNorm/i.test(message) ||
+  /tensor\(float\).*tensor\(double\)/i.test(message);
 
 // Кешируем trusted.json в local storage, чтобы popup/content не читали файл повторно.
 const cacheTrustedList = async () => {
@@ -75,7 +80,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             );
           });
         } catch (offscreenError) {
-          console.warn("CorgPhish: offscreen predict failed", offscreenError);
+          const message = String(offscreenError?.message || offscreenError || "");
+          if (!isExpectedMlFailure(message)) {
+            console.warn("CorgPhish: offscreen predict failed", message);
+          }
         }
 
         // Если offscreen не поднялся, всё равно возвращаем бинарный ответ через эвристику.

@@ -387,7 +387,6 @@ const applyInspectionResult = async (result, options = {}) => {
   }
   if (!fromCache && shouldAlert && isRisk && currentSettings.warnOnUntrusted) {
     setStatusMessage(t("status.phishing.hint"), "warn");
-    console.warn("CorgPhish: high risk verdict", { domain: result.domain, verdict: result.verdict });
   } else if (mlUnavailable) {
     setStatusMessage(t("status.ml.unavailable"), "warn");
     if (result.mlError) {

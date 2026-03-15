@@ -11,6 +11,12 @@ const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
 let ortScriptPromise = null;
 let sessionPromise = null;
 let ortDisabled = false;
+const isExpectedOrtFailure = (message = "") =>
+  /NormalizerNorm/i.test(message) ||
+  /tensor\(float\).*tensor\(double\)/i.test(message) ||
+  /ort_load_failed/i.test(message) ||
+  /offscreen_failed/i.test(message) ||
+  /bg_predict_failed/i.test(message);
 
 // RU: загрузка onnxruntime скрипта (классический `<script>`, чтобы глобально появился `ort`).
 // EN:  onnxruntime via classic `<script>` so `ort` lands on global scope.
@@ -148,7 +154,10 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
       return { ...bgResult, status: bgResult.status || "ok" };
     }
   } catch (error) {
-    console.warn("CorgPhish: bg predict failed", error);
+    const message = String(error?.message || error || "");
+    if (!isExpectedOrtFailure(message)) {
+      console.warn("CorgPhish: bg predict failed", message);
+    }
   }
 
   if (ortDisabled) {
@@ -210,15 +219,12 @@ export const predictUrl = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
       threshold
     };
   } catch (error) {
-    console.warn("ML predict failed", error);
     const message = String(error?.message || error || "");
     // Известные падения ORT отключают повторные попытки, чтобы не спамить одними и теми же ошибками.
-    if (
-      /NormalizerNorm/i.test(message) ||
-      /tensor\(float\).*tensor\(double\)/i.test(message) ||
-      /ort_load_failed/i.test(message)
-    ) {
+    if (isExpectedOrtFailure(message)) {
       ortDisabled = true;
+    } else {
+      console.warn("ML predict failed", message);
     }
     try {
       const { url, features } = extractFeatures(rawUrl);
