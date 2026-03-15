@@ -69,6 +69,7 @@
 ## 5) Документация и релизы
 
 - `docs/testing/` — методика и результаты unit, integration и user testing.
+- `docs/user-guide.md` — пользовательская инструкция по установке и работе с расширением.
 - `docs/meta/CHANGELOG.md` — история изменений.
 - `docs/meta/RELEASING.md` — порядок подготовки релиза.
 - `docs/meta/SECURITY.md` — политика по безопасности.

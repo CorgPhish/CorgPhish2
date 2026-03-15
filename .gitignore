@@ -22,3 +22,7 @@ __pycache__/
 
 # Local experimental site copy
 website-angular/
+
+# Local backups and bundles
+backups/
+*.bundle

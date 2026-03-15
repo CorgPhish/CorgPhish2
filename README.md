@@ -1,6 +1,6 @@
 # CorgPhish
 
-Локальное anti-phishing расширение для Chrome/Chromium. Проверяет домены, сигналы страницы и ссылки прямо в браузере без внешних API.
+Локальное расширение для Chrome/Chromium, которое проверяет сайты на признаки фишинга, подмены домена, рискованные формы, опасные ссылки и загрузки прямо в браузере.
 
 <p align="left">
   <a href="https://github.com/CorgPhish/CorgPhish2/actions/workflows/build.yml">
@@ -14,21 +14,41 @@
   </a>
 </p>
 
-## Что делает расширение
-- Локальная проверка домена по `trusted.json`, пользовательскому whitelist и blacklist.
-- Эвристика и локальная ONNX-модель без удалённых запросов.
-- Проверка брендовых признаков, форм, редиректов и подозрительных ссылок.
-- Pre-click защита и подсветка рискованных ссылок на странице.
-- Блокировка опасного сайта до ввода данных или скачивания файлов.
-- История проверок и быстрые действия в popup.
+## Возможности
 
-Расширение работает полностью локально:
-- не требует внешнего API для вынесения вердикта;
-- хранит настройки, историю и пользовательские списки в `chrome.storage`;
-- использует ML только внутри браузера;
-- умеет падать обратно в эвристику, если ORT или offscreen недоступны.
+- проверка домена по `trusted.json`, белому и чёрному спискам;
+- анализ похожести домена на известные бренды;
+- локальная ML-проверка URL и fallback на эвристику;
+- анализ форм, контента страницы и редиректов;
+- блокировка отправки данных и скачивания файлов;
+- экран полной блокировки для опасных действий;
+- история проверок и быстрые действия в popup;
+- полностью локальная работа без обязательного внешнего сервера.
 
-## Скриншоты и демо
+## Быстрый старт
+
+1. Откройте `chrome://extensions`.
+2. Включите `Developer mode`.
+3. Нажмите `Load unpacked`.
+4. Выберите папку `CorgPhish/`.
+5. Закрепите расширение в панели браузера.
+
+После установки откройте popup и при необходимости включите:
+
+- автопроверку при открытии страницы;
+- подсветку ссылок;
+- строгий режим;
+- блокировку ввода и загрузок.
+
+## Пользовательская документация
+
+- Полное руководство пользователя: [docs/user-guide.md](docs/user-guide.md)
+- Результаты и методика тестирования: [docs/testing/README.md](docs/testing/README.md)
+- Навигация по проекту: [docs/navigation.md](docs/navigation.md)
+- Карта файлов: [docs/project_map.md](docs/project_map.md)
+
+## Скриншоты
+
 <p align="left">
   <img src="docs/badges/leg.png" alt="Главная панель" width="320" />
   <img src="docs/badges/phishing.png" alt="Экран блокировки" width="320" />
@@ -37,55 +57,65 @@
   <img src="docs/settings/Screenshot%202026-01-16%20at%2018.31.32.png" alt="Настройки" width="320" />
 </p>
 
-- Запись экрана: [docs/badges/Screen Recording 2026-01-16 at 18.26.26.mov](docs/badges/Screen%20Recording%202026-01-16%20at%2018.26.26.mov)
-- Демо-страница для теста подсветки: [docs/beta/index.html](docs/beta/index.html)
+Дополнительно:
 
-## Как работает
-1. Popup или content script получает URL текущей страницы.
-2. Домен нормализуется и сверяется с `trusted.json`, whitelist и blacklist.
-3. Если точного совпадения нет, включаются проверки похожести домена, брендовых сигналов, форм и контента.
-4. Затем выполняется локальный ML-инференс через `offscreen.js` или fallback-эвристику.
-5. На выходе расширение ставит один из вердиктов: `trusted`, `suspicious`, `phishing`, `blacklisted`.
-6. При опасном вердикте включается блокировка страницы, кнопки действий и запись в историю.
+- demo-страница для проверки блокировки: [docs/demo-blocking/index.html](docs/demo-blocking/index.html)
+- demo-страница для ссылок: [docs/beta/index.html](docs/beta/index.html)
 
-## Архитектура
-- `popup` показывает состояние сайта, историю, настройки и ручные действия.
-- `background` кэширует trusted-список, показывает уведомления и создаёт offscreen-контекст для ML.
-- `offscreen` запускает локальный ONNX inference вне контекста страницы, чтобы CSP сайта не мешал модели.
-- `content script` анализирует DOM страницы, ссылки, формы, редиректы и при необходимости блокирует взаимодействие.
-- `blocked.html` открывается как отдельная безопасная страница, если сайт лучше не показывать пользователю вовсе.
+## Как работает расширение
 
-## Установка
-1. Откройте `chrome://extensions`.
-2. Включите `Developer mode`.
-3. Нажмите `Load unpacked`.
-4. Выберите папку `CorgPhish/`.
+1. `content script` получает URL и сигналы текущей страницы.
+2. Домен нормализуется и сравнивается с `trusted.json`, пользовательским белым и чёрным списками.
+3. Если совпадения нет, включаются проверки похожести домена, брендовых сигналов, форм и контента.
+4. Затем выполняется локальный ML-анализ через `background` + `offscreen`.
+5. Если ML недоступна, решение дополняется fallback-эвристикой.
+6. На выходе расширение выносит один из verdict:
+   - `trusted`
+   - `suspicious`
+   - `phishing`
+   - `blacklisted`
+7. Для опасных сценариев расширение блокирует сайт, форму или скачивание и переводит пользователя на безопасный экран.
 
-## Локальная сборка
-```bash
-./scripts/build-content.sh
-./scripts/verify.sh
-./scripts/package.sh
-```
+## Структура проекта
 
-Что делает каждая команда:
-- `build-content.sh` собирает `CorgPhish/content.js` из модулей `CorgPhish/src/content/*`.
-- `verify.sh` пересобирает content script, проверяет обязательные файлы и выводит версию из `manifest.json`.
-- `package.sh` создаёт релизный ZIP-архив в `dist/`.
+- `CorgPhish/` — исходники расширения.
+- `CorgPhish/popup/` — popup, настройки, storage, ML и итоговый verdict.
+- `CorgPhish/src/content/` — модульные исходники контент-скрипта.
+- `CorgPhish/content.js` — итоговый собранный content script.
+- `CorgPhish/background.js` — service worker.
+- `CorgPhish/offscreen.js` — локальный ONNX inference.
+- `CorgPhish/blocked.*` — экран блокировки.
+- `CorgPhish/trusted.json` — встроенный trusted-список.
+- `CorgPhish/models/` — локальная ONNX-модель.
+- `tests/` — unit и integration тесты.
+- `scripts/` — сборка, проверка и упаковка.
+- `docs/` — документация, скриншоты, тестовые материалы.
+- `.github/` — CI/CD и Dependabot.
 
-Типовой локальный цикл разработки:
+## Локальная разработка
+
+Минимальный цикл:
+
 ```bash
 ./scripts/build-content.sh
 npm test
 ./scripts/verify.sh
 ```
 
-После этого достаточно перезагрузить расширение в `chrome://extensions`.
+Упаковка релизного архива:
+
+```bash
+./scripts/package.sh
+```
+
+Результат:
+
+- ZIP-архив создаётся в `dist/`
+- итоговый файл имеет вид `dist/corgphish-release-vX.Y.Z.zip`
 
 ## Тесты
-Для проекта добавлен исполняемый test harness на встроенном `node:test`.
 
-Команды:
+Доступные команды:
 
 ```bash
 npm test
@@ -94,102 +124,87 @@ npm run test:integration
 npm run test:coverage
 ```
 
-Что входит в контур:
-- `96` unit-тестов по пяти группам.
-- Integration runner на `348` сценариев с проверкой итоговой сводки.
-- Coverage-отчёт для unit-части.
+В репозитории уже есть:
 
-Распределение unit-тестов:
-- `24` теста на нормализацию URL и доменов.
-- `28` тестов на правила риск-оценки и признаки URL.
-- `18` тестов на trusted/whitelist/blacklist.
-- `14` тестов на ML fallback и итоговые вердикты.
-- `12` тестов на локальное хранилище и историю.
+- unit-тесты на логику доменов, риск-скор, списки, fallback и storage;
+- integration runner на 348 сценариев;
+- test helpers и mock для `chrome.*`.
 
 ## CI/CD
-- `.github/workflows/build.yml` проверяет проект на каждый `push` и `pull_request`.
-- `.github/workflows/release.yml` публикует релиз по тегу `vX.Y.Z`.
-- `.github/dependabot.yml` отслеживает обновления GitHub Actions.
 
-Релизный порядок:
-1. Обновить `version` в `CorgPhish/manifest.json`.
+В репозитории настроены два workflow:
+
+- `.github/workflows/build.yml`
+- `.github/workflows/release.yml`
+
+Что делает `build.yml`:
+
+1. checkout репозитория;
+2. установка Node.js;
+3. `npm ci`;
+4. `npm test`;
+5. `./scripts/verify.sh`;
+6. `./scripts/package.sh`;
+7. публикация ZIP как artifact.
+
+Что делает `release.yml`:
+
+1. запускается по тегу `vX.Y.Z`;
+2. повторно ставит зависимости;
+3. прогоняет тесты и verify;
+4. собирает ZIP;
+5. создаёт GitHub Release и прикладывает архив.
+
+## Что нужно включить на GitHub
+
+Для корректной работы CI/CD в анонимном репозитории должны быть включены:
+
+- `Settings -> Actions -> General -> Allow all actions and reusable workflows`
+- `Settings -> Actions -> General -> Workflow permissions -> Read and write permissions`
+- `Settings -> General -> Default branch -> main`
+
+Если релизы не нужны автоматически, можно использовать только `build.yml`.
+
+## Порядок релиза
+
+1. Обновить версию в `CorgPhish/manifest.json`.
 2. Обновить `docs/meta/CHANGELOG.md`.
-3. Запустить `./scripts/verify.sh`.
-4. Создать тег `vX.Y.Z`.
-5. Отправить коммиты и тег в GitHub.
+3. Запустить локально:
 
-## Структура репозитория
-- `CorgPhish/` — код расширения, который реально загружается в браузер.
-- `CorgPhish/popup/` — popup: интерфейс, состояние, storage, ML и логика проверки.
-- `CorgPhish/src/content/` — модульные исходники контент-скрипта.
-- `CorgPhish/content.js` — итоговый content script; вручную его не редактируют.
-- `CorgPhish/models/` — ONNX-модель.
-- `CorgPhish/vendor/ort/` — вендорный `onnxruntime-web`; эти файлы не правятся вручную.
-- `CorgPhish/trusted.json` — встроенный trusted-список.
-- `tests/` — unit/integration тесты и helper-моки.
-- `docs/` — скриншоты, карта проекта и релизная документация.
-- `.github/` — workflows, Dependabot и шаблоны GitHub.
-- `scripts/` — локальные скрипты сборки и проверки.
-- `dist/` — собранные ZIP-архивы.
+```bash
+npm test
+./scripts/verify.sh
+./scripts/package.sh
+```
+
+4. Создать тег:
+
+```bash
+git tag vX.Y.Z
+git push
+git push --tags
+```
+
+5. Дождаться workflow `Release Extension`.
+
+Подробно: [docs/meta/RELEASING.md](docs/meta/RELEASING.md)
 
 ## Где что менять
-- Trusted-список: `CorgPhish/trusted.json`
-- Логика итогового вердикта: `CorgPhish/popup/inspection.js`
-- ML и fallback: `CorgPhish/popup/model.js`, `CorgPhish/offscreen.js`, `CorgPhish/background.js`
-- UI popup: `CorgPhish/popup.html`, `CorgPhish/popup.css`, `CorgPhish/popup/ui.js`
-- Основная логика popup: `CorgPhish/popup/main.js`
-- Подсветка ссылок и pre-click защита: `CorgPhish/src/content/03-links-storage-redirects-antiscam.js`
-- Блокировка форм и загрузок: `CorgPhish/src/content/05-blocking-init-and-events.js`
-- Экран блокировки: `CorgPhish/blocked.html`, `CorgPhish/blocked.css`, `CorgPhish/blocked.js`
 
-Если нужно вручную обновить trusted-кэш, удалите ключ `builtinTrustedDomains` из `chrome.storage.local` или переустановите расширение.
+- trusted-список: `CorgPhish/trusted.json`
+- итоговый verdict: `CorgPhish/popup/inspection.js`, `CorgPhish/popup/inspection-core.js`
+- ML и эвристика: `CorgPhish/popup/model.js`, `CorgPhish/popup/model-core.js`, `CorgPhish/offscreen.js`
+- popup UI: `CorgPhish/popup.html`, `CorgPhish/popup.css`, `CorgPhish/popup/ui.js`
+- блокировка форм и скачиваний: `CorgPhish/src/content/05-blocking-init-and-events.js`
+- экран блокировки: `CorgPhish/blocked.html`, `CorgPhish/blocked.css`, `CorgPhish/blocked.js`
 
-## Что делает каждый основной файл
-- `CorgPhish/manifest.json` — описание расширения, прав, popup, background, content scripts и web accessible resources.
-- `CorgPhish/background.js` — service worker: trusted-кэш, системные уведомления, offscreen и служебные сообщения.
-- `CorgPhish/offscreen.html` — минимальная страница для offscreen-контекста.
-- `CorgPhish/offscreen.js` — запуск ORT и локального инференса в отдельном контексте.
-- `CorgPhish/blocked.html` — HTML экрана полной блокировки.
-- `CorgPhish/blocked.css` — стили экрана блокировки.
-- `CorgPhish/blocked.js` — действия на экране блокировки: назад, временный доступ, чёрный список, репорт.
-- `CorgPhish/popup.html` — каркас popup-интерфейса.
-- `CorgPhish/popup.css` — стили popup, истории и настроек.
-- `CorgPhish/popup/main.js` — точка входа popup; связывает UI, storage и проверку домена.
-- `CorgPhish/popup/ui.js` — рендер UI-состояний и списков.
-- `CorgPhish/popup/dom.js` — единый реестр DOM-элементов popup.
-- `CorgPhish/popup/data.js` — слой доступа к `chrome.storage` и trusted-спискам.
-- `CorgPhish/popup/utils.js` — нормализация доменов, похожесть, форматирование времени.
-- `CorgPhish/popup/config.js` — константы, ключи storage и словари переводов.
-- `CorgPhish/popup/inspection.js` — обёртка над inspection-core с загрузкой данных и коротким кэшем.
-- `CorgPhish/popup/inspection-core.js` — чистая логика итогового вердикта.
-- `CorgPhish/popup/model.js` — popup-слой локального ML и fallback.
-- `CorgPhish/popup/model-core.js` — извлечение признаков URL и эвристика.
-- `CorgPhish/popup/history-core.js` — чистые функции формирования истории.
-- `CorgPhish/popup/i18n.js` — переводчик строк интерфейса.
-- `CorgPhish/src/content/01-bootstrap-and-constants.js` — общее состояние, константы и bootstrap content script.
-- `CorgPhish/src/content/02-domain-and-content-risk.js` — доменные проверки, похожесть и риск-сигналы.
-- `CorgPhish/src/content/03-links-storage-redirects-antiscam.js` — pre-click проверка ссылок, редиректы и anti-scam UX.
-- `CorgPhish/src/content/04-sensitive-ui-and-signals.js` — предупреждения на странице и сбор сигналов для popup.
-- `CorgPhish/src/content/05-blocking-init-and-events.js` — блокировка действий пользователя и инициализация listeners.
-- `scripts/build-content.sh` — сборка `content.js` из модулей.
-- `scripts/verify.sh` — локальная верификация обязательных файлов и версии.
-- `scripts/package.sh` — упаковка расширения в ZIP.
-- `tests/helpers/chrome-mock.mjs` — mock `chrome.*` для unit-тестов.
-- `tests/unit/*.mjs` — модульные тесты чистой логики и storage layer.
-- `tests/integration/scenarios.mjs` — генератор synthetic integration-сценариев.
-- `tests/integration/run-integration.mjs` — runner для 348 интеграционных прогонов и сверки summary.
+## Дополнительные документы
 
-## Документация
-- Техническое описание: [CorgPhish/README.md](CorgPhish/README.md)
-- Навигация по репозиторию: [docs/navigation.md](docs/navigation.md)
-- Карта проекта: [docs/project_map.md](docs/project_map.md)
-- Тестирование: [docs/testing/README.md](docs/testing/README.md)
 - История изменений: [docs/meta/CHANGELOG.md](docs/meta/CHANGELOG.md)
 - Релизный процесс: [docs/meta/RELEASING.md](docs/meta/RELEASING.md)
 - Политика безопасности: [docs/meta/SECURITY.md](docs/meta/SECURITY.md)
-
-## Contributing
-[CONTRIBUTING.md](CONTRIBUTING.md)
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Лицензия
+
 [MIT](LICENSE)
