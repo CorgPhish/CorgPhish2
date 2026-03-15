@@ -1193,11 +1193,34 @@
     };
   };
 
+  const runtimeSettingsQuery = Object.fromEntries(
+    Object.keys(SETTINGS_DEFAULTS).map((key) => [key, undefined])
+  );
+
+  const pickRuntimeSettings = (source = {}) =>
+    Object.fromEntries(
+      Object.keys(SETTINGS_DEFAULTS)
+        .filter(
+          (key) =>
+            Object.prototype.hasOwnProperty.call(source || {}, key) && source[key] !== undefined
+        )
+        .map((key) => [key, source[key]])
+    );
+
   const loadSyncSettings = () =>
     new Promise((resolve) => {
-      safeStorageGet("sync", SETTINGS_DEFAULTS).then((result) => {
-        resolve({ ...SETTINGS_DEFAULTS, ...result });
-      });
+      Promise.all([
+        safeStorageGet("local", runtimeSettingsQuery),
+        safeStorageGet("sync", runtimeSettingsQuery)
+      ]).then(
+        ([localSettings, syncSettings]) => {
+          resolve({
+            ...SETTINGS_DEFAULTS,
+            ...pickRuntimeSettings(localSettings),
+            ...pickRuntimeSettings(syncSettings)
+          });
+        }
+      );
     });
 
   const rememberLinkTitle = (link) => {
@@ -1855,19 +1878,20 @@
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) {
+    const isSettingsArea = area === "sync" || area === "local";
+    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) {
       const nextValue = changes.linkHighlightEnabled?.newValue;
       applyLinkHighlightSetting(
         nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
       );
     }
-    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "antiScamBannerEnabled")) {
+    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "antiScamBannerEnabled")) {
       const nextValue = changes.antiScamBannerEnabled?.newValue;
       applyAntiScamSetting(
         nextValue === undefined ? SETTINGS_DEFAULTS.antiScamBannerEnabled : nextValue
       );
     }
-    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "blockOnUntrusted")) {
+    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "blockOnUntrusted")) {
       const nextValue = changes.blockOnUntrusted?.newValue;
       blockOnUntrustedEnabled =
         nextValue === undefined ? SETTINGS_DEFAULTS.blockOnUntrusted : Boolean(nextValue);

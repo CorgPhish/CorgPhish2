@@ -44,6 +44,16 @@ const tests = [
     const settings = await loadSettings();
     assert.equal(settings.language, "en");
     assert.equal(settings.strictMode, true);
+    assert.equal(chromeMock.state.local.language, "en");
+    assert.equal(chromeMock.state.local.strictMode, true);
+  }],
+  ["loadSettings falls back to mirrored local settings", async () => {
+    resetState();
+    chromeMock.state.local.blockOnUntrusted = true;
+    chromeMock.state.local.linkHighlightEnabled = false;
+    const settings = await loadSettings();
+    assert.equal(settings.blockOnUntrusted, true);
+    assert.equal(settings.linkHighlightEnabled, false);
   }],
   ["saveWhitelist normalizes entries", async () => {
     resetState();

@@ -96,11 +96,34 @@
     };
   };
 
+  const runtimeSettingsQuery = Object.fromEntries(
+    Object.keys(SETTINGS_DEFAULTS).map((key) => [key, undefined])
+  );
+
+  const pickRuntimeSettings = (source = {}) =>
+    Object.fromEntries(
+      Object.keys(SETTINGS_DEFAULTS)
+        .filter(
+          (key) =>
+            Object.prototype.hasOwnProperty.call(source || {}, key) && source[key] !== undefined
+        )
+        .map((key) => [key, source[key]])
+    );
+
   const loadSyncSettings = () =>
     new Promise((resolve) => {
-      safeStorageGet("sync", SETTINGS_DEFAULTS).then((result) => {
-        resolve({ ...SETTINGS_DEFAULTS, ...result });
-      });
+      Promise.all([
+        safeStorageGet("local", runtimeSettingsQuery),
+        safeStorageGet("sync", runtimeSettingsQuery)
+      ]).then(
+        ([localSettings, syncSettings]) => {
+          resolve({
+            ...SETTINGS_DEFAULTS,
+            ...pickRuntimeSettings(localSettings),
+            ...pickRuntimeSettings(syncSettings)
+          });
+        }
+      );
     });
 
   const rememberLinkTitle = (link) => {

@@ -519,19 +519,20 @@
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) {
+    const isSettingsArea = area === "sync" || area === "local";
+    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) {
       const nextValue = changes.linkHighlightEnabled?.newValue;
       applyLinkHighlightSetting(
         nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
       );
     }
-    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "antiScamBannerEnabled")) {
+    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "antiScamBannerEnabled")) {
       const nextValue = changes.antiScamBannerEnabled?.newValue;
       applyAntiScamSetting(
         nextValue === undefined ? SETTINGS_DEFAULTS.antiScamBannerEnabled : nextValue
       );
     }
-    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "blockOnUntrusted")) {
+    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "blockOnUntrusted")) {
       const nextValue = changes.blockOnUntrusted?.newValue;
       blockOnUntrustedEnabled =
         nextValue === undefined ? SETTINGS_DEFAULTS.blockOnUntrusted : Boolean(nextValue);

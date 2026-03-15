@@ -13,6 +13,18 @@ let trustedCache = null;
 const normalizeDomainList = (domains = []) =>
   domains.map((domain) => normalizeHost(domain)).filter(Boolean);
 const normalizeTrustedList = (domains = []) => normalizeDomainList(domains).filter(isLikelyDomain);
+const settingsQuery = Object.fromEntries(
+  Object.keys(DEFAULT_SETTINGS).map((key) => [key, undefined])
+);
+const pickKnownSettings = (source = {}) =>
+  Object.fromEntries(
+    Object.keys(DEFAULT_SETTINGS)
+      .filter(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(source || {}, key) && source[key] !== undefined
+      )
+      .map((key) => [key, source[key]])
+  );
 
 export const __resetDataCachesForTests = () => {
   trustedCache = null;
@@ -69,18 +81,30 @@ export const getTrustedDomains = async (customWhitelist = []) => {
 
 // RU: Читаем настройки из sync storage.
 // EN: Read settings from sync storage.
-export const loadSettings = () =>
-  new Promise((resolve) => {
-    chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
-      resolve({ ...DEFAULT_SETTINGS, ...settings });
-    });
-  });
+export const loadSettings = async () => {
+  const [localSettings, syncSettings] = await Promise.all([
+    new Promise((resolve) => {
+      chrome.storage.local.get(settingsQuery, (settings) => {
+        resolve(pickKnownSettings(settings));
+      });
+    }),
+    new Promise((resolve) => {
+      chrome.storage.sync.get(settingsQuery, (settings) => {
+        resolve(pickKnownSettings(settings));
+      });
+    })
+  ]);
+  return { ...DEFAULT_SETTINGS, ...localSettings, ...syncSettings };
+};
 
 // RU: Сохраняем настройки в sync storage.
 // EN: Save settings to sync storage.
 export const saveSettings = (settings) =>
   new Promise((resolve) => {
-    chrome.storage.sync.set(settings, () => resolve(settings));
+    const normalized = { ...DEFAULT_SETTINGS, ...pickKnownSettings(settings) };
+    chrome.storage.sync.set(normalized, () => {
+      chrome.storage.local.set(normalized, () => resolve(normalized));
+    });
   });
 
 // RU: Загружаем whitelist.
