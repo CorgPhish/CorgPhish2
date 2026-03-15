@@ -407,10 +407,16 @@
     syncRuntimeGuards();
     return temporarilyAllowedPage;
   };
+  const forceInteractionBlock =
+    () => pageRiskVerdict === "phishing" || pageRiskVerdict === "blacklisted";
   const shouldBlockForms = () =>
-    state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
+    state.active ||
+    forceInteractionBlock() ||
+    (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
   const shouldBlockDownloads = () =>
-    state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
+    state.active ||
+    forceInteractionBlock() ||
+    (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
   const setPageRiskVerdict = (verdict = "trusted") => {
     pageRiskVerdict = verdict || "trusted";
     syncRuntimeGuards();
@@ -463,13 +469,16 @@
   };
 
   function handleBlockedInteraction(kind = "form") {
-    if (state.active || temporarilyAllowedPage) return;
+    if (state.active) return;
+    const forceBlockForRisk = forceInteractionBlock();
+    if (!forceBlockForRisk && temporarilyAllowedPage) return;
     console.info("CorgPhish form guard debug", {
       source: "blocked-interaction",
       kind,
       verdict: pageRiskVerdict,
       blockOnUntrustedEnabled,
       temporarilyAllowedPage,
+      forceBlockForRisk,
       href: window.location.href
     });
     redirectToBlockedPage(kind === "download" ? "guardDownload" : "guardForm", {
