@@ -131,51 +131,97 @@
   // RU: Блокируем формы и скачивания, пока блокировка активна.
   // EN: Block forms and downloads while blocking is active.
   const blockInteractions = ({ isFormBlocked, isDownloadBlocked }) => {
+    const stopEvent = (event, message) => {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.stopImmediatePropagation?.();
+      if ("returnValue" in event) {
+        event.returnValue = false;
+      }
+      if ("cancelBubble" in event) {
+        event.cancelBubble = true;
+      }
+      alert(message);
+    };
+
+    const resolveUrl = (rawValue = "") => {
+      if (!rawValue) return "";
+      try {
+        return new URL(rawValue, window.location.href).toString();
+      } catch (error) {
+        return String(rawValue || "");
+      }
+    };
+
+    const isDownloadTarget = (node) => {
+      const link = node?.closest?.("a[href]");
+      if (link) {
+        const href = resolveUrl(link.getAttribute("href") || "");
+        return Boolean(link.hasAttribute("download") || BLOCKED_FILE_EXT.test(href));
+      }
+      const button = node?.closest?.("button,[role=\"button\"],[data-download],[data-href],[data-url]");
+      if (!button) return false;
+      const hintedUrl =
+        button.getAttribute?.("data-download") ||
+        button.getAttribute?.("data-href") ||
+        button.getAttribute?.("data-url") ||
+        "";
+      return Boolean(BLOCKED_FILE_EXT.test(resolveUrl(hintedUrl)));
+    };
+
+    const isSubmitControl = (node) => {
+      const control = node?.closest?.("button,input");
+      if (!control) return false;
+      if (control.matches('input[type="submit"], input[type="image"]')) return true;
+      if (control.matches('button:not([type]), button[type="submit"]')) return true;
+      return false;
+    };
+
     const onSubmit = (event) => {
       if (!isFormBlocked()) return;
-      event.preventDefault();
-      event.stopPropagation();
-      alert(FORM_ALERT);
+      stopEvent(event, FORM_ALERT);
     };
     const onClick = (event) => {
       const target = event.target;
-      const link = target?.closest?.("a");
-      if (!link || !isDownloadBlocked()) return;
-      const href = link?.getAttribute?.("href") || "";
-      let resolvedHref = href;
-      try {
-        resolvedHref = new URL(href, window.location.href).toString();
-      } catch (error) {
-        // keep raw href
+      if (isFormBlocked() && isSubmitControl(target)) {
+        stopEvent(event, FORM_ALERT);
+        return;
       }
-      const downloadLink =
-        link && (link.hasAttribute("download") || BLOCKED_FILE_EXT.test(resolvedHref));
-      if (downloadLink) {
-        event.preventDefault();
-        event.stopPropagation();
-        alert(DOWNLOAD_ALERT);
+      if (isDownloadBlocked() && isDownloadTarget(target)) {
+        stopEvent(event, DOWNLOAD_ALERT);
       }
     };
     const onBeforeRequest = (event) => {
       if (!isDownloadBlocked()) return;
       const url = event?.target?.url || "";
       if (BLOCKED_FILE_EXT.test(url)) {
-        event.preventDefault?.();
-        alert(DOWNLOAD_ALERT);
+        stopEvent(event, DOWNLOAD_ALERT);
       }
     };
     const onFileInput = (event) => {
       if (!isFormBlocked()) return;
       const input = event.target?.closest?.('input[type="file"]');
       if (input) {
-        event.preventDefault();
-        event.stopPropagation();
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        event.stopImmediatePropagation?.();
         input.value = "";
         alert(FORM_ALERT);
       }
     };
+    const onKeyDown = (event) => {
+      if (!isFormBlocked()) return;
+      if (event.key !== "Enter") return;
+      const target = event.target;
+      if (!target?.closest?.("form")) return;
+      stopEvent(event, FORM_ALERT);
+    };
 
     const nativeSubmit = HTMLFormElement.prototype.submit;
+    const nativeRequestSubmit = HTMLFormElement.prototype.requestSubmit;
+    const nativeAnchorClick = HTMLAnchorElement.prototype.click;
+    const nativeButtonClick = HTMLButtonElement.prototype.click;
+    const nativeInputClick = HTMLInputElement.prototype.click;
     HTMLFormElement.prototype.submit = function patchedSubmit(...args) {
       if (isFormBlocked()) {
         alert(FORM_ALERT);
@@ -183,18 +229,64 @@
       }
       return nativeSubmit.apply(this, args);
     };
+    if (typeof nativeRequestSubmit === "function") {
+      HTMLFormElement.prototype.requestSubmit = function patchedRequestSubmit(...args) {
+        if (isFormBlocked()) {
+          alert(FORM_ALERT);
+          return;
+        }
+        return nativeRequestSubmit.apply(this, args);
+      };
+    }
+    HTMLAnchorElement.prototype.click = function patchedAnchorClick(...args) {
+      if (isDownloadBlocked() && isDownloadTarget(this)) {
+        alert(DOWNLOAD_ALERT);
+        return;
+      }
+      return nativeAnchorClick.apply(this, args);
+    };
+    HTMLButtonElement.prototype.click = function patchedButtonClick(...args) {
+      if (isFormBlocked() && isSubmitControl(this)) {
+        alert(FORM_ALERT);
+        return;
+      }
+      if (isDownloadBlocked() && isDownloadTarget(this)) {
+        alert(DOWNLOAD_ALERT);
+        return;
+      }
+      return nativeButtonClick.apply(this, args);
+    };
+    HTMLInputElement.prototype.click = function patchedInputClick(...args) {
+      if (this.matches?.('input[type="file"]') && isFormBlocked()) {
+        alert(FORM_ALERT);
+        return;
+      }
+      if (isFormBlocked() && isSubmitControl(this)) {
+        alert(FORM_ALERT);
+        return;
+      }
+      return nativeInputClick.apply(this, args);
+    };
     document.addEventListener("submit", onSubmit, true);
     document.addEventListener("click", onClick, true);
     document.addEventListener("beforeload", onBeforeRequest, true);
     document.addEventListener("change", onFileInput, true);
     document.addEventListener("click", onFileInput, true);
+    document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("submit", onSubmit, true);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("beforeload", onBeforeRequest, true);
       document.removeEventListener("change", onFileInput, true);
       document.removeEventListener("click", onFileInput, true);
+      document.removeEventListener("keydown", onKeyDown, true);
       HTMLFormElement.prototype.submit = nativeSubmit;
+      if (typeof nativeRequestSubmit === "function") {
+        HTMLFormElement.prototype.requestSubmit = nativeRequestSubmit;
+      }
+      HTMLAnchorElement.prototype.click = nativeAnchorClick;
+      HTMLButtonElement.prototype.click = nativeButtonClick;
+      HTMLInputElement.prototype.click = nativeInputClick;
     };
   };
 
@@ -211,7 +303,7 @@
   const shouldBlockForms = () =>
     state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
   const shouldBlockDownloads = () =>
-    state.active || (pageRiskVerdict !== "trusted" && (blockOnUntrustedEnabled || temporarilyAllowedPage));
+    state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
   const detachInteractionGuards = blockInteractions({
     isFormBlocked: shouldBlockForms,
     isDownloadBlocked: shouldBlockDownloads
