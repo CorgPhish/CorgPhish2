@@ -468,23 +468,36 @@
   });
 
   const inspectCurrentPage = async (signals = {}, options = {}) => {
-    const backgroundResponse = await safeRuntimeSendMessage({
-      type: "inspectPageBg",
-      hostname,
-      url: window.location.href,
-      signals,
-      options
-    });
-    if (backgroundResponse?.ok && backgroundResponse.result) {
-      console.info("CorgPhish inspect debug", {
-        stage: "content-background",
+    for (const retryDelay of [0, 250, 900]) {
+      if (retryDelay) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      }
+      const backgroundResponse = await safeRuntimeSendMessage({
+        type: "inspectPageBg",
         hostname,
-        verdict: backgroundResponse.result.verdict,
-        mlStatus: backgroundResponse.result.mlStatus,
-        detectionSource: backgroundResponse.result.detectionSource,
-        href: window.location.href
+        url: window.location.href,
+        signals,
+        options
       });
-      return backgroundResponse.result;
+      if (backgroundResponse?.ok && backgroundResponse.result) {
+        console.info("CorgPhish inspect debug", {
+          stage: "content-background",
+          hostname,
+          verdict: backgroundResponse.result.verdict,
+          mlStatus: backgroundResponse.result.mlStatus,
+          detectionSource: backgroundResponse.result.detectionSource,
+          href: window.location.href
+        });
+        return backgroundResponse.result;
+      }
+      if (backgroundResponse?.error) {
+        console.info("CorgPhish inspect debug", {
+          stage: "content-background-error",
+          hostname,
+          error: backgroundResponse.error,
+          href: window.location.href
+        });
+      }
     }
 
     const inspectDomain = await getInspectDomainFn();

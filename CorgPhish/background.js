@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
+const TEMP_ALLOW_KEY = "tempAllowDomains";
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
 const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
 const guardedTabs = new Map();
@@ -38,6 +39,27 @@ const loadLocalStorage = (defaults = {}) =>
       resolve(result || defaults);
     });
   });
+
+const buildBlockedPageUrl = ({ domain = "", reason = "phishing", url = "", officialDomain = "" } = {}) => {
+  const params = new URLSearchParams();
+  if (domain) params.set("domain", domain);
+  if (reason) params.set("reason", reason);
+  if (url) params.set("url", url);
+  if (officialDomain) params.set("official", officialDomain);
+  return `${chrome.runtime.getURL("blocked.html")}?${params.toString()}`;
+};
+
+const isTemporarilyAllowed = async (domain = "") => {
+  const cleanDomain = normalizeHost(domain);
+  if (!cleanDomain) return false;
+  const result = await loadLocalStorage({ [TEMP_ALLOW_KEY]: {} });
+  const map =
+    result[TEMP_ALLOW_KEY] && typeof result[TEMP_ALLOW_KEY] === "object"
+      ? result[TEMP_ALLOW_KEY]
+      : {};
+  const expiry = Number(map[cleanDomain] || 0);
+  return expiry > Date.now();
+};
 
 const syncGuardedTab = (tabId, payload = {}) => {
   const entry = createGuardedTabEntry({ ...payload, tabId });
@@ -228,6 +250,34 @@ const inspectPageInBackground = async ({
   });
 };
 
+const autoBlockSenderTab = async (sender, result) => {
+  const tabId = sender?.tab?.id;
+  if (!tabId) return false;
+  if (result?.verdict !== "phishing" && result?.verdict !== "blacklisted") {
+    return false;
+  }
+  const allowed = await isTemporarilyAllowed(result.domain);
+  if (allowed) {
+    return false;
+  }
+  const targetUrl = buildBlockedPageUrl({
+    domain: result.domain,
+    reason: result.verdict === "blacklisted" ? "blacklist" : "phishing",
+    url: sender?.tab?.url || "",
+    officialDomain: result.officialDomain || ""
+  });
+  await new Promise((resolve) => {
+    chrome.tabs.update(tabId, { url: targetUrl }, () => resolve());
+  });
+  console.info("CorgPhish inspect debug", {
+    stage: "background-tab-block",
+    tabId,
+    domain: result.domain,
+    verdict: result.verdict
+  });
+  return true;
+};
+
 // RU: Обрабатываем сообщения попапа/контента.
 // EN: Handle messages from popup/content.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -263,6 +313,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           mlStatus: result.mlStatus,
           detectionSource: result.detectionSource
         });
+        await autoBlockSenderTab(sender, result);
         sendResponse?.({ ok: true, result });
       } catch (error) {
         sendResponse?.({ ok: false, error: error?.message || String(error) });
