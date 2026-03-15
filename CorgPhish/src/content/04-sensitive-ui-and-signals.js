@@ -1,36 +1,20 @@
   // RU: Модуль 4. Сбор page signals и перехват чувствительного ввода.
   // EN: Module 4. Page signal collection and sensitive-input interception.
 
-  // Нижний banner удалён: для чувствительного ввода на рискованной странице используем только full-screen блокировку.
+  // Нижний banner удалён. Сам по себе ввод в поле не должен открывать blocked.html:
+  // блокировка должна происходить только на реальном действии отправки или скачивания.
   const showSensitiveWarning = (hintType = "field") => {
     if (state.active || pageRiskVerdict === "trusted") return;
-    const forceBlockForRisk =
-      pageRiskVerdict === "phishing" || pageRiskVerdict === "blacklisted";
     console.info("CorgPhish sensitive guard debug", {
       stage: "showSensitiveWarning",
       hintType,
       verdict: pageRiskVerdict,
       blockOnUntrustedEnabled,
       temporarilyAllowedPage,
-      forceBlockForRisk,
       href: window.location.href
     });
-    if (!forceBlockForRisk && (!blockOnUntrustedEnabled || temporarilyAllowedPage)) {
-      return;
-    }
-    console.info("CorgPhish form guard debug", {
-      source: "sensitive-warning-escalated",
-      hintType,
-      verdict: pageRiskVerdict,
-      blockOnUntrustedEnabled,
-      temporarilyAllowedPage,
-      forceBlockForRisk,
-      href: window.location.href
-    });
-    redirectToBlockedPage("guardForm", {
-      domain: hostname,
-      url: window.location.href
-    });
+    // Специально ничего не делаем: чувствительный ввод лишь фиксируется в debug-логе.
+    // Реальный стоп происходит в form/download guard на submit/click/fetch/xhr/sendBeacon.
   };
 
   const isSensitiveInput = (element) => {
