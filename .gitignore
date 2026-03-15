@@ -9,6 +9,7 @@
 # Release artifacts
 *.zip
 dist/
+!docs/demo-blocking/downloads/corgphish-demo.zip
 
 # Logs and local env
 *.log

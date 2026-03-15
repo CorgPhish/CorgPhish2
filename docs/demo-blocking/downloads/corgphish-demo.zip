@@ -1,0 +1,2 @@
+This is a fake ZIP payload used only for the CorgPhish demo page.
+The browser should treat it as a downloadable file because of the .zip extension and download attribute.
