@@ -175,7 +175,11 @@ export const resolveInspection = async ({
       );
     }
     if (mlVerdict === "phishing") {
-      verdict = "phishing";
+      verdict = hasSpoof || hasSignals ? "phishing" : "suspicious";
+      if (!suspicionKey && verdict === "suspicious") {
+        suspicionKey = hasListData ? "status.suspicious.unlisted" : "status.suspicious.listMissing";
+        suspicionParams = {};
+      }
       sourceKey = mlStatus === "fallback" ? "status.sourceValue.heuristic" : "status.sourceValue.ml";
     } else if (mlVerdict === "trusted" && !hasSpoof && !hasSignals) {
       verdict = "suspicious";

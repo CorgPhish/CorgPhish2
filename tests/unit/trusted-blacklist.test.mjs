@@ -110,9 +110,17 @@ const tests = [
     const result = await runInspection({ baseTrusted: [] });
     assert.equal(result.detectionSource, "status.sourceValue.listMissing");
   }],
-  ["ml phishing verdict blocks domain", async () => {
+  ["ml-only phishing verdict stays suspicious without other signals", async () => {
     const result = await runInspection({
       predict: async () => ({ status: "ok", verdict: "phishing" })
+    });
+    assert.equal(result.verdict, "suspicious");
+    assert.equal(result.detectionSource, "status.sourceValue.ml");
+  }],
+  ["ml phishing with corroborating content signal blocks domain", async () => {
+    const result = await runInspection({
+      predict: async () => ({ status: "ok", verdict: "phishing" }),
+      signals: { content: { level: "high", primaryReason: "content.reason.payment" } }
     });
     assert.equal(result.verdict, "phishing");
   }],
