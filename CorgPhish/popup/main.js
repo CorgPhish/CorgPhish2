@@ -385,7 +385,7 @@ const applyInspectionResult = async (result, options = {}) => {
       officialDomain: result.officialDomain
     });
   }
-  if (!fromCache && shouldAlert && isRisk && currentSettings.warnOnUntrusted) {
+  if (!fromCache && shouldAlert && isRisk) {
     setStatusMessage(t("status.phishing.hint"), "warn");
   } else if (mlUnavailable) {
     setStatusMessage(t("status.ml.unavailable"), "warn");
@@ -500,7 +500,6 @@ const handleWhitelistListClick = async (event) => {
 const handleSettingsChange = async () => {
   const nextSettings = {
     autoCheckOnOpen: dom.autoCheckInput?.checked ?? DEFAULT_SETTINGS.autoCheckOnOpen,
-    warnOnUntrusted: dom.alertInput?.checked ?? DEFAULT_SETTINGS.warnOnUntrusted,
     linkHighlightEnabled:
       dom.linkHighlightToggle?.checked ?? DEFAULT_SETTINGS.linkHighlightEnabled,
     antiScamBannerEnabled:
@@ -509,7 +508,6 @@ const handleSettingsChange = async () => {
     theme: dom.themeToggle?.checked ? "light" : "dark",
     language: dom.languageSelect?.value ?? DEFAULT_SETTINGS.language,
     blockOnUntrusted: dom.blockInputToggle?.checked ?? DEFAULT_SETTINGS.blockOnUntrusted,
-    systemNotifyOnRisk: dom.systemNotifyToggle?.checked ?? DEFAULT_SETTINGS.systemNotifyOnRisk,
     historyRetentionDays:
       Number(dom.historyRetentionSelect?.value) || DEFAULT_SETTINGS.historyRetentionDays,
     compactMode: dom.compactModeToggle?.checked ?? DEFAULT_SETTINGS.compactMode
@@ -554,9 +552,6 @@ const updateSettingsControls = () => {
   if (dom.autoCheckInput) {
     dom.autoCheckInput.checked = currentSettings.autoCheckOnOpen;
   }
-  if (dom.alertInput) {
-    dom.alertInput.checked = currentSettings.warnOnUntrusted;
-  }
   if (dom.linkHighlightToggle) {
     dom.linkHighlightToggle.checked = currentSettings.linkHighlightEnabled;
   }
@@ -574,9 +569,6 @@ const updateSettingsControls = () => {
   }
   if (dom.blockInputToggle) {
     dom.blockInputToggle.checked = currentSettings.blockOnUntrusted;
-  }
-  if (dom.systemNotifyToggle) {
-    dom.systemNotifyToggle.checked = currentSettings.systemNotifyOnRisk;
   }
   if (dom.historyRetentionSelect) {
     dom.historyRetentionSelect.value = String(currentSettings.historyRetentionDays);
@@ -756,7 +748,6 @@ safeAddEvent(dom.clearHistoryBtn, "click", async () => {
 });
 
 safeAddEvent(dom.autoCheckInput, "change", handleSettingsChange);
-safeAddEvent(dom.alertInput, "change", handleSettingsChange);
 safeAddEvent(dom.linkHighlightToggle, "change", handleSettingsChange);
 safeAddEvent(dom.antiScamToggle, "change", handleSettingsChange);
 safeAddEvent(dom.strictModeToggle, "change", handleSettingsChange);
@@ -765,7 +756,6 @@ safeAddEvent(dom.languageSelect, "change", handleSettingsChange);
 safeAddEvent(dom.blockInputToggle, "input", persistBlockToggleImmediately);
 safeAddEvent(dom.blockInputToggle, "click", persistBlockToggleImmediately);
 safeAddEvent(dom.blockInputToggle, "change", handleSettingsChange);
-safeAddEvent(dom.systemNotifyToggle, "change", handleSettingsChange);
 safeAddEvent(dom.historyRetentionSelect, "change", handleSettingsChange);
 safeAddEvent(dom.compactModeToggle, "change", handleSettingsChange);
 safeAddEvent(dom.manualForm, "submit", handleManualSubmit);

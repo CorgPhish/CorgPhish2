@@ -1,5 +1,5 @@
-// RU: Сервис-воркер: системные уведомления, кэш trusted.json, закрытие вкладок.
-// EN: Service worker: system notifications, trusted.json cache, close tabs.
+// RU: Сервис-воркер: кэш trusted.json, ML/offscreen, защита загрузок и закрытие вкладок.
+// EN: Service worker: trusted.json cache, ML/offscreen, download guard, and tab closing.
 import {
   createGuardedTabEntry,
   matchGuardedDownload,
@@ -14,10 +14,6 @@ import {
 import { resolveInspection } from "./popup/inspection-core.js";
 import { extractFeatures, heuristicVerdict } from "./popup/model-core.js";
 import { isLikelyDomain, normalizeHost } from "./popup/utils.js";
-
-const DEFAULT_SETTINGS = {
-  systemNotifyOnRisk: false
-};
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
 const TEMP_ALLOW_KEY = "tempAllowDomains";
@@ -126,13 +122,6 @@ const cacheTrustedList = async () => {
     return [];
   }
 };
-
-const loadSettings = () =>
-  new Promise((resolve) => {
-    chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
-      resolve({ ...DEFAULT_SETTINGS, ...settings });
-    });
-  });
 
 const persistRuntimeSetting = (key, value) =>
   new Promise((resolve) => {
@@ -343,29 +332,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         domain: normalizeHost(message.domain || "")
       });
       sendResponse?.({ ok: true });
-    });
-    return true;
-  }
-
-  // Системные уведомления включаются отдельно в настройках и не мешают базовой защите.
-  if (message.type === "riskNotification") {
-    loadSettings().then((settings) => {
-      if (!settings.systemNotifyOnRisk) {
-        sendResponse?.({ ok: false });
-        return;
-      }
-      const id = `corgphish-${Date.now()}`;
-      chrome.notifications.create(
-        id,
-        {
-          type: "basic",
-          iconUrl: "icons/icon128.png",
-          title: "CorgPhish: подозрительный сайт",
-          message: `${message.domain ?? "Сайт"} может быть фишингом`,
-          contextMessage: message.url ?? ""
-        },
-        () => sendResponse?.({ ok: true })
-      );
     });
     return true;
   }

@@ -2,14 +2,12 @@
 // EN: Central popup/shared config: defaults, storage keys and UI translations.
 export const DEFAULT_SETTINGS = {
   autoCheckOnOpen: true,
-  warnOnUntrusted: false,
   strictMode: false,
   theme: "light",
   language: "ru",
   historyRetentionDays: 30,
   compactMode: false,
   blockOnUntrusted: false,
-  systemNotifyOnRisk: false,
   linkHighlightEnabled: true,
   antiScamBannerEnabled: true
 };

@@ -21,7 +21,7 @@
       "128": "icons/icon128.png"
     }
   },
-  "permissions": ["storage", "tabs", "notifications", "offscreen", "downloads"],
+  "permissions": ["storage", "tabs", "offscreen", "downloads"],
   "web_accessible_resources": [
     {
       "resources": [
