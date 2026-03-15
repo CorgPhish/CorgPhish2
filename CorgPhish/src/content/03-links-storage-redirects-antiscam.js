@@ -174,11 +174,7 @@
         resolve(trustedCache.list);
         return;
       }
-      chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
-        if (chrome.runtime.lastError) {
-          resolve([]);
-          return;
-        }
+      safeRuntimeSendMessage({ type: "getTrustedDomains" }).then((response) => {
         const list = Array.isArray(response?.trusted) ? response.trusted : [];
         const normalized = list.map((domain) => normalizeHost(domain)).filter(isLikelyDomain);
         trustedCache = { list: normalized, ts: Date.now() };
@@ -191,7 +187,7 @@
   // EN: Load blacklist from local storage.
   const loadBlacklist = () =>
     new Promise((resolve) => {
-      chrome.storage.local.get({ [BLACKLIST_KEY]: [] }, (result) => {
+      safeStorageGet("local", { [BLACKLIST_KEY]: [] }).then((result) => {
         const list = Array.isArray(result[BLACKLIST_KEY]) ? result[BLACKLIST_KEY] : [];
         resolve(list.map((d) => normalizeHost(d)).filter(isLikelyDomain));
       });
@@ -201,14 +197,14 @@
   // EN: Persist blacklist.
   const saveBlacklist = (domains) =>
     new Promise((resolve) => {
-      chrome.storage.local.set({ [BLACKLIST_KEY]: domains }, resolve);
+      safeStorageSet("local", { [BLACKLIST_KEY]: domains }).then(resolve);
     });
 
   // RU: Загружаем временные разрешения (домены, разблокированные на N минут).
   // EN: Load temporary allow map (domains unblocked for N minutes).
   const loadTempAllow = () =>
     new Promise((resolve) => {
-      chrome.storage.local.get({ [TEMP_ALLOW_KEY]: {} }, (result) => {
+      safeStorageGet("local", { [TEMP_ALLOW_KEY]: {} }).then((result) => {
         const map = result[TEMP_ALLOW_KEY] && typeof result[TEMP_ALLOW_KEY] === "object" ? result[TEMP_ALLOW_KEY] : {};
         resolve(map);
       });
@@ -218,7 +214,7 @@
   // EN: Persist temporary allow map.
   const saveTempAllow = (map) =>
     new Promise((resolve) => {
-      chrome.storage.local.set({ [TEMP_ALLOW_KEY]: map }, resolve);
+      safeStorageSet("local", { [TEMP_ALLOW_KEY]: map }).then(resolve);
     });
 
   // RU: Проверяем, разрешён ли домен временно.
@@ -256,7 +252,7 @@
   // EN: Read user whitelist for on-page auto inspection.
   const loadWhitelist = () =>
     new Promise((resolve) => {
-      chrome.storage.local.get({ customTrustedDomains: [] }, (result) => {
+      safeStorageGet("local", { customTrustedDomains: [] }).then((result) => {
         const list = Array.isArray(result.customTrustedDomains) ? result.customTrustedDomains : [];
         resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
       });
@@ -451,7 +447,7 @@
 
   const getInspectDomainFn = async () => {
     if (!inspectDomainFnPromise) {
-      inspectDomainFnPromise = import(chrome.runtime.getURL("popup/inspection.js"))
+      inspectDomainFnPromise = safeImportRuntimeModule("popup/inspection.js")
         .then((module) => module?.inspectDomain || null)
         .catch((error) => {
           inspectDomainFnPromise = null;

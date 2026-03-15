@@ -1,3 +1,242 @@
+  // RU: Модуль 4. Баннеры предупреждений и сбор page signals для popup/inspection.
+  // EN: Module 4. On-page warnings and page signal collection for popup/inspection.
+  // Баннер живёт в DOM самой страницы и не требует отдельного layout-файла.
+  const createSensitiveBanner = () => {
+    const existing = document.getElementById("corgphish-sensitive-banner");
+    if (existing) return existing;
+    const banner = document.createElement("div");
+    banner.id = "corgphish-sensitive-banner";
+    banner.style.position = "fixed";
+    banner.style.right = "16px";
+    banner.style.bottom = "16px";
+    banner.style.zIndex = "2147483646";
+    banner.style.maxWidth = "360px";
+    banner.style.padding = "12px 14px";
+    banner.style.borderRadius = "12px";
+    banner.style.background = "rgba(214, 90, 90, 0.96)";
+    banner.style.color = "#fff";
+    banner.style.fontFamily = '"Nunito","Manrope","Inter",system-ui,-apple-system,sans-serif';
+    banner.style.fontSize = "13px";
+    banner.style.lineHeight = "1.35";
+    banner.style.fontWeight = "700";
+    banner.style.boxShadow = "0 14px 30px rgba(0,0,0,0.26)";
+    banner.style.opacity = "0";
+    banner.style.transform = "translateY(8px)";
+    banner.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+    banner.style.pointerEvents = "none";
+    document.documentElement.appendChild(banner);
+    return banner;
+  };
+
+  // Баннер срабатывает ещё до полной блокировки, когда пользователь начинает вводить чувствительные данные.
+  const showSensitiveWarning = (hintType = "field") => {
+    if (state.active || pageRiskVerdict === "trusted") return;
+    const now = Date.now();
+    if (now - sensitiveWarnAt < SENSITIVE_WARN_COOLDOWN_MS) return;
+    sensitiveWarnAt = now;
+    const hints = getSensitiveHints();
+    const banner = createSensitiveBanner();
+    banner.textContent = hints[hintType] || hints.field;
+    banner.style.opacity = "1";
+    banner.style.transform = "translateY(0)";
+    clearTimeout(showSensitiveWarning.timer);
+    showSensitiveWarning.timer = setTimeout(() => {
+      banner.style.opacity = "0";
+      banner.style.transform = "translateY(8px)";
+    }, 3800);
+  };
+
+  const isSensitiveInput = (element) => {
+    if (!element || !(element instanceof HTMLElement)) return false;
+    const input = element.closest("input, textarea");
+    if (!input) return false;
+    const type = (input.getAttribute("type") || input.type || "").toLowerCase();
+    const autocomplete = (input.getAttribute("autocomplete") || "").toLowerCase();
+    const descriptor = `${input.name || ""} ${input.id || ""} ${input.placeholder || ""} ${autocomplete}`;
+    if (type === "password") return true;
+    if (["email", "tel"].includes(type)) return true;
+    if (/(one-time-code|cc-|current-password|new-password)/.test(autocomplete)) return true;
+    return SENSITIVE_FIELD_RE.test(descriptor);
+  };
+
+  const detectSensitiveText = (text = "") => {
+    if (!text) return false;
+    const sample = String(text).trim();
+    if (!sample) return false;
+    if (sample.length >= 12 && SENSITIVE_DATA_RE.card.test(sample)) return true;
+    if (SENSITIVE_DATA_RE.email.test(sample)) return true;
+    if (SENSITIVE_DATA_RE.phone.test(sample)) return true;
+    if (SENSITIVE_DATA_RE.otp.test(sample) && /\b(code|otp|sms|код|смс)\b/i.test(sample)) return true;
+    return false;
+  };
+
+  const setupSensitiveDataGuard = () => {
+    sensitiveGuardTeardown?.();
+    const onInput = (event) => {
+      if (pageRiskVerdict === "trusted") return;
+      const target = event.target;
+      if (!isSensitiveInput(target)) return;
+      const value = target?.value;
+      if (!value || String(value).trim().length < 2) return;
+      showSensitiveWarning("field");
+    };
+    const onPaste = (event) => {
+      if (pageRiskVerdict === "trusted") return;
+      const target = event.target;
+      if (!isSensitiveInput(target)) return;
+      const text = event.clipboardData?.getData("text") || "";
+      if (!detectSensitiveText(text)) return;
+      showSensitiveWarning("paste");
+    };
+    document.addEventListener("input", onInput, true);
+    document.addEventListener("paste", onPaste, true);
+    sensitiveGuardTeardown = () => {
+      document.removeEventListener("input", onInput, true);
+      document.removeEventListener("paste", onPaste, true);
+    };
+  };
+
+  const loadSyncSettings = () =>
+    new Promise((resolve) => {
+      safeStorageGet("sync", SETTINGS_DEFAULTS).then((result) => {
+        resolve({ ...SETTINGS_DEFAULTS, ...result });
+      });
+    });
+
+  const rememberLinkTitle = (link) => {
+    if (!link) return;
+    if (link.dataset.corgphishTitle !== undefined) return;
+    const current = link.getAttribute("title");
+    link.dataset.corgphishTitle = current ?? "";
+  };
+
+  const restoreLinkTitle = (link) => {
+    if (!link) return;
+    if (link.dataset.corgphishTitle === undefined) return;
+    const original = link.dataset.corgphishTitle;
+    if (original) {
+      link.setAttribute("title", original);
+    } else {
+      link.removeAttribute("title");
+    }
+    delete link.dataset.corgphishTitle;
+  };
+
+  const ensureLinkStyles = () => {
+    if (document.getElementById("corgphish-link-style")) return;
+    const style = document.createElement("style");
+    style.id = "corgphish-link-style";
+    style.textContent = `
+      .corgphish-link {
+        position: relative;
+        border-radius: 4px;
+        transition: box-shadow 0.15s ease, background 0.15s ease;
+      }
+      .corgphish-link--suspicious {
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.8);
+        background: rgba(59, 130, 246, 0.12);
+      }
+      .corgphish-link--phishing,
+      .corgphish-link--blacklisted {
+        box-shadow: 0 0 0 2px rgba(214, 90, 90, 0.9);
+        background: rgba(214, 90, 90, 0.12);
+      }
+      .corgphish-link--suspicious::after,
+      .corgphish-link--phishing::after,
+      .corgphish-link--blacklisted::after {
+        content: "⚠";
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        font-size: 12px;
+        background: #fff;
+        color: #d65a5a;
+        border-radius: 999px;
+        padding: 1px 4px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      }
+      .corgphish-link--suspicious::after {
+        color: #2563eb;
+      }
+    `;
+    document.head.appendChild(style);
+  };
+
+  const detectBrandMismatch = async (hostname) => {
+    const trustedList = await loadTrustedDomains();
+    if (!trustedList.length) return null;
+    const currentBase = getRegistrableDomain(hostname);
+    const currentLabel = getRegistrableLabel(hostname);
+    const tokenToDomain = new Map();
+    trustedList.forEach((domain) => {
+      const token = getRegistrableLabel(domain);
+      if (token && token.length >= 3 && !tokenToDomain.has(token)) {
+        tokenToDomain.set(token, getRegistrableDomain(domain));
+      }
+    });
+    const samples = getTextSamples();
+    const tokens = samples.flatMap((text) => extractTokens(text));
+    for (const token of tokens) {
+      const brandDomain = tokenToDomain.get(token);
+      if (!brandDomain) continue;
+      if (token === currentLabel) continue;
+      if (currentBase === brandDomain || hostname.endsWith(`.${brandDomain}`)) continue;
+      return { token, domain: brandDomain };
+    }
+    return null;
+  };
+
+  const detectFormRisk = (hostname) => {
+    const forms = Array.from(document.forms || []);
+    if (!forms.length) return null;
+    const currentBase = getRegistrableDomain(hostname);
+    for (const form of forms) {
+      const actionAttr = form.getAttribute("action");
+      let actionUrl = null;
+      try {
+        actionUrl = actionAttr ? new URL(actionAttr, window.location.href) : new URL(window.location.href);
+      } catch (error) {
+        continue;
+      }
+      const actionHost = normalizeHost(actionUrl.hostname || "");
+      if (!actionHost) continue;
+      const actionBase = getRegistrableDomain(actionHost);
+      const isExternal = Boolean(currentBase && actionBase && currentBase !== actionBase);
+      const isIp = isIpDomain(actionHost);
+      const isHttpDowngrade =
+        window.location.protocol === "https:" && actionUrl.protocol === "http:";
+      const hasSensitive = Array.from(form.elements || []).some((el) => {
+        const type = (el.getAttribute?.("type") || "").toLowerCase();
+        const name = `${el.name || ""} ${el.id || ""} ${el.autocomplete || ""}`.toLowerCase();
+        if (type === "password") return true;
+        return /(otp|code|sms|token|pin|pass)/.test(name);
+      });
+      if (isIp || isExternal || isHttpDowngrade) {
+        const reason = isIp ? "ip" : isHttpDowngrade ? "http" : "external";
+        return { actionHost, reason, hasSensitive };
+      }
+    }
+    return null;
+  };
+
+  const waitForDomReady = () =>
+    new Promise((resolve) => {
+      if (document.readyState === "interactive" || document.readyState === "complete") {
+        resolve();
+        return;
+      }
+      window.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+    });
+
+  const collectPageSignals = async ({ waitForDom = false } = {}) => {
+    if (waitForDom) {
+      await waitForDomReady();
+    }
+    const brand = await detectBrandMismatch(hostname);
+    const form = detectFormRisk(hostname);
+    const content = detectContentRisk(hostname, form, brand);
+    return { brand, form, content };
+  };
 // RU: Модуль 1. Общие константы, единое состояние content script и служебные helper-функции.
 // EN: Module 1. Shared constants, content-script state and common helpers.
 (() => {
@@ -211,6 +450,705 @@
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
+  let extensionContextAlive = true;
+  let extensionContextWarningShown = false;
+
+  const isExtensionContextError = (error) =>
+    /Extension context invalidated/i.test(String(error?.message || error || ""));
+
+  const markExtensionContextInvalid = (error) => {
+    if (!isExtensionContextError(error)) return false;
+    extensionContextAlive = false;
+    if (!extensionContextWarningShown) {
+      extensionContextWarningShown = true;
+      console.info("CorgPhish: extension context invalidated, content script is switching to safe no-op mode");
+    }
+    return true;
+  };
+
+  const hasExtensionContext = () => {
+    if (!extensionContextAlive) return false;
+    try {
+      if (!chrome?.runtime?.id) {
+        extensionContextAlive = false;
+        return false;
+      }
+      return true;
+    } catch (error) {
+      markExtensionContextInvalid(error);
+      return false;
+    }
+  };
+
+  const getRuntimeLastErrorMessage = () => {
+    try {
+      return chrome?.runtime?.lastError?.message || "";
+    } catch (error) {
+      markExtensionContextInvalid(error);
+      return "Extension context invalidated";
+    }
+  };
+
+  const safeRuntimeGetUrl = (path = "") => {
+    if (!hasExtensionContext()) return "";
+    try {
+      return chrome.runtime.getURL(path);
+    } catch (error) {
+      if (markExtensionContextInvalid(error)) return "";
+      throw error;
+    }
+  };
+
+  const safeRuntimeSendMessage = (message) =>
+    new Promise((resolve) => {
+      if (!hasExtensionContext()) {
+        resolve(null);
+        return;
+      }
+      try {
+        chrome.runtime.sendMessage(message, (response) => {
+          const lastErrorMessage = getRuntimeLastErrorMessage();
+          if (lastErrorMessage) {
+            markExtensionContextInvalid(lastErrorMessage);
+            resolve(null);
+            return;
+          }
+          resolve(response ?? null);
+        });
+      } catch (error) {
+        if (markExtensionContextInvalid(error)) {
+          resolve(null);
+          return;
+        }
+        throw error;
+      }
+    });
+
+  const safeStorageGet = (area, defaults = {}) =>
+    new Promise((resolve) => {
+      if (!hasExtensionContext()) {
+        resolve(defaults);
+        return;
+      }
+      const storageArea = chrome?.storage?.[area];
+      if (!storageArea?.get) {
+        resolve(defaults);
+        return;
+      }
+      try {
+        storageArea.get(defaults, (result) => {
+          const lastErrorMessage = getRuntimeLastErrorMessage();
+          if (lastErrorMessage) {
+            markExtensionContextInvalid(lastErrorMessage);
+            resolve(defaults);
+            return;
+          }
+          resolve(result || defaults);
+        });
+      } catch (error) {
+        if (markExtensionContextInvalid(error)) {
+          resolve(defaults);
+          return;
+        }
+        throw error;
+      }
+    });
+
+  const safeStorageSet = (area, value) =>
+    new Promise((resolve) => {
+      if (!hasExtensionContext()) {
+        resolve();
+        return;
+      }
+      const storageArea = chrome?.storage?.[area];
+      if (!storageArea?.set) {
+        resolve();
+        return;
+      }
+      try {
+        storageArea.set(value, () => {
+          const lastErrorMessage = getRuntimeLastErrorMessage();
+          if (lastErrorMessage) {
+            markExtensionContextInvalid(lastErrorMessage);
+          }
+          resolve();
+        });
+      } catch (error) {
+        if (markExtensionContextInvalid(error)) {
+          resolve();
+          return;
+        }
+        throw error;
+      }
+    });
+
+  const safeImportRuntimeModule = async (path) => {
+    const url = safeRuntimeGetUrl(path);
+    if (!url) return null;
+    try {
+      return await import(url);
+    } catch (error) {
+      if (markExtensionContextInvalid(error)) {
+        return null;
+      }
+      throw error;
+    }
+  };
+  // RU: Модуль 5. Финальная защита: блокировка действий, редирект на blocked.html и init listeners.
+  // EN: Module 5. Final guard: interaction blocking, redirect to blocked.html and event wiring.
+  // RU: Создаём блокирующий оверлей с кнопками действий.
+  // EN: Create blocking overlay with action buttons.
+  // Оверлей остаётся запасным вариантом. Основной сценарий сейчас — быстрый редирект на blocked.html.
+  const createOverlay = (domain, onExit, onBlacklist, onAllow) => {
+    const overlayHost = document.createElement("div");
+    const shadow = overlayHost.attachShadow({ mode: "open" });
+
+    const style = document.createElement("style");
+    style.textContent = `
+      :host { all: initial; }
+      *, *::before, *::after { box-sizing: border-box; }
+      button { all: unset; font: inherit; }
+    `;
+    const overlayEl = document.createElement("div");
+    overlayEl.style.position = "fixed";
+    overlayEl.style.inset = "0";
+    overlayEl.style.zIndex = "2147483647";
+    overlayEl.style.background = `radial-gradient(circle at 15% 20%, rgba(242,154,74,0.16), transparent 38%), radial-gradient(circle at 80% 20%, rgba(217,119,44,0.18), transparent 32%), ${BRAND_COLORS.overlay}`;
+    overlayEl.style.backdropFilter = "blur(4px)";
+    overlayEl.style.display = "flex";
+    overlayEl.style.flexDirection = "column";
+    overlayEl.style.alignItems = "center";
+    overlayEl.style.justifyContent = "center";
+    overlayEl.style.gap = "12px";
+    overlayEl.style.fontFamily = '"Nunito","Manrope","Inter",system-ui,-apple-system,sans-serif';
+    overlayEl.style.color = BRAND_COLORS.text;
+    overlayEl.style.padding = "24px";
+    overlayEl.style.textAlign = "center";
+
+    const card = document.createElement("div");
+    card.style.background = `${BRAND_COLORS.surface}`;
+    card.style.border = `1px solid ${BRAND_COLORS.border}`;
+    card.style.borderRadius = "18px";
+    card.style.padding = "18px 20px";
+    card.style.minWidth = "280px";
+    card.style.maxWidth = "420px";
+    card.style.boxShadow = "0 14px 40px rgba(43,42,40,0.14), inset 0 1px 0 rgba(255,255,255,0.65)";
+    card.style.display = "flex";
+    card.style.flexDirection = "column";
+    card.style.gap = "6px";
+
+    const badge = document.createElement("div");
+    badge.textContent = "CorgPhish — защита";
+    badge.style.display = "inline-flex";
+    badge.style.alignItems = "center";
+    badge.style.justifyContent = "center";
+    badge.style.alignSelf = "center";
+    badge.style.padding = "6px 12px";
+    badge.style.borderRadius = "999px";
+    badge.style.fontSize = "12px";
+    badge.style.letterSpacing = "0.04em";
+    badge.style.textTransform = "uppercase";
+    badge.style.fontWeight = "800";
+    badge.style.background = "#F7DEDE";
+    badge.style.color = BRAND_COLORS.bad;
+    badge.style.border = `1px solid ${BRAND_COLORS.bad}20`;
+
+    const title = document.createElement("h2");
+    title.textContent = "Этот сайт может быть фишинговым";
+    title.style.margin = "2px 0 4px";
+    title.style.color = BRAND_COLORS.text;
+
+    const subtitle = document.createElement("p");
+    subtitle.textContent = domain;
+    subtitle.style.margin = "0 0 6px";
+    subtitle.style.fontWeight = "700";
+    subtitle.style.color = BRAND_COLORS.accentStrong;
+
+    const hint = document.createElement("p");
+    hint.textContent = "Данные, формы и загрузки заблокированы.";
+    hint.style.margin = "0 0 14px";
+    hint.style.color = BRAND_COLORS.muted;
+
+    const buttons = document.createElement("div");
+    buttons.style.display = "flex";
+    buttons.style.gap = "10px";
+    buttons.style.justifyContent = "center";
+    buttons.style.flexWrap = "wrap";
+
+    const exitBtn = document.createElement("button");
+    exitBtn.textContent = "Выйти";
+    exitBtn.style.padding = "10px 14px";
+    exitBtn.style.borderRadius = "12px";
+    exitBtn.style.border = "none";
+    exitBtn.style.cursor = "pointer";
+    exitBtn.style.background = `linear-gradient(120deg, ${BRAND_COLORS.accent}, ${BRAND_COLORS.accentStrong})`;
+    exitBtn.style.color = BRAND_COLORS.text;
+    exitBtn.style.fontWeight = "800";
+    exitBtn.style.boxShadow = "0 10px 26px rgba(242,154,74,0.28)";
+
+    const blacklistBtn = document.createElement("button");
+    blacklistBtn.textContent = "Добавить в ЧС";
+    blacklistBtn.style.padding = "10px 14px";
+    blacklistBtn.style.borderRadius = "12px";
+    blacklistBtn.style.border = `1px solid ${BRAND_COLORS.border}`;
+    blacklistBtn.style.background = BRAND_COLORS.surfaceAlt;
+    blacklistBtn.style.color = BRAND_COLORS.text;
+    blacklistBtn.style.cursor = "pointer";
+
+    const allowBtn = document.createElement("button");
+    allowBtn.textContent = "Разрешить на 5 минут";
+    allowBtn.style.padding = "10px 14px";
+    allowBtn.style.borderRadius = "12px";
+    allowBtn.style.border = `1px solid ${BRAND_COLORS.accent}50`;
+    allowBtn.style.background = `${BRAND_COLORS.accent}14`;
+    allowBtn.style.color = BRAND_COLORS.accentStrong;
+    allowBtn.style.cursor = "pointer";
+
+    buttons.appendChild(exitBtn);
+    buttons.appendChild(blacklistBtn);
+    buttons.appendChild(allowBtn);
+    card.appendChild(badge);
+    card.appendChild(title);
+    card.appendChild(subtitle);
+    card.appendChild(hint);
+    card.appendChild(buttons);
+    overlayEl.appendChild(card);
+    shadow.appendChild(style);
+    shadow.appendChild(overlayEl);
+    document.documentElement.appendChild(overlayHost);
+
+    exitBtn.addEventListener("click", () => onExit?.());
+    blacklistBtn.addEventListener("click", () => onBlacklist?.());
+    allowBtn.addEventListener("click", () => onAllow?.());
+
+    return { overlay: overlayHost, hint, subtitle, allowBtn, title, badge };
+  };
+
+  // RU: Блокируем формы и скачивания, пока блокировка активна.
+  // EN: Block forms and downloads while blocking is active.
+  const blockInteractions = ({ isFormBlocked, isDownloadBlocked }) => {
+    const stopEvent = (event, message) => {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.stopImmediatePropagation?.();
+      if ("returnValue" in event) {
+        event.returnValue = false;
+      }
+      if ("cancelBubble" in event) {
+        event.cancelBubble = true;
+      }
+      alert(message);
+    };
+
+    const resolveUrl = (rawValue = "") => {
+      if (!rawValue) return "";
+      try {
+        return new URL(rawValue, window.location.href).toString();
+      } catch (error) {
+        return String(rawValue || "");
+      }
+    };
+
+    const isDownloadTarget = (node) => {
+      const link = node?.closest?.("a[href]");
+      if (link) {
+        const href = resolveUrl(link.getAttribute("href") || "");
+        return Boolean(link.hasAttribute("download") || BLOCKED_FILE_EXT.test(href));
+      }
+      const button = node?.closest?.("button,[role=\"button\"],[data-download],[data-href],[data-url]");
+      if (!button) return false;
+      const hintedUrl =
+        button.getAttribute?.("data-download") ||
+        button.getAttribute?.("data-href") ||
+        button.getAttribute?.("data-url") ||
+        "";
+      return Boolean(BLOCKED_FILE_EXT.test(resolveUrl(hintedUrl)));
+    };
+
+    const isSubmitControl = (node) => {
+      const control = node?.closest?.("button,input");
+      if (!control) return false;
+      if (control.matches('input[type="submit"], input[type="image"]')) return true;
+      if (control.matches('button:not([type]), button[type="submit"]')) return true;
+      return false;
+    };
+
+    const onSubmit = (event) => {
+      if (!isFormBlocked()) return;
+      stopEvent(event, FORM_ALERT);
+    };
+    const onClick = (event) => {
+      const target = event.target;
+      if (isFormBlocked() && isSubmitControl(target)) {
+        stopEvent(event, FORM_ALERT);
+        return;
+      }
+      if (isDownloadBlocked() && isDownloadTarget(target)) {
+        stopEvent(event, DOWNLOAD_ALERT);
+      }
+    };
+    const onBeforeRequest = (event) => {
+      if (!isDownloadBlocked()) return;
+      const url = event?.target?.url || "";
+      if (BLOCKED_FILE_EXT.test(url)) {
+        stopEvent(event, DOWNLOAD_ALERT);
+      }
+    };
+    const onFileInput = (event) => {
+      if (!isFormBlocked()) return;
+      const input = event.target?.closest?.('input[type="file"]');
+      if (input) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        event.stopImmediatePropagation?.();
+        input.value = "";
+        alert(FORM_ALERT);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (!isFormBlocked()) return;
+      if (event.key !== "Enter") return;
+      const target = event.target;
+      if (!target?.closest?.("form")) return;
+      stopEvent(event, FORM_ALERT);
+    };
+
+    const nativeSubmit = HTMLFormElement.prototype.submit;
+    const nativeRequestSubmit = HTMLFormElement.prototype.requestSubmit;
+    const nativeAnchorClick = HTMLAnchorElement.prototype.click;
+    const nativeButtonClick = HTMLButtonElement.prototype.click;
+    const nativeInputClick = HTMLInputElement.prototype.click;
+    HTMLFormElement.prototype.submit = function patchedSubmit(...args) {
+      if (isFormBlocked()) {
+        alert(FORM_ALERT);
+        return;
+      }
+      return nativeSubmit.apply(this, args);
+    };
+    if (typeof nativeRequestSubmit === "function") {
+      HTMLFormElement.prototype.requestSubmit = function patchedRequestSubmit(...args) {
+        if (isFormBlocked()) {
+          alert(FORM_ALERT);
+          return;
+        }
+        return nativeRequestSubmit.apply(this, args);
+      };
+    }
+    HTMLAnchorElement.prototype.click = function patchedAnchorClick(...args) {
+      if (isDownloadBlocked() && isDownloadTarget(this)) {
+        alert(DOWNLOAD_ALERT);
+        return;
+      }
+      return nativeAnchorClick.apply(this, args);
+    };
+    HTMLButtonElement.prototype.click = function patchedButtonClick(...args) {
+      if (isFormBlocked() && isSubmitControl(this)) {
+        alert(FORM_ALERT);
+        return;
+      }
+      if (isDownloadBlocked() && isDownloadTarget(this)) {
+        alert(DOWNLOAD_ALERT);
+        return;
+      }
+      return nativeButtonClick.apply(this, args);
+    };
+    HTMLInputElement.prototype.click = function patchedInputClick(...args) {
+      if (this.matches?.('input[type="file"]') && isFormBlocked()) {
+        alert(FORM_ALERT);
+        return;
+      }
+      if (isFormBlocked() && isSubmitControl(this)) {
+        alert(FORM_ALERT);
+        return;
+      }
+      return nativeInputClick.apply(this, args);
+    };
+    document.addEventListener("submit", onSubmit, true);
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("beforeload", onBeforeRequest, true);
+    document.addEventListener("change", onFileInput, true);
+    document.addEventListener("click", onFileInput, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("submit", onSubmit, true);
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("beforeload", onBeforeRequest, true);
+      document.removeEventListener("change", onFileInput, true);
+      document.removeEventListener("click", onFileInput, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      HTMLFormElement.prototype.submit = nativeSubmit;
+      if (typeof nativeRequestSubmit === "function") {
+        HTMLFormElement.prototype.requestSubmit = nativeRequestSubmit;
+      }
+      HTMLAnchorElement.prototype.click = nativeAnchorClick;
+      HTMLButtonElement.prototype.click = nativeButtonClick;
+      HTMLInputElement.prototype.click = nativeInputClick;
+    };
+  };
+
+  const hostname = resolveHostname(window.location.href);
+  if (!hostname || !/^https?:/i.test(window.location.href)) return;
+
+  const state = { active: false, domain: hostname };
+  let blockOnUntrustedEnabled = SETTINGS_DEFAULTS.blockOnUntrusted;
+  let temporarilyAllowedPage = false;
+  const refreshTemporaryAllowState = async () => {
+    temporarilyAllowedPage = await isTemporarilyAllowed(hostname);
+    return temporarilyAllowedPage;
+  };
+  const shouldBlockForms = () =>
+    state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
+  const shouldBlockDownloads = () =>
+    state.active || (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
+  const detachInteractionGuards = blockInteractions({
+    isFormBlocked: shouldBlockForms,
+    isDownloadBlocked: shouldBlockDownloads
+  });
+  const setPageRiskVerdict = (verdict = "trusted") => {
+    pageRiskVerdict = verdict || "trusted";
+    if (antiScamBannerEnabled && !state.active) {
+      scheduleAntiScamScan();
+    }
+  };
+
+  const redirectToBlockedPage = (reason = "phishing", details = {}) => {
+    const blockedDomain = normalizeHost(details.domain || hostname);
+    const blockedUrl = details.url || window.location.href;
+    const params = new URLSearchParams();
+    params.set("domain", blockedDomain || hostname);
+    params.set("reason", reason);
+    params.set("url", blockedUrl);
+    if (details.officialDomain) {
+      params.set("official", details.officialDomain);
+    }
+    const blockedPageUrl = safeRuntimeGetUrl("blocked.html");
+    if (!blockedPageUrl) return;
+    const targetUrl = `${blockedPageUrl}?${params.toString()}`;
+    try {
+      if (document.documentElement) {
+        document.documentElement.style.visibility = "hidden";
+      }
+    } catch (error) {
+      // ignore
+    }
+    if (window.location.href !== targetUrl) {
+      window.location.replace(targetUrl);
+    }
+  };
+
+  // RU: Блокируем страницу и перенаправляем на экран блокировки.
+  // EN: Block the page and redirect to the warning screen.
+  const activateBlock = async (reason = "phishing", details = {}) => {
+    if (state.active) return;
+    state.active = true;
+    clearAntiScamBanner();
+    stopAntiScamObserver();
+    redirectToBlockedPage(reason, details);
+  };
+
+  const navigateToLink = (url, sourceLink) => {
+    const href = url.toString();
+    const target = (sourceLink?.target || "").toLowerCase();
+    if (target === "_blank") {
+      window.open(href, "_blank", "noopener");
+      return;
+    }
+    window.location.assign(href);
+  };
+
+  const handlePreClickNavigation = () => {
+    const shouldSkip = (event, link) => {
+      if (state.active) return true;
+      if (!link) return true;
+      if (event.defaultPrevented) return true;
+      if (event.button !== 0) return true;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return true;
+      if (link.hasAttribute("download")) return true;
+      return false;
+    };
+
+    const toLinkUrl = (link) => {
+      const rawHref = link?.getAttribute?.("href") || "";
+      if (!rawHref || rawHref.startsWith("#")) return null;
+      if (/^(mailto|tel|javascript|data|file|about|chrome|edge):/i.test(rawHref)) return null;
+      try {
+        const resolved = new URL(rawHref, window.location.href);
+        if (!/^https?:$/i.test(resolved.protocol)) return null;
+        return resolved;
+      } catch (error) {
+        return null;
+      }
+    };
+
+    const formatSuspiciousPrompt = (targetHost, chainHosts = []) => {
+      const hasChain = Array.isArray(chainHosts) && chainHosts.length > 1;
+      if (getLinkLanguage() === "en") {
+        const chainText = hasChain ? `\nRedirect chain: ${chainHosts.join(" -> ")}` : "";
+        return `Suspicious link: ${targetHost}.${chainText}\nOpen anyway?`;
+      }
+      const chainText = hasChain ? `\nЦепочка редиректов: ${chainHosts.join(" -> ")}` : "";
+      return `Подозрительная ссылка: ${targetHost}.${chainText}\nОткрыть всё равно?`;
+    };
+
+    const onClick = (event) => {
+      const link = event.target?.closest?.("a[href]");
+      if (shouldSkip(event, link)) return;
+      const targetUrl = toLinkUrl(link);
+      if (!targetUrl) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      (async () => {
+        const targetHost = normalizeHost(targetUrl.hostname || "");
+        if (!targetHost) return;
+        if (await isTemporarilyAllowed(targetHost)) {
+          navigateToLink(targetUrl, link);
+          return;
+        }
+        const analysis = await evaluateNavigationRisk(targetUrl);
+        if (analysis.verdict === "blacklisted" || analysis.verdict === "phishing") {
+          const isRedirectHit =
+            analysis.riskyHost &&
+            analysis.riskyHost !== targetHost &&
+            Array.isArray(analysis.chainHosts) &&
+            analysis.chainHosts.length > 1;
+          redirectToBlockedPage(
+            isRedirectHit ? "redirectPhishing" : analysis.verdict === "blacklisted" ? "linkBlacklist" : "linkPhishing",
+            {
+              domain: analysis.riskyHost || targetHost,
+              url: targetUrl.toString(),
+              officialDomain: analysis.riskyResult?.officialDomain
+            }
+          );
+          return;
+        }
+        if (analysis.verdict === "suspicious") {
+          const proceed = window.confirm(
+            formatSuspiciousPrompt(targetHost, analysis.chainHosts || [])
+          );
+          if (!proceed) return;
+        }
+        navigateToLink(targetUrl, link);
+      })();
+    };
+
+    document.addEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+    };
+  };
+
+  // RU: Инициализация: автоинспекция, учёт временных разрешений и ЧС.
+  // EN: Init: auto inspection, temp allow handling, blacklist check.
+  const init = async () => {
+    handlePreClickNavigation();
+    setupSensitiveDataGuard();
+    const settings = await loadSyncSettings();
+    applyLinkHighlightSetting(settings.linkHighlightEnabled);
+    applyAntiScamSetting(settings.antiScamBannerEnabled);
+    blockOnUntrustedEnabled = Boolean(settings.blockOnUntrusted);
+    await refreshTemporaryAllowState();
+    const blacklist = await loadBlacklist();
+    if (blacklist.includes(hostname)) {
+      setPageRiskVerdict("blacklisted");
+      if (!temporarilyAllowedPage) {
+        activateBlock("blacklist");
+      }
+      return;
+    }
+    try {
+      const inspectDomain = await getInspectDomainFn();
+      if (!inspectDomain) return;
+      const whitelist = await loadWhitelist();
+      const initial = await inspectDomain(hostname, whitelist, window.location.href, {});
+      setPageRiskVerdict(initial.verdict);
+      await refreshTemporaryAllowState();
+      if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
+        if (!temporarilyAllowedPage) {
+          activateBlock(initial.verdict === "blacklisted" ? "blacklist" : "phishing", {
+            officialDomain: initial.officialDomain
+          });
+        }
+        return;
+      }
+      const signals = await collectPageSignals({ waitForDom: true });
+      const result = await inspectDomain(hostname, whitelist, window.location.href, signals);
+      setPageRiskVerdict(result.verdict);
+      await refreshTemporaryAllowState();
+      if (result.verdict === "phishing" || result.verdict === "blacklisted") {
+        if (!temporarilyAllowedPage) {
+          activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing", {
+            officialDomain: result.officialDomain
+          });
+        }
+      }
+    } catch (error) {
+      console.warn("CorgPhish: auto inspect failed in content", error);
+    } finally {
+      startLinkObserver();
+      startAntiScamObserver();
+    }
+  };
+
+  // RU: Слушаем сообщения о фишинге от попапа и блокируем сразу.
+  // EN: Listen for phishing messages from popup and block instantly.
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "getPageSignals") {
+      (async () => {
+        const signals = await collectPageSignals();
+        sendResponse?.({ ok: true, signals, url: window.location.href });
+      })();
+      return true;
+    }
+    if (message?.type === "phishingBlock" && normalizeHost(message.domain) === hostname) {
+      refreshTemporaryAllowState().then((allowed) => {
+        setPageRiskVerdict("phishing");
+        if (!allowed) {
+          activateBlock("phishing", { officialDomain: message.officialDomain });
+        }
+      });
+      sendResponse?.({ ok: true });
+      return true;
+    }
+    return false;
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "linkHighlightEnabled")) {
+      const nextValue = changes.linkHighlightEnabled?.newValue;
+      applyLinkHighlightSetting(
+        nextValue === undefined ? SETTINGS_DEFAULTS.linkHighlightEnabled : nextValue
+      );
+    }
+    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "antiScamBannerEnabled")) {
+      const nextValue = changes.antiScamBannerEnabled?.newValue;
+      applyAntiScamSetting(
+        nextValue === undefined ? SETTINGS_DEFAULTS.antiScamBannerEnabled : nextValue
+      );
+    }
+    if (area === "sync" && Object.prototype.hasOwnProperty.call(changes, "blockOnUntrusted")) {
+      const nextValue = changes.blockOnUntrusted?.newValue;
+      blockOnUntrustedEnabled =
+        nextValue === undefined ? SETTINGS_DEFAULTS.blockOnUntrusted : Boolean(nextValue);
+    }
+    if (area === "local" && Object.prototype.hasOwnProperty.call(changes, TEMP_ALLOW_KEY)) {
+      const map = changes[TEMP_ALLOW_KEY]?.newValue;
+      const expiry = Number((map && typeof map === "object" ? map[hostname] : 0) || 0);
+      temporarilyAllowedPage = expiry > Date.now();
+    }
+    if (area === "local" || area === "sync") {
+      preClickCache.clear();
+      linkDomainCache.clear();
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    detachInteractionGuards?.();
+  });
+
+  init();
+})();
   // RU: Модуль 2. Доменная аналитика, похожесть на бренды и оценка риска по DOM-сигналам.
   // EN: Module 2. Domain analytics, brand similarity and DOM-based risk scoring.
   // RU: Нормализуем хостнейм (URL/пути → домен, без www/точек, в нижний регистр).
@@ -543,11 +1481,7 @@
         resolve(trustedCache.list);
         return;
       }
-      chrome.runtime.sendMessage({ type: "getTrustedDomains" }, (response) => {
-        if (chrome.runtime.lastError) {
-          resolve([]);
-          return;
-        }
+      safeRuntimeSendMessage({ type: "getTrustedDomains" }).then((response) => {
         const list = Array.isArray(response?.trusted) ? response.trusted : [];
         const normalized = list.map((domain) => normalizeHost(domain)).filter(isLikelyDomain);
         trustedCache = { list: normalized, ts: Date.now() };
@@ -560,7 +1494,7 @@
   // EN: Load blacklist from local storage.
   const loadBlacklist = () =>
     new Promise((resolve) => {
-      chrome.storage.local.get({ [BLACKLIST_KEY]: [] }, (result) => {
+      safeStorageGet("local", { [BLACKLIST_KEY]: [] }).then((result) => {
         const list = Array.isArray(result[BLACKLIST_KEY]) ? result[BLACKLIST_KEY] : [];
         resolve(list.map((d) => normalizeHost(d)).filter(isLikelyDomain));
       });
@@ -570,14 +1504,14 @@
   // EN: Persist blacklist.
   const saveBlacklist = (domains) =>
     new Promise((resolve) => {
-      chrome.storage.local.set({ [BLACKLIST_KEY]: domains }, resolve);
+      safeStorageSet("local", { [BLACKLIST_KEY]: domains }).then(resolve);
     });
 
   // RU: Загружаем временные разрешения (домены, разблокированные на N минут).
   // EN: Load temporary allow map (domains unblocked for N minutes).
   const loadTempAllow = () =>
     new Promise((resolve) => {
-      chrome.storage.local.get({ [TEMP_ALLOW_KEY]: {} }, (result) => {
+      safeStorageGet("local", { [TEMP_ALLOW_KEY]: {} }).then((result) => {
         const map = result[TEMP_ALLOW_KEY] && typeof result[TEMP_ALLOW_KEY] === "object" ? result[TEMP_ALLOW_KEY] : {};
         resolve(map);
       });
@@ -587,7 +1521,7 @@
   // EN: Persist temporary allow map.
   const saveTempAllow = (map) =>
     new Promise((resolve) => {
-      chrome.storage.local.set({ [TEMP_ALLOW_KEY]: map }, resolve);
+      safeStorageSet("local", { [TEMP_ALLOW_KEY]: map }).then(resolve);
     });
 
   // RU: Проверяем, разрешён ли домен временно.
@@ -625,7 +1559,7 @@
   // EN: Read user whitelist for on-page auto inspection.
   const loadWhitelist = () =>
     new Promise((resolve) => {
-      chrome.storage.local.get({ customTrustedDomains: [] }, (result) => {
+      safeStorageGet("local", { customTrustedDomains: [] }).then((result) => {
         const list = Array.isArray(result.customTrustedDomains) ? result.customTrustedDomains : [];
         resolve(list.map((d) => normalizeHost(d)).filter(Boolean));
       });
@@ -820,7 +1754,7 @@
 
   const getInspectDomainFn = async () => {
     if (!inspectDomainFnPromise) {
-      inspectDomainFnPromise = import(chrome.runtime.getURL("popup/inspection.js"))
+      inspectDomainFnPromise = safeImportRuntimeModule("popup/inspection.js")
         .then((module) => module?.inspectDomain || null)
         .catch((error) => {
           inspectDomainFnPromise = null;
@@ -1055,7 +1989,7 @@
 
   const loadSyncSettings = () =>
     new Promise((resolve) => {
-      chrome.storage.sync.get(SETTINGS_DEFAULTS, (result) => {
+      safeStorageGet("sync", SETTINGS_DEFAULTS).then((result) => {
         resolve({ ...SETTINGS_DEFAULTS, ...result });
       });
     });
@@ -1521,7 +2455,9 @@
     if (details.officialDomain) {
       params.set("official", details.officialDomain);
     }
-    const targetUrl = `${chrome.runtime.getURL("blocked.html")}?${params.toString()}`;
+    const blockedPageUrl = safeRuntimeGetUrl("blocked.html");
+    if (!blockedPageUrl) return;
+    const targetUrl = `${blockedPageUrl}?${params.toString()}`;
     try {
       if (document.documentElement) {
         document.documentElement.style.visibility = "hidden";

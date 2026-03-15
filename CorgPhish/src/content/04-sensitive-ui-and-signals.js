@@ -98,7 +98,7 @@
 
   const loadSyncSettings = () =>
     new Promise((resolve) => {
-      chrome.storage.sync.get(SETTINGS_DEFAULTS, (result) => {
+      safeStorageGet("sync", SETTINGS_DEFAULTS).then((result) => {
         resolve({ ...SETTINGS_DEFAULTS, ...result });
       });
     });

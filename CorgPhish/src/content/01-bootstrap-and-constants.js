@@ -211,3 +211,147 @@
   const PUBLIC_SUFFIXES = new Set(["co.uk", "ac.uk", "gov.uk", "org.uk", "net.uk"]);
   const TRUSTED_CACHE_TTL = 60 * 1000;
   let trustedCache = { list: null, ts: 0 };
+  let extensionContextAlive = true;
+  let extensionContextWarningShown = false;
+
+  const isExtensionContextError = (error) =>
+    /Extension context invalidated/i.test(String(error?.message || error || ""));
+
+  const markExtensionContextInvalid = (error) => {
+    if (!isExtensionContextError(error)) return false;
+    extensionContextAlive = false;
+    if (!extensionContextWarningShown) {
+      extensionContextWarningShown = true;
+      console.info("CorgPhish: extension context invalidated, content script is switching to safe no-op mode");
+    }
+    return true;
+  };
+
+  const hasExtensionContext = () => {
+    if (!extensionContextAlive) return false;
+    try {
+      if (!chrome?.runtime?.id) {
+        extensionContextAlive = false;
+        return false;
+      }
+      return true;
+    } catch (error) {
+      markExtensionContextInvalid(error);
+      return false;
+    }
+  };
+
+  const getRuntimeLastErrorMessage = () => {
+    try {
+      return chrome?.runtime?.lastError?.message || "";
+    } catch (error) {
+      markExtensionContextInvalid(error);
+      return "Extension context invalidated";
+    }
+  };
+
+  const safeRuntimeGetUrl = (path = "") => {
+    if (!hasExtensionContext()) return "";
+    try {
+      return chrome.runtime.getURL(path);
+    } catch (error) {
+      if (markExtensionContextInvalid(error)) return "";
+      throw error;
+    }
+  };
+
+  const safeRuntimeSendMessage = (message) =>
+    new Promise((resolve) => {
+      if (!hasExtensionContext()) {
+        resolve(null);
+        return;
+      }
+      try {
+        chrome.runtime.sendMessage(message, (response) => {
+          const lastErrorMessage = getRuntimeLastErrorMessage();
+          if (lastErrorMessage) {
+            markExtensionContextInvalid(lastErrorMessage);
+            resolve(null);
+            return;
+          }
+          resolve(response ?? null);
+        });
+      } catch (error) {
+        if (markExtensionContextInvalid(error)) {
+          resolve(null);
+          return;
+        }
+        throw error;
+      }
+    });
+
+  const safeStorageGet = (area, defaults = {}) =>
+    new Promise((resolve) => {
+      if (!hasExtensionContext()) {
+        resolve(defaults);
+        return;
+      }
+      const storageArea = chrome?.storage?.[area];
+      if (!storageArea?.get) {
+        resolve(defaults);
+        return;
+      }
+      try {
+        storageArea.get(defaults, (result) => {
+          const lastErrorMessage = getRuntimeLastErrorMessage();
+          if (lastErrorMessage) {
+            markExtensionContextInvalid(lastErrorMessage);
+            resolve(defaults);
+            return;
+          }
+          resolve(result || defaults);
+        });
+      } catch (error) {
+        if (markExtensionContextInvalid(error)) {
+          resolve(defaults);
+          return;
+        }
+        throw error;
+      }
+    });
+
+  const safeStorageSet = (area, value) =>
+    new Promise((resolve) => {
+      if (!hasExtensionContext()) {
+        resolve();
+        return;
+      }
+      const storageArea = chrome?.storage?.[area];
+      if (!storageArea?.set) {
+        resolve();
+        return;
+      }
+      try {
+        storageArea.set(value, () => {
+          const lastErrorMessage = getRuntimeLastErrorMessage();
+          if (lastErrorMessage) {
+            markExtensionContextInvalid(lastErrorMessage);
+          }
+          resolve();
+        });
+      } catch (error) {
+        if (markExtensionContextInvalid(error)) {
+          resolve();
+          return;
+        }
+        throw error;
+      }
+    });
+
+  const safeImportRuntimeModule = async (path) => {
+    const url = safeRuntimeGetUrl(path);
+    if (!url) return null;
+    try {
+      return await import(url);
+    } catch (error) {
+      if (markExtensionContextInvalid(error)) {
+        return null;
+      }
+      throw error;
+    }
+  };

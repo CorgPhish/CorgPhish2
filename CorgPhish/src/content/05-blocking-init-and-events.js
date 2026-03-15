@@ -325,7 +325,9 @@
     if (details.officialDomain) {
       params.set("official", details.officialDomain);
     }
-    const targetUrl = `${chrome.runtime.getURL("blocked.html")}?${params.toString()}`;
+    const blockedPageUrl = safeRuntimeGetUrl("blocked.html");
+    if (!blockedPageUrl) return;
+    const targetUrl = `${blockedPageUrl}?${params.toString()}`;
     try {
       if (document.documentElement) {
         document.documentElement.style.visibility = "hidden";
