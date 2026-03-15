@@ -13,8 +13,17 @@
     guardRoot.dataset.corgphishPageGuardInstalled = "1";
   }
 
-  const signalBlocked = () => {
-    document.dispatchEvent(new CustomEvent(BLOCKED_EVENT, { detail: { kind: "form" } }));
+  const signalBlocked = (source, extra = {}) => {
+    console.info("CorgPhish form guard debug", {
+      source,
+      href: window.location.href,
+      ...extra
+    });
+    document.dispatchEvent(
+      new CustomEvent(BLOCKED_EVENT, {
+        detail: { kind: "form", source, ...extra }
+      })
+    );
   };
 
   const shouldBlockRequest = (method, body) => {
@@ -27,6 +36,11 @@
     UPDATE_EVENT,
     (event) => {
       state.blockForms = Boolean(event?.detail?.blockForms);
+      console.info("CorgPhish form guard debug", {
+        source: "state-update",
+        blockForms: state.blockForms,
+        href: window.location.href
+      });
     },
     true
   );
@@ -34,7 +48,7 @@
   const nativeSubmit = HTMLFormElement.prototype.submit;
   HTMLFormElement.prototype.submit = function patchedSubmit(...args) {
     if (state.blockForms) {
-      signalBlocked();
+      signalBlocked("native-submit");
       return;
     }
     return nativeSubmit.apply(this, args);
@@ -44,7 +58,7 @@
     const nativeRequestSubmit = HTMLFormElement.prototype.requestSubmit;
     HTMLFormElement.prototype.requestSubmit = function patchedRequestSubmit(...args) {
       if (state.blockForms) {
-        signalBlocked();
+        signalBlocked("request-submit");
         return;
       }
       return nativeRequestSubmit.apply(this, args);
@@ -61,7 +75,9 @@
         body = body ?? input.body;
       }
       if (shouldBlockRequest(method, body)) {
-        signalBlocked();
+        signalBlocked("fetch", {
+          method: String(method || "GET").toUpperCase()
+        });
         return Promise.reject(new Error("corgphish_blocked_request"));
       }
       return nativeFetch.apply(this, arguments);
@@ -76,7 +92,9 @@
   };
   XMLHttpRequest.prototype.send = function patchedSend(body) {
     if (shouldBlockRequest(this.__corgphishMethod, body)) {
-      signalBlocked();
+      signalBlocked("xhr", {
+        method: String(this.__corgphishMethod || "GET").toUpperCase()
+      });
       try {
         this.abort();
       } catch (error) {
@@ -91,7 +109,7 @@
     const nativeBeacon = navigator.sendBeacon;
     navigator.sendBeacon = function patchedSendBeacon(url, data) {
       if (state.blockForms && data != null) {
-        signalBlocked();
+        signalBlocked("sendBeacon");
         return false;
       }
       return nativeBeacon.call(this, url, data);

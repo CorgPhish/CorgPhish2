@@ -1495,6 +1495,11 @@
   const installPageWorldFormGuard = (onBlockedAction) => {
     const relayBlockedAction = (event) => {
       if (event?.detail?.kind !== "form") return;
+      console.info("CorgPhish form guard debug", {
+        source: "content-relay",
+        detail: event.detail,
+        href: window.location.href
+      });
       onBlockedAction?.("form");
     };
 
@@ -1561,6 +1566,12 @@
       sync(blockForms) {
         latestBlockForms = Boolean(blockForms);
         ensureGuardScript().then((installed) => {
+          console.info("CorgPhish form guard debug", {
+            source: "content-sync",
+            installed,
+            blockForms: latestBlockForms,
+            href: window.location.href
+          });
           if (installed) {
             dispatchGuardState();
           }
@@ -1794,6 +1805,14 @@
 
   function handleBlockedInteraction(kind = "form") {
     if (state.active || temporarilyAllowedPage) return;
+    console.info("CorgPhish form guard debug", {
+      source: "blocked-interaction",
+      kind,
+      verdict: pageRiskVerdict,
+      blockOnUntrustedEnabled,
+      temporarilyAllowedPage,
+      href: window.location.href
+    });
     redirectToBlockedPage(kind === "download" ? "guardDownload" : "guardForm", {
       domain: hostname,
       url: window.location.href

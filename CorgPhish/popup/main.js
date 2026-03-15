@@ -531,6 +531,11 @@ const handleSettingsChange = async () => {
 const persistBlockToggleImmediately = (event) => {
   const nextValue = Boolean(event?.target?.checked);
   currentSettings = { ...currentSettings, blockOnUntrusted: nextValue };
+  console.info("CorgPhish settings debug", {
+    stage: "persistBlockToggleImmediately",
+    eventType: event?.type || "",
+    blockOnUntrusted: nextValue
+  });
   try {
     chrome.storage.local.set({ blockOnUntrusted: nextValue });
     chrome.storage.sync.set({ blockOnUntrusted: nextValue });
