@@ -89,6 +89,7 @@ const domain = normalizeHost(params.get("domain") || "");
 const reason = params.get("reason") || "phishing";
 const originalUrl = params.get("url") || (domain ? `https://${domain}` : "");
 const official = normalizeHost(params.get("official") || "");
+const showOfficialAction = Boolean(official && official !== domain);
 
 const reasonBadge = document.getElementById("reasonBadge");
 const title = document.getElementById("title");
@@ -145,7 +146,7 @@ if (!domain) {
   blacklistBtn.disabled = true;
 }
 
-if (official) {
+if (showOfficialAction) {
   officialBtn.classList.remove("is-hidden");
 }
 
@@ -186,7 +187,7 @@ blacklistBtn.addEventListener("click", async () => {
 });
 
 officialBtn.addEventListener("click", () => {
-  if (!official) return;
+  if (!showOfficialAction) return;
   const url = official.includes("://") ? official : `https://${official}`;
   chrome.tabs.create({ url });
 });
