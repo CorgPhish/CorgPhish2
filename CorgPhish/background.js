@@ -5,8 +5,15 @@ import {
   matchGuardedDownload,
   pruneGuardedTabEntries
 } from "./background-download-guard.js";
-import { HEURISTIC_THRESHOLD, MODEL_THRESHOLD } from "./popup/config.js";
+import {
+  CUSTOM_BLACKLIST_KEY,
+  CUSTOM_WHITELIST_KEY,
+  HEURISTIC_THRESHOLD,
+  MODEL_THRESHOLD
+} from "./popup/config.js";
+import { resolveInspection } from "./popup/inspection-core.js";
 import { extractFeatures, heuristicVerdict } from "./popup/model-core.js";
+import { isLikelyDomain, normalizeHost } from "./popup/utils.js";
 
 const DEFAULT_SETTINGS = {
   systemNotifyOnRisk: false
@@ -16,11 +23,21 @@ const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
 const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
 const guardedTabs = new Map();
+const normalizeDomainList = (domains = []) =>
+  domains.map((domain) => normalizeHost(domain)).filter(Boolean);
+const normalizeTrustedList = (domains = []) => normalizeDomainList(domains).filter(isLikelyDomain);
 const isExpectedMlFailure = (message = "") =>
   /offscreen_failed/i.test(message) ||
   /ort_load_failed/i.test(message) ||
   /NormalizerNorm/i.test(message) ||
   /tensor\(float\).*tensor\(double\)/i.test(message);
+
+const loadLocalStorage = (defaults = {}) =>
+  new Promise((resolve) => {
+    chrome.storage.local.get(defaults, (result) => {
+      resolve(result || defaults);
+    });
+  });
 
 const syncGuardedTab = (tabId, payload = {}) => {
   const entry = createGuardedTabEntry({ ...payload, tabId });
@@ -114,6 +131,103 @@ const persistRuntimeSetting = (key, value) =>
     chrome.storage.sync.set(patch, finish);
   });
 
+const ensureOffscreenDocument = async () => {
+  const reasons = ["DOM_SCRAPING"];
+  const offscreenUrl = chrome.runtime.getURL("offscreen.html");
+  const existing = await chrome.offscreen.hasDocument?.();
+  if (existing) return;
+  await chrome.offscreen.createDocument({
+    url: offscreenUrl,
+    reasons,
+    justification: "Phishing ML inference in extension context (avoid page CSP)"
+  });
+};
+
+const requestOffscreenPrediction = (url, threshold) =>
+  new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { type: "predictOffscreen", url, threshold },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+          return;
+        }
+        if (response?.ok && response.result) {
+          resolve(response.result);
+          return;
+        }
+        reject(new Error(response?.error || "offscreen_failed"));
+      }
+    );
+  });
+
+const predictUrlInBackground = async (rawUrl, threshold = DEFAULT_THRESHOLD) => {
+  let result = null;
+  try {
+    await ensureOffscreenDocument();
+    result = await requestOffscreenPrediction(rawUrl, threshold);
+  } catch (offscreenError) {
+    const message = String(offscreenError?.message || offscreenError || "");
+    if (!isExpectedMlFailure(message)) {
+      console.warn("CorgPhish: offscreen predict failed", message);
+    }
+  }
+
+  if (result) {
+    return result;
+  }
+
+  const { url, features } = extractFeatures(rawUrl);
+  if (!url) {
+    throw new Error("invalid_url");
+  }
+  const fallback = heuristicVerdict(features, FALLBACK_THRESHOLD, {
+    includeBrandPenalty: true
+  });
+  return { ...fallback, status: "fallback", threshold };
+};
+
+const loadTrustedDomainsForInspection = async () => {
+  const result = await loadLocalStorage({ [TRUSTED_STORAGE_KEY]: [] });
+  const stored = Array.isArray(result[TRUSTED_STORAGE_KEY]) ? result[TRUSTED_STORAGE_KEY] : [];
+  if (stored.length) {
+    return normalizeTrustedList(stored);
+  }
+  return normalizeTrustedList(await cacheTrustedList());
+};
+
+const loadInspectionLists = async () => {
+  const result = await loadLocalStorage({
+    [CUSTOM_WHITELIST_KEY]: [],
+    [CUSTOM_BLACKLIST_KEY]: []
+  });
+  return {
+    customWhitelist: normalizeTrustedList(result[CUSTOM_WHITELIST_KEY]),
+    blacklist: normalizeDomainList(result[CUSTOM_BLACKLIST_KEY])
+  };
+};
+
+const inspectPageInBackground = async ({
+  hostname,
+  fullUrl = "",
+  signals = {},
+  options = {}
+} = {}) => {
+  const baseTrusted = await loadTrustedDomainsForInspection();
+  const { customWhitelist, blacklist } = await loadInspectionLists();
+  return resolveInspection({
+    hostname,
+    customWhitelist,
+    fullUrl,
+    signals,
+    options,
+    baseTrusted,
+    blacklist,
+    predict: (url) => predictUrlInBackground(url, DEFAULT_THRESHOLD),
+    now: Date.now
+  });
+};
+
 // RU: Обрабатываем сообщения попапа/контента.
 // EN: Handle messages from popup/content.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -123,56 +237,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "predictUrlBg") {
     (async () => {
       try {
-        // Основной путь ML: offscreen-документ с ORT в контексте расширения.
-        const ensureOffscreen = async () => {
-          const reasons = ["DOM_SCRAPING"];
-          const offscreenUrl = chrome.runtime.getURL("offscreen.html");
-          const existing = await chrome.offscreen.hasDocument?.();
-          if (existing) return;
-          await chrome.offscreen.createDocument({
-            url: offscreenUrl,
-            reasons,
-            justification: "Phishing ML inference in extension context (avoid page CSP)"
-          });
-        };
+        const result = await predictUrlInBackground(message.url, message.threshold);
+        sendResponse?.({ ok: true, result });
+      } catch (error) {
+        sendResponse?.({ ok: false, error: error?.message || String(error) });
+      }
+    })();
+    return true;
+  }
 
-        let result = null;
-        try {
-          await ensureOffscreen();
-          result = await new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage(
-              { type: "predictOffscreen", url: message.url, threshold: message.threshold },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  reject(chrome.runtime.lastError);
-                  return;
-                }
-                if (response?.ok && response.result) {
-                  resolve(response.result);
-                } else {
-                  reject(new Error(response?.error || "offscreen_failed"));
-                }
-              }
-            );
-          });
-        } catch (offscreenError) {
-          const message = String(offscreenError?.message || offscreenError || "");
-          if (!isExpectedMlFailure(message)) {
-            console.warn("CorgPhish: offscreen predict failed", message);
-          }
-        }
-
-        // Если offscreen не поднялся, всё равно возвращаем бинарный ответ через эвристику.
-        // Это важно, чтобы UI и content script не оставались без вердикта.
-        if (!result) {
-          const { url, features } = extractFeatures(message.url);
-          if (!url) {
-            sendResponse?.({ ok: false, error: "invalid_url" });
-            return;
-          }
-          const fallback = heuristicVerdict(features, FALLBACK_THRESHOLD, { includeBrandPenalty: true });
-          result = { ...fallback, status: "fallback", threshold: message.threshold };
-        }
+  // Контент-скрипт использует background-роут, чтобы автопроверка страницы не зависела от popup.
+  if (message.type === "inspectPageBg") {
+    (async () => {
+      try {
+        const result = await inspectPageInBackground({
+          hostname: message.hostname,
+          fullUrl: message.url || "",
+          signals: message.signals || {},
+          options: message.options || {}
+        });
+        console.info("CorgPhish inspect debug", {
+          stage: "background-inspectPage",
+          hostname: result.domain,
+          verdict: result.verdict,
+          mlStatus: result.mlStatus,
+          detectionSource: result.detectionSource
+        });
         sendResponse?.({ ok: true, result });
       } catch (error) {
         sendResponse?.({ ok: false, error: error?.message || String(error) });

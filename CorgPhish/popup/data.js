@@ -128,6 +128,15 @@ export const loadSettings = async () => {
     mirrorBlockOnUntrusted: mirrorValue,
     resolvedBlockOnUntrusted: merged.blockOnUntrusted
   });
+  if (
+    mirrorValue !== undefined &&
+    localSettings.blockOnUntrusted === undefined &&
+    syncSettings.blockOnUntrusted === undefined
+  ) {
+    // Если popup успел сохранить только локальный mirror, восстанавливаем extension storage автоматически.
+    chrome.storage.local.set({ blockOnUntrusted: mirrorValue });
+    chrome.storage.sync.set({ blockOnUntrusted: mirrorValue });
+  }
   return merged;
 };
 

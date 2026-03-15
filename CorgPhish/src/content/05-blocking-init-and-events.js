@@ -467,6 +467,47 @@
     onBlockedAction: handleBlockedInteraction
   });
 
+  const inspectCurrentPage = async (signals = {}, options = {}) => {
+    const backgroundResponse = await safeRuntimeSendMessage({
+      type: "inspectPageBg",
+      hostname,
+      url: window.location.href,
+      signals,
+      options
+    });
+    if (backgroundResponse?.ok && backgroundResponse.result) {
+      console.info("CorgPhish inspect debug", {
+        stage: "content-background",
+        hostname,
+        verdict: backgroundResponse.result.verdict,
+        mlStatus: backgroundResponse.result.mlStatus,
+        detectionSource: backgroundResponse.result.detectionSource,
+        href: window.location.href
+      });
+      return backgroundResponse.result;
+    }
+
+    const inspectDomain = await getInspectDomainFn();
+    if (!inspectDomain) return null;
+    const whitelist = await loadWhitelist();
+    const result = await inspectDomain(
+      hostname,
+      whitelist,
+      window.location.href,
+      signals,
+      options
+    );
+    console.info("CorgPhish inspect debug", {
+      stage: "content-fallback-module",
+      hostname,
+      verdict: result?.verdict || null,
+      mlStatus: result?.mlStatus || null,
+      detectionSource: result?.detectionSource || null,
+      href: window.location.href
+    });
+    return result;
+  };
+
   // RU: Блокируем страницу и перенаправляем на экран блокировки.
   // EN: Block the page and redirect to the warning screen.
   const activateBlock = async (reason = "phishing", details = {}) => {
@@ -579,9 +620,11 @@
     applyLinkHighlightSetting(settings.linkHighlightEnabled);
     applyAntiScamSetting(settings.antiScamBannerEnabled);
     blockOnUntrustedEnabled = Boolean(settings.blockOnUntrusted);
+    const strictModeEnabled = Boolean(settings.strictMode);
     console.info("CorgPhish sensitive guard debug", {
       stage: "init-settings-loaded",
       blockOnUntrustedEnabled,
+      strictModeEnabled,
       antiScamBannerEnabled: settings.antiScamBannerEnabled,
       linkHighlightEnabled: settings.linkHighlightEnabled,
       href: window.location.href
@@ -597,10 +640,8 @@
       return;
     }
     try {
-      const inspectDomain = await getInspectDomainFn();
-      if (!inspectDomain) return;
-      const whitelist = await loadWhitelist();
-      const initial = await inspectDomain(hostname, whitelist, window.location.href, {});
+      const initial = await inspectCurrentPage({}, { strictMode: strictModeEnabled });
+      if (!initial) return;
       setPageRiskVerdict(initial.verdict);
       await refreshTemporaryAllowState();
       if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
@@ -612,7 +653,8 @@
         return;
       }
       const signals = await collectPageSignals({ waitForDom: true });
-      const result = await inspectDomain(hostname, whitelist, window.location.href, signals);
+      const result = await inspectCurrentPage(signals, { strictMode: strictModeEnabled });
+      if (!result) return;
       setPageRiskVerdict(result.verdict);
       await refreshTemporaryAllowState();
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
@@ -672,6 +714,10 @@
       blockOnUntrustedEnabled =
         nextValue === undefined ? SETTINGS_DEFAULTS.blockOnUntrusted : Boolean(nextValue);
       syncRuntimeGuards();
+    }
+    if (isSettingsArea && Object.prototype.hasOwnProperty.call(changes, "strictMode")) {
+      preClickCache.clear();
+      linkDomainCache.clear();
     }
     if (area === "local" && Object.prototype.hasOwnProperty.call(changes, TEMP_ALLOW_KEY)) {
       const map = changes[TEMP_ALLOW_KEY]?.newValue;

@@ -100,7 +100,8 @@
   const SETTINGS_DEFAULTS = {
     linkHighlightEnabled: true,
     antiScamBannerEnabled: true,
-    blockOnUntrusted: false
+    blockOnUntrusted: false,
+    strictMode: false
   };
   const REDIRECT_PARAM_KEYS = [
     "url",
