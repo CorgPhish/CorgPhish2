@@ -31,9 +31,9 @@ const tests = [
     const result = await runInspection();
     assert.equal(result.detectionSource, "status.sourceValue.heuristic");
   }],
-  ["fallback phishing without other signals stays suspicious", async () => {
+  ["fallback phishing blocks domain", async () => {
     const result = await runInspection({ predict: async () => ({ status: "fallback", verdict: "phishing" }) });
-    assert.equal(result.verdict, "suspicious");
+    assert.equal(result.verdict, "phishing");
     assert.equal(
       result.reasonTrace.some((step) => step.key === "reasonTrace.step.mlFallbackPhishing"),
       true
@@ -45,13 +45,6 @@ const tests = [
   }],
   ["fallback trusted with spoof target still blocks", async () => {
     const result = await runInspection({ hostname: "goggle.com" });
-    assert.equal(result.verdict, "phishing");
-  }],
-  ["fallback phishing with content signal still blocks", async () => {
-    const result = await runInspection({
-      predict: async () => ({ status: "fallback", verdict: "phishing" }),
-      signals: { content: { level: "high", primaryReason: "content.reason.payment" } }
-    });
     assert.equal(result.verdict, "phishing");
   }],
   ["fallback trusted with risky form still blocks", async () => {

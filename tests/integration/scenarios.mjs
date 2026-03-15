@@ -85,16 +85,11 @@ export const buildIntegrationScenarios = () => {
   }
 
   for (let i = 1; i <= 45; i += 1) {
-    scenarios.push(
-      makePhishingScenario(`PHISH-ML-${i}`, `verify-account-${i}.example`, {
-        signals: { content: { level: "high", primaryReason: "content.reason.payment" } }
-      })
-    );
+    scenarios.push(makePhishingScenario(`PHISH-ML-${i}`, `verify-account-${i}.example`));
   }
   for (let i = 46; i <= 51; i += 1) {
     scenarios.push(
       makePhishingScenario(`PHISH-SPOOF-${i}`, `goggle${i}.com`, {
-        signals: { content: { level: "high", primaryReason: "content.reason.login" } },
         predictResult: { status: "ok", verdict: "phishing" }
       })
     );
