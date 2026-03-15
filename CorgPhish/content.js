@@ -1788,9 +1788,27 @@
     } catch (error) {
       // ignore
     }
-    if (window.location.href !== targetUrl) {
-      window.location.replace(targetUrl);
-    }
+    console.info("CorgPhish inspect debug", {
+      stage: "content-redirectToBlockedPage",
+      reason,
+      domain: blockedDomain || hostname,
+      url: blockedUrl,
+      href: window.location.href
+    });
+    safeRuntimeSendMessage({
+      type: "openBlockedPage",
+      domain: blockedDomain || hostname,
+      reason,
+      url: blockedUrl,
+      officialDomain: details.officialDomain || ""
+    }).then((response) => {
+      if (response?.ok) {
+        return;
+      }
+      if (window.location.href !== targetUrl) {
+        window.location.replace(targetUrl);
+      }
+    });
   };
 
   function handleBlockedInteraction(kind = "form") {

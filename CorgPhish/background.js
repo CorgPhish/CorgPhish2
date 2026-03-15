@@ -322,6 +322,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Content script может попросить service worker принудительно открыть blocked.html в текущей вкладке.
+  if (message.type === "openBlockedPage" && sender?.tab?.id) {
+    const targetUrl = buildBlockedPageUrl({
+      domain: normalizeHost(message.domain || ""),
+      reason: message.reason || "phishing",
+      url: message.url || sender.tab.url || "",
+      officialDomain: normalizeHost(message.officialDomain || "")
+    });
+    chrome.tabs.update(sender.tab.id, { url: targetUrl }, () => {
+      const error = chrome.runtime.lastError?.message || "";
+      if (error) {
+        sendResponse?.({ ok: false, error });
+        return;
+      }
+      console.info("CorgPhish inspect debug", {
+        stage: "background-openBlockedPage",
+        tabId: sender.tab.id,
+        reason: message.reason || "phishing",
+        domain: normalizeHost(message.domain || "")
+      });
+      sendResponse?.({ ok: true });
+    });
+    return true;
+  }
+
   // Системные уведомления включаются отдельно в настройках и не мешают базовой защите.
   if (message.type === "riskNotification") {
     loadSettings().then((settings) => {
