@@ -1,6 +1,7 @@
 // Экран блокировки: показывает причину, даёт выйти, временно разрешить домен или отправить репорт.
 const BLACKLIST_KEY = "customBlockedDomains";
 const TEMP_ALLOW_KEY = "tempAllowDomains";
+const WHITELIST_KEY = "customTrustedDomains";
 
 // blocked.html работает отдельно от popup/content, поэтому держит собственные storage-утилиты.
 const normalizeHost = (hostname = "") => {
@@ -27,12 +28,38 @@ const saveBlacklist = (domains) =>
     chrome.storage.local.set({ [BLACKLIST_KEY]: domains }, resolve);
   });
 
+const loadWhitelist = () =>
+  new Promise((resolve) => {
+    chrome.storage.local.get({ [WHITELIST_KEY]: [] }, (result) => {
+      const list = Array.isArray(result[WHITELIST_KEY]) ? result[WHITELIST_KEY] : [];
+      resolve(list.map((domain) => normalizeHost(domain)).filter(Boolean));
+    });
+  });
+
+const saveWhitelist = (domains) =>
+  new Promise((resolve) => {
+    chrome.storage.local.set({ [WHITELIST_KEY]: domains }, resolve);
+  });
+
 // Добавление в ЧС здесь дублируется локально, потому что blocked page живёт отдельно от popup.
 const addToBlacklist = async (domain) => {
   if (!domain) return;
   const current = await loadBlacklist();
   if (current.includes(domain)) return;
   await saveBlacklist([...current, domain]);
+};
+
+const removeFromBlacklist = async (domain) => {
+  if (!domain) return;
+  const current = await loadBlacklist();
+  await saveBlacklist(current.filter((entry) => entry !== domain));
+};
+
+const addToWhitelist = async (domain) => {
+  if (!domain) return;
+  const current = await loadWhitelist();
+  if (current.includes(domain)) return;
+  await saveWhitelist([...current, domain]);
 };
 
 const loadTempAllow = () =>
@@ -88,6 +115,8 @@ reasonBadge.textContent = reasonLabels[reason] || reasonLabels.phishing;
 if (reason === "blacklist" || reason === "linkBlacklist") {
   title.textContent = "Сайт заблокирован";
   subtitle.textContent = "Домен находится в вашем чёрном списке.";
+  blacklistBtn.textContent = "Добавить в белый список";
+  blacklistBtn.classList.remove("button--danger");
 } else if (reason === "redirectPhishing") {
   title.textContent = "Переход заблокирован";
   subtitle.textContent = "В цепочке редиректов обнаружен рискованный домен.";
@@ -134,6 +163,16 @@ allowBtn.addEventListener("click", async () => {
 
 blacklistBtn.addEventListener("click", async () => {
   if (!domain) return;
+  if (reason === "blacklist" || reason === "linkBlacklist") {
+    await removeFromBlacklist(domain);
+    await addToWhitelist(domain);
+    if (originalUrl) {
+      chrome.tabs.update({ url: originalUrl });
+      return;
+    }
+    closeTab();
+    return;
+  }
   await addToBlacklist(domain);
   closeTab();
 });
