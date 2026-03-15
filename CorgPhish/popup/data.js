@@ -102,9 +102,15 @@ export const loadSettings = async () => {
 export const saveSettings = (settings) =>
   new Promise((resolve) => {
     const normalized = { ...DEFAULT_SETTINGS, ...pickKnownSettings(settings) };
-    chrome.storage.sync.set(normalized, () => {
-      chrome.storage.local.set(normalized, () => resolve(normalized));
-    });
+    let pending = 2;
+    const finish = () => {
+      pending -= 1;
+      if (pending <= 0) {
+        resolve(normalized);
+      }
+    };
+    chrome.storage.sync.set(normalized, finish);
+    chrome.storage.local.set(normalized, finish);
   });
 
 // RU: Загружаем whitelist.
