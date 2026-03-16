@@ -46,6 +46,7 @@
 - Результаты и методика тестирования: [docs/testing/README.md](docs/testing/README.md)
 - Навигация по проекту: [docs/navigation.md](docs/navigation.md)
 - Карта файлов: [docs/project_map.md](docs/project_map.md)
+- Структура репозитория: [docs/structure.md](docs/structure.md)
 
 ## Скриншоты
 
