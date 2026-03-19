@@ -1879,6 +1879,18 @@
       temporarilyAllowedPage = expiry > Date.now();
       syncRuntimeGuards();
     }
+    if (area === "local" && Object.prototype.hasOwnProperty.call(changes, BLACKLIST_KEY)) {
+      const list = Array.isArray(changes[BLACKLIST_KEY]?.newValue) ? changes[BLACKLIST_KEY].newValue : [];
+      const normalized = list.map((domain) => normalizeHost(domain)).filter(Boolean);
+      const inBlacklist = normalized.some(
+        (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+      );
+      if (inBlacklist) {
+        setPageRiskVerdict("blacklisted");
+        activateBlock("blacklist");
+        return;
+      }
+    }
     if (area === "local" || area === "sync") {
       preClickCache.clear();
       linkDomainCache.clear();

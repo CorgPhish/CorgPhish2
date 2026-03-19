@@ -604,10 +604,27 @@ function handleBlacklistClick() {
   await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
   if (tabIdToClose) {
     try {
-      // Закрываем только ту вкладку, результат которой сейчас реально показан в popup.
-      chrome.tabs.remove(tabIdToClose);
+      // Если пользователь занёс текущий сайт в ЧС, сразу открываем blocked page в этой вкладке.
+      chrome.tabs.sendMessage(
+        tabIdToClose,
+        { type: "phishingBlock", domain, verdict: "blacklisted", officialDomain: "" },
+        () => {
+          const msg = chrome.runtime.lastError?.message || "";
+          if (/Receiving end does not exist/i.test(msg)) {
+            chrome.tabs.update(tabIdToClose, {
+              url: `${chrome.runtime.getURL("blocked.html")}?domain=${encodeURIComponent(
+                domain
+              )}&reason=blacklist&url=${encodeURIComponent(lastInspectedUrl || `https://${domain}`)}`
+            });
+            return;
+          }
+          if (msg) {
+            console.warn("CorgPhish: failed to open blacklist block page", msg);
+          }
+        }
+      );
     } catch (error) {
-      console.warn("CorgPhish: failed to close tab after blacklist", error);
+      console.warn("CorgPhish: failed to block tab after blacklist", error);
     }
   }
 })();

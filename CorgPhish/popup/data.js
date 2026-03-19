@@ -11,6 +11,7 @@ import { isLikelyDomain, normalizeHost } from "./utils.js";
 
 let trustedCache = null;
 const BLOCK_TOGGLE_MIRROR_KEY = "corgphish.blockOnUntrusted";
+const TEMP_ALLOW_KEY = "tempAllowDomains";
 const normalizeDomainList = (domains = []) =>
   domains.map((domain) => normalizeHost(domain)).filter(Boolean);
 const normalizeTrustedList = (domains = []) => normalizeDomainList(domains).filter(isLikelyDomain);
@@ -198,7 +199,20 @@ export const loadBlacklist = () =>
 // EN: Save blacklist.
 export const saveBlacklist = (domains) =>
   new Promise((resolve) => {
-    chrome.storage.local.set({ [CUSTOM_BLACKLIST_KEY]: normalizeDomainList(domains) }, resolve);
+    const normalized = normalizeDomainList(domains);
+    chrome.storage.local.get({ [TEMP_ALLOW_KEY]: {} }, (result) => {
+      const map =
+        result[TEMP_ALLOW_KEY] && typeof result[TEMP_ALLOW_KEY] === "object"
+          ? result[TEMP_ALLOW_KEY]
+          : {};
+      normalized.forEach((domain) => {
+        delete map[domain];
+      });
+      chrome.storage.local.set(
+        { [CUSTOM_BLACKLIST_KEY]: normalized, [TEMP_ALLOW_KEY]: map },
+        resolve
+      );
+    });
   });
 
 export const loadHistory = (retentionDays) =>
