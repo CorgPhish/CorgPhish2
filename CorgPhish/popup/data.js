@@ -11,6 +11,7 @@ import { isLikelyDomain, normalizeHost } from "./utils.js";
 
 let trustedCache = null;
 const BLOCK_TOGGLE_MIRROR_KEY = "corgphish.blockOnUntrusted";
+const SETTINGS_MIRROR_KEY = "corgphish.settings";
 const TEMP_ALLOW_KEY = "tempAllowDomains";
 const normalizeDomainList = (domains = []) =>
   domains.map((domain) => normalizeHost(domain)).filter(Boolean);
@@ -46,6 +47,25 @@ const readBlockToggleMirror = () => {
 const writeBlockToggleMirror = (value) => {
   try {
     window.localStorage.setItem(BLOCK_TOGGLE_MIRROR_KEY, String(Boolean(value)));
+  } catch (error) {
+    // ignore localStorage failures in popup
+  }
+};
+
+const readSettingsMirror = () => {
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_MIRROR_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return pickKnownSettings(parsed);
+  } catch (error) {
+    return {};
+  }
+};
+
+const writeSettingsMirror = (settings = {}) => {
+  try {
+    window.localStorage.setItem(SETTINGS_MIRROR_KEY, JSON.stringify(pickKnownSettings(settings)));
   } catch (error) {
     // ignore localStorage failures in popup
   }
@@ -116,10 +136,12 @@ export const loadSettings = async () => {
     })
   ]);
   const mirrorValue = readBlockToggleMirror();
+  const settingsMirror = readSettingsMirror();
   const merged = {
     ...DEFAULT_SETTINGS,
     ...syncSettings,
     ...localSettings,
+    ...settingsMirror,
     ...(mirrorValue === undefined ? {} : { blockOnUntrusted: mirrorValue })
   };
   console.info("CorgPhish settings debug", {
@@ -129,6 +151,10 @@ export const loadSettings = async () => {
     mirrorBlockOnUntrusted: mirrorValue,
     resolvedBlockOnUntrusted: merged.blockOnUntrusted
   });
+  if (Object.keys(settingsMirror).length) {
+    chrome.storage.local.set(settingsMirror);
+    chrome.storage.sync.set(settingsMirror);
+  }
   if (
     mirrorValue !== undefined &&
     localSettings.blockOnUntrusted === undefined &&
@@ -147,6 +173,7 @@ export const saveSettings = (settings) =>
   new Promise((resolve) => {
     const normalized = { ...DEFAULT_SETTINGS, ...pickKnownSettings(settings) };
     writeBlockToggleMirror(normalized.blockOnUntrusted);
+    writeSettingsMirror(normalized);
     console.info("CorgPhish settings debug", {
       stage: "saveSettings",
       blockOnUntrusted: normalized.blockOnUntrusted

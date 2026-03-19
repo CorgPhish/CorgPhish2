@@ -62,6 +62,15 @@ const tests = [
     const settings = await loadSettings();
     assert.equal(settings.blockOnUntrusted, true);
   }],
+  ["saveSettings persists theme override", async () => {
+    resetState();
+    await saveSettings({ theme: "dark", compactMode: true });
+    const settings = await loadSettings();
+    assert.equal(settings.theme, "dark");
+    assert.equal(settings.compactMode, true);
+    assert.equal(chromeMock.state.local.theme, "dark");
+    assert.equal(chromeMock.state.local.compactMode, true);
+  }],
   ["saveWhitelist normalizes entries", async () => {
     resetState();
     await saveWhitelist(["https://WWW.Google.com", "bank.ru"]);
