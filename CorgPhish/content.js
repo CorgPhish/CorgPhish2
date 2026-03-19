@@ -1793,7 +1793,9 @@
     );
     if (inBlacklist) {
       setPageRiskVerdict("blacklisted");
-      activateBlock("blacklist");
+      if (!temporarilyAllowedPage) {
+        activateBlock("blacklist");
+      }
       return;
     }
     try {
@@ -1802,7 +1804,7 @@
       setPageRiskVerdict(initial.verdict);
       await refreshTemporaryAllowState();
       if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
-        if (initial.verdict === "blacklisted") {
+        if (initial.verdict === "blacklisted" && !temporarilyAllowedPage) {
           activateBlock("blacklist", { officialDomain: initial.officialDomain });
         } else if (!temporarilyAllowedPage) {
           activateBlock("phishing", {
@@ -1817,7 +1819,7 @@
       setPageRiskVerdict(result.verdict);
       await refreshTemporaryAllowState();
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
-        if (result.verdict === "blacklisted") {
+        if (result.verdict === "blacklisted" && !temporarilyAllowedPage) {
           activateBlock("blacklist", { officialDomain: result.officialDomain });
         } else if (!temporarilyAllowedPage) {
           activateBlock("phishing", {
@@ -1887,7 +1889,9 @@
       );
       if (inBlacklist) {
         setPageRiskVerdict("blacklisted");
-        activateBlock("blacklist");
+        if (!temporarilyAllowedPage) {
+          activateBlock("blacklist");
+        }
         return;
       }
     }

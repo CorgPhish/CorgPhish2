@@ -290,7 +290,7 @@ const autoBlockSenderTab = async (sender, result) => {
   if (result?.verdict !== "phishing" && result?.verdict !== "blacklisted") {
     return false;
   }
-  const allowed = result?.verdict === "blacklisted" ? false : await isTemporarilyAllowed(result.domain);
+  const allowed = await isTemporarilyAllowed(result.domain);
   if (allowed) {
     return false;
   }
