@@ -101,6 +101,7 @@ const allowBtn = document.getElementById("allowBtn");
 const blacklistBtn = document.getElementById("blacklistBtn");
 const reportBtn = document.getElementById("reportBtn");
 const officialBtn = document.getElementById("officialBtn");
+const isBlacklistReason = reason === "blacklist" || reason === "linkBlacklist";
 
 const reasonLabels = {
   phishing: "Подозрение на фишинг",
@@ -115,11 +116,13 @@ const reasonLabels = {
 // Меняем копирайт и заголовок страницы в зависимости от сценария блокировки.
 reasonBadge.textContent = reasonLabels[reason] || reasonLabels.phishing;
 
-if (reason === "blacklist" || reason === "linkBlacklist") {
+if (isBlacklistReason) {
   title.textContent = "Сайт заблокирован";
   subtitle.textContent = "Домен находится в вашем чёрном списке.";
   blacklistBtn.textContent = "Добавить в белый список";
   blacklistBtn.classList.remove("button--danger");
+  allowBtn.classList.add("is-hidden");
+  allowBtn.disabled = true;
 } else if (reason === "redirectPhishing") {
   title.textContent = "Переход заблокирован";
   subtitle.textContent = "В цепочке редиректов обнаружен рискованный домен.";
@@ -164,6 +167,7 @@ backBtn.addEventListener("click", () => {
 });
 
 allowBtn.addEventListener("click", async () => {
+  if (isBlacklistReason) return;
   if (!domain || !originalUrl) return;
   await allowTemporarily(domain, 5);
   // Возвращаем пользователя именно на исходный URL, а не просто на домен.
@@ -172,7 +176,7 @@ allowBtn.addEventListener("click", async () => {
 
 blacklistBtn.addEventListener("click", async () => {
   if (!domain) return;
-  if (reason === "blacklist" || reason === "linkBlacklist") {
+  if (isBlacklistReason) {
     await removeFromBlacklist(domain);
     await addToWhitelist(domain);
     if (originalUrl) {

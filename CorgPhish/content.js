@@ -1737,7 +1737,9 @@
       (async () => {
         const targetHost = normalizeHost(targetUrl.hostname || "");
         if (!targetHost) return;
-        if (await isTemporarilyAllowed(targetHost)) {
+        const currentBlacklist = await loadBlacklist();
+        const targetInBlacklist = currentBlacklist.includes(targetHost);
+        if (!targetInBlacklist && (await isTemporarilyAllowed(targetHost))) {
           navigateToLink(targetUrl, link);
           return;
         }
@@ -1790,13 +1792,17 @@
       href: window.location.href
     });
     setupSensitiveDataGuard();
-    await refreshTemporaryAllowState();
     const blacklist = await loadBlacklist();
-    if (blacklist.includes(hostname)) {
+    const inBlacklist = blacklist.includes(hostname);
+    if (!inBlacklist) {
+      await refreshTemporaryAllowState();
+    } else {
+      temporarilyAllowedPage = false;
+      syncRuntimeGuards();
+    }
+    if (inBlacklist) {
       setPageRiskVerdict("blacklisted");
-      if (!temporarilyAllowedPage) {
-        activateBlock("blacklist");
-      }
+      activateBlock("blacklist");
       return;
     }
     try {
@@ -1805,7 +1811,7 @@
       setPageRiskVerdict(initial.verdict);
       await refreshTemporaryAllowState();
       if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
-        if (!temporarilyAllowedPage) {
+        if (initial.verdict === "blacklisted" || !temporarilyAllowedPage) {
           activateBlock(initial.verdict === "blacklisted" ? "blacklist" : "phishing", {
             officialDomain: initial.officialDomain
           });
@@ -1818,7 +1824,7 @@
       setPageRiskVerdict(result.verdict);
       await refreshTemporaryAllowState();
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
-        if (!temporarilyAllowedPage) {
+        if (result.verdict === "blacklisted" || !temporarilyAllowedPage) {
           activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing", {
             officialDomain: result.officialDomain
           });
