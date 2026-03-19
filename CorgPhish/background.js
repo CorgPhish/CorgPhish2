@@ -164,29 +164,6 @@ const persistRuntimeSetting = (key, value) =>
     chrome.storage.sync.set(patch, finish);
   });
 
-const persistRuntimeSettings = (settings = {}) =>
-  new Promise((resolve) => {
-    const patch =
-      settings && typeof settings === "object"
-        ? Object.fromEntries(
-            Object.entries(settings).filter(([, value]) => value !== undefined)
-          )
-        : {};
-    let pending = 2;
-    const finish = () => {
-      pending -= 1;
-      if (pending <= 0) {
-        console.info("CorgPhish settings debug", {
-          stage: "background-persistRuntimeSettings",
-          keys: Object.keys(patch)
-        });
-        resolve(true);
-      }
-    };
-    chrome.storage.local.set(patch, finish);
-    chrome.storage.sync.set(patch, finish);
-  });
-
 const ensureOffscreenDocument = async () => {
   const reasons = ["DOM_SCRAPING"];
   const offscreenUrl = chrome.runtime.getURL("offscreen.html");
@@ -383,13 +360,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "persistRuntimeSetting" && typeof message.key === "string") {
     persistRuntimeSetting(message.key, message.value).then(() => {
-      sendResponse?.({ ok: true });
-    });
-    return true;
-  }
-
-  if (message.type === "persistRuntimeSettings" && message.settings) {
-    persistRuntimeSettings(message.settings).then(() => {
       sendResponse?.({ ok: true });
     });
     return true;

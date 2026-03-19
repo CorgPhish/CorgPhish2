@@ -193,7 +193,7 @@ export const applyState = (dom, translate, stateKey, context = {}) => {
       : [];
   renderReasonTrace(dom, translate, traceSteps);
   const isTrustedState = Boolean(context.isTrusted);
-  const canBlacklist = Boolean(context.domain) && stateKey !== "blacklisted";
+  const canBlacklist = stateKey === "phishing" || stateKey === "suspicious";
   const canReport = stateKey === "phishing" || stateKey === "suspicious" || stateKey === "blacklisted";
   setQuickAddState(dom, context.domain, isTrustedState || stateKey === "blacklisted");
   setBlacklistState(dom, context.domain, canBlacklist);

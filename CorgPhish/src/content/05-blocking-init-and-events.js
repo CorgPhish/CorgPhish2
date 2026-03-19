@@ -408,11 +408,15 @@
     syncRuntimeGuards();
     return temporarilyAllowedPage;
   };
+  const forceInteractionBlock =
+    () => pageRiskVerdict === "phishing" || pageRiskVerdict === "blacklisted";
   const shouldBlockForms = () =>
     state.active ||
+    forceInteractionBlock() ||
     (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
   const shouldBlockDownloads = () =>
     state.active ||
+    forceInteractionBlock() ||
     (blockOnUntrustedEnabled && pageRiskVerdict !== "trusted" && !temporarilyAllowedPage);
   const setPageRiskVerdict = (verdict = "trusted") => {
     pageRiskVerdict = verdict || "trusted";
@@ -464,15 +468,15 @@
 
   function handleBlockedInteraction(kind = "form") {
     if (state.active) return;
-    const shouldBlock = kind === "download" ? shouldBlockDownloads() : shouldBlockForms();
-    if (!shouldBlock) return;
+    const forceBlockForRisk = forceInteractionBlock();
+    if (!forceBlockForRisk && temporarilyAllowedPage) return;
     console.info("CorgPhish form guard debug", {
       source: "blocked-interaction",
       kind,
       verdict: pageRiskVerdict,
       blockOnUntrustedEnabled,
       temporarilyAllowedPage,
-      shouldBlock,
+      forceBlockForRisk,
       href: window.location.href
     });
     redirectToBlockedPage(kind === "download" ? "guardDownload" : "guardForm", {
@@ -662,10 +666,7 @@
     setupSensitiveDataGuard();
     await refreshTemporaryAllowState();
     const blacklist = await loadBlacklist();
-    const inBlacklist = blacklist.some(
-      (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
-    );
-    if (inBlacklist) {
+    if (blacklist.includes(hostname)) {
       setPageRiskVerdict("blacklisted");
       if (!temporarilyAllowedPage) {
         activateBlock("blacklist");
@@ -678,10 +679,8 @@
       setPageRiskVerdict(initial.verdict);
       await refreshTemporaryAllowState();
       if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
-        if (initial.verdict === "blacklisted" && !temporarilyAllowedPage) {
-          activateBlock("blacklist", { officialDomain: initial.officialDomain });
-        } else if (!temporarilyAllowedPage) {
-          activateBlock("phishing", {
+        if (!temporarilyAllowedPage) {
+          activateBlock(initial.verdict === "blacklisted" ? "blacklist" : "phishing", {
             officialDomain: initial.officialDomain
           });
         }
@@ -693,10 +692,8 @@
       setPageRiskVerdict(result.verdict);
       await refreshTemporaryAllowState();
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
-        if (result.verdict === "blacklisted" && !temporarilyAllowedPage) {
-          activateBlock("blacklist", { officialDomain: result.officialDomain });
-        } else if (!temporarilyAllowedPage) {
-          activateBlock("phishing", {
+        if (!temporarilyAllowedPage) {
+          activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing", {
             officialDomain: result.officialDomain
           });
         }
@@ -754,20 +751,6 @@
       const expiry = Number((map && typeof map === "object" ? map[hostname] : 0) || 0);
       temporarilyAllowedPage = expiry > Date.now();
       syncRuntimeGuards();
-    }
-    if (area === "local" && Object.prototype.hasOwnProperty.call(changes, BLACKLIST_KEY)) {
-      const list = Array.isArray(changes[BLACKLIST_KEY]?.newValue) ? changes[BLACKLIST_KEY].newValue : [];
-      const normalized = list.map((domain) => normalizeHost(domain)).filter(Boolean);
-      const inBlacklist = normalized.some(
-        (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
-      );
-      if (inBlacklist) {
-        setPageRiskVerdict("blacklisted");
-        if (!temporarilyAllowedPage) {
-          activateBlock("blacklist");
-        }
-        return;
-      }
     }
     if (area === "local" || area === "sync") {
       preClickCache.clear();

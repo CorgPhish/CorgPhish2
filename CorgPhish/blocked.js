@@ -47,11 +47,6 @@ const addToBlacklist = async (domain) => {
   const current = await loadBlacklist();
   if (current.includes(domain)) return;
   await saveBlacklist([...current, domain]);
-  const tempAllowMap = await loadTempAllow();
-  if (tempAllowMap[domain]) {
-    delete tempAllowMap[domain];
-    await saveTempAllow(tempAllowMap);
-  }
 };
 
 const removeFromBlacklist = async (domain) => {

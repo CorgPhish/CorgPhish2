@@ -510,14 +510,6 @@ const handleSettingsChange = async () => {
       Number(dom.historyRetentionSelect?.value) || DEFAULT_SETTINGS.historyRetentionDays,
     compactMode: dom.compactModeToggle?.checked ?? DEFAULT_SETTINGS.compactMode
   };
-  try {
-    chrome.runtime.sendMessage({
-      type: "persistRuntimeSettings",
-      settings: nextSettings
-    });
-  } catch (error) {
-    console.warn("CorgPhish: failed to send runtime settings snapshot", error);
-  }
   currentSettings = await saveSettings(nextSettings);
   // После сохранения сразу пересинхронизируем UI, не дожидаясь нового открытия popup.
   applyTheme(currentSettings.theme, currentSettings.compactMode);
@@ -604,27 +596,10 @@ function handleBlacklistClick() {
   await applyInspectionResult(result, { shouldAlert: true, source: "manual" });
   if (tabIdToClose) {
     try {
-      // Если пользователь занёс текущий сайт в ЧС, сразу открываем blocked page в этой вкладке.
-      chrome.tabs.sendMessage(
-        tabIdToClose,
-        { type: "phishingBlock", domain, verdict: "blacklisted", officialDomain: "" },
-        () => {
-          const msg = chrome.runtime.lastError?.message || "";
-          if (/Receiving end does not exist/i.test(msg)) {
-            chrome.tabs.update(tabIdToClose, {
-              url: `${chrome.runtime.getURL("blocked.html")}?domain=${encodeURIComponent(
-                domain
-              )}&reason=blacklist&url=${encodeURIComponent(lastInspectedUrl || `https://${domain}`)}`
-            });
-            return;
-          }
-          if (msg) {
-            console.warn("CorgPhish: failed to open blacklist block page", msg);
-          }
-        }
-      );
+      // Закрываем только ту вкладку, результат которой сейчас реально показан в popup.
+      chrome.tabs.remove(tabIdToClose);
     } catch (error) {
-      console.warn("CorgPhish: failed to block tab after blacklist", error);
+      console.warn("CorgPhish: failed to close tab after blacklist", error);
     }
   }
 })();

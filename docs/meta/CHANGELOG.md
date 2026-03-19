@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 - Added a dedicated testing documentation pack with unit, integration, and user testing summaries.
 - Added executable `node:test` unit tests, integration runner, coverage script, and testing helpers.
 
+## [2.5.0]
+- Synced the repository with the currently working extension build.
+- Updated popup settings persistence and theme restore behavior.
+- Kept the current blocking flow, popup UI, and test suite in the working state used for validation.
+
 ## [2.2.3]
 - Restored the previous popup layout while keeping clearer action buttons for risky pages.
 - Fixed form/download blocking on untrusted pages when the block-input setting is enabled.
