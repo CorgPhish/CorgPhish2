@@ -150,15 +150,21 @@ export const saveSettings = (settings) =>
       stage: "saveSettings",
       blockOnUntrusted: normalized.blockOnUntrusted
     });
-    let pending = 2;
-    const finish = () => {
-      pending -= 1;
-      if (pending <= 0) {
-        resolve(normalized);
+    // Запускаем оба storage.set сразу и не держим popup открытым до callback:
+    // при закрытии окна настройки уже должны быть отправлены в extension storage.
+    chrome.storage.sync.set(normalized, () => {
+      const error = chrome.runtime.lastError?.message || "";
+      if (error) {
+        console.warn("CorgPhish: failed to persist sync settings", error);
       }
-    };
-    chrome.storage.sync.set(normalized, finish);
-    chrome.storage.local.set(normalized, finish);
+    });
+    chrome.storage.local.set(normalized, () => {
+      const error = chrome.runtime.lastError?.message || "";
+      if (error) {
+        console.warn("CorgPhish: failed to persist local settings", error);
+      }
+    });
+    resolve(normalized);
   });
 
 // RU: Загружаем whitelist.

@@ -510,6 +510,14 @@ const handleSettingsChange = async () => {
       Number(dom.historyRetentionSelect?.value) || DEFAULT_SETTINGS.historyRetentionDays,
     compactMode: dom.compactModeToggle?.checked ?? DEFAULT_SETTINGS.compactMode
   };
+  try {
+    chrome.runtime.sendMessage({
+      type: "persistRuntimeSettings",
+      settings: nextSettings
+    });
+  } catch (error) {
+    console.warn("CorgPhish: failed to send runtime settings snapshot", error);
+  }
   currentSettings = await saveSettings(nextSettings);
   // После сохранения сразу пересинхронизируем UI, не дожидаясь нового открытия popup.
   applyTheme(currentSettings.theme, currentSettings.compactMode);
