@@ -662,11 +662,12 @@
     setupSensitiveDataGuard();
     await refreshTemporaryAllowState();
     const blacklist = await loadBlacklist();
-    if (blacklist.includes(hostname)) {
+    const inBlacklist = blacklist.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+    if (inBlacklist) {
       setPageRiskVerdict("blacklisted");
-      if (!temporarilyAllowedPage) {
-        activateBlock("blacklist");
-      }
+      activateBlock("blacklist");
       return;
     }
     try {
@@ -675,8 +676,10 @@
       setPageRiskVerdict(initial.verdict);
       await refreshTemporaryAllowState();
       if (initial.verdict === "phishing" || initial.verdict === "blacklisted") {
-        if (!temporarilyAllowedPage) {
-          activateBlock(initial.verdict === "blacklisted" ? "blacklist" : "phishing", {
+        if (initial.verdict === "blacklisted") {
+          activateBlock("blacklist", { officialDomain: initial.officialDomain });
+        } else if (!temporarilyAllowedPage) {
+          activateBlock("phishing", {
             officialDomain: initial.officialDomain
           });
         }
@@ -688,8 +691,10 @@
       setPageRiskVerdict(result.verdict);
       await refreshTemporaryAllowState();
       if (result.verdict === "phishing" || result.verdict === "blacklisted") {
-        if (!temporarilyAllowedPage) {
-          activateBlock(result.verdict === "blacklisted" ? "blacklist" : "phishing", {
+        if (result.verdict === "blacklisted") {
+          activateBlock("blacklist", { officialDomain: result.officialDomain });
+        } else if (!temporarilyAllowedPage) {
+          activateBlock("phishing", {
             officialDomain: result.officialDomain
           });
         }
