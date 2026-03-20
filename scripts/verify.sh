@@ -4,7 +4,7 @@ set -euo pipefail
 # RU: Проверка проекта перед релизом и CI: пересборка content script, версия и обязательные файлы.
 # EN: Release/CI verification script.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MANIFEST="$ROOT_DIR/CorgPhish/manifest.json"
+MANIFEST="$ROOT_DIR/apps/extension/manifest.json"
 BUILD_CONTENT="$ROOT_DIR/scripts/build-content.sh"
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -32,7 +32,7 @@ fi
 python3 - <<'PY'
 import json
 from pathlib import Path
-manifest = Path("CorgPhish/manifest.json")
+manifest = Path("apps/extension/manifest.json")
 if not manifest.exists():
     raise SystemExit("manifest.json missing")
 version = json.loads(manifest.read_text()).get("version")
@@ -43,17 +43,17 @@ PY
 
 # Минимальный набор файлов, без которого расширение нельзя публиковать или проверять локально.
 required_files=(
-  "CorgPhish/trusted.json"
-  "CorgPhish/models/hybrid_tfidf_num.onnx"
-  "CorgPhish/vendor/ort/ort.min.js"
-  "CorgPhish/vendor/ort/ort.module.js"
-  "CorgPhish/vendor/ort/ort-wasm.wasm"
-  "CorgPhish/vendor/ort/ort-wasm-simd.wasm"
-  "CorgPhish/popup.html"
-  "CorgPhish/popup.css"
-  "CorgPhish/popup/main.js"
-  "CorgPhish/content.js"
-  "CorgPhish/background.js"
+  "apps/extension/trusted.json"
+  "apps/extension/models/hybrid_tfidf_num.onnx"
+  "apps/extension/vendor/ort/ort.min.js"
+  "apps/extension/vendor/ort/ort.module.js"
+  "apps/extension/vendor/ort/ort-wasm.wasm"
+  "apps/extension/vendor/ort/ort-wasm-simd.wasm"
+  "apps/extension/popup.html"
+  "apps/extension/popup.css"
+  "apps/extension/popup/main.js"
+  "apps/extension/content.js"
+  "apps/extension/background.js"
 )
 
 missing=0
@@ -73,7 +73,7 @@ if [[ -n "$tag" ]]; then
   version=$(python3 - <<'PY'
 import json
 from pathlib import Path
-manifest = Path("CorgPhish/manifest.json")
+manifest = Path("apps/extension/manifest.json")
 print(json.loads(manifest.read_text()).get("version", ""))
 PY
   )

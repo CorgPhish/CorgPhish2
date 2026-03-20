@@ -8,7 +8,7 @@ import { createChromeMock } from "../helpers/chrome-mock.mjs";
 const chromeMock = createChromeMock();
 globalThis.chrome = chromeMock;
 
-const dataModule = await import("../../CorgPhish/popup/data.js");
+const dataModule = await import("../../apps/extension/popup/data.js");
 const {
   __resetDataCachesForTests,
   clearHistory,

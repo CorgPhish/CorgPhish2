@@ -4,7 +4,7 @@
 
 ## 1) Корень репозитория
 
-- `CorgPhish/` — само расширение (основной продукт).
+- `apps/extension/` — само расширение (основной продукт).
 - `docs/` — документация, скриншоты, материалы для README и релизов.
 - `scripts/` — скрипты сборки и проверки.
 - `.github/` — CI/CD и шаблоны Issues/PR.
@@ -12,7 +12,7 @@
 - `CONTRIBUTING.md` — правила внесения изменений.
 - `LICENSE` — лицензия MIT.
 
-## 2) Расширение (папка `CorgPhish/`)
+## 2) Расширение (папка `apps/extension/`)
 
 ### Точки входа
 
@@ -43,18 +43,18 @@
 
 Исходники content-скрипта разнесены по файлам:
 
-- `CorgPhish/src/content/01-bootstrap-and-constants.js`
-- `CorgPhish/src/content/02-domain-and-content-risk.js`
-- `CorgPhish/src/content/03-links-storage-redirects-antiscam.js`
-- `CorgPhish/src/content/04-sensitive-ui-and-signals.js`
-- `CorgPhish/src/content/05-blocking-init-and-events.js`
+- `apps/extension/src/content/01-bootstrap-and-constants.js`
+- `apps/extension/src/content/02-domain-and-content-risk.js`
+- `apps/extension/src/content/03-links-storage-redirects-antiscam.js`
+- `apps/extension/src/content/04-sensitive-ui-and-signals.js`
+- `apps/extension/src/content/05-blocking-init-and-events.js`
 
-Рабочий файл для браузера: `CorgPhish/content.js`  
+Рабочий файл для браузера: `apps/extension/content.js`  
 Он собирается автоматически из модулей (см. раздел 4).
 
 ## 4) Сборка и проверка
 
-- `scripts/build-content.sh` — собирает `CorgPhish/content.js` из `CorgPhish/src/content/*`.
+- `scripts/build-content.sh` — собирает `apps/extension/content.js` из `apps/extension/src/content/*`.
 - `scripts/verify.sh` — базовая проверка проекта + наличие обязательных файлов.
 - `scripts/package.sh` — упаковка расширения в zip (`dist/`).
 
@@ -81,12 +81,12 @@
 
 ## 6) Быстрые маршруты по задачам
 
-- Нужно поменять логику детекта: `popup/inspection.js`, `popup/model.js`, `content.js`.
-- Нужно поменять блокировку форм/загрузок: `CorgPhish/src/content/05-blocking-init-and-events.js`.
-- Нужно поменять pre-click/редиректы/подсветку ссылок: `CorgPhish/src/content/03-links-storage-redirects-antiscam.js`.
-- Нужно поменять настройки в UI: `popup.html`, `popup/main.js`, `popup/config.js`.
-- Нужно обновить trusted-список: `trusted.json`.
-- Нужно поменять экран блокировки: `blocked.html`, `blocked.js`, `blocked.css`.
+- Нужно поменять логику детекта: `apps/extension/popup/inspection.js`, `apps/extension/popup/model.js`, `apps/extension/content.js`.
+- Нужно поменять блокировку форм/загрузок: `apps/extension/src/content/05-blocking-init-and-events.js`.
+- Нужно поменять pre-click/редиректы/подсветку ссылок: `apps/extension/src/content/03-links-storage-redirects-antiscam.js`.
+- Нужно поменять настройки в UI: `apps/extension/popup.html`, `apps/extension/popup/main.js`, `apps/extension/popup/config.js`.
+- Нужно обновить trusted-список: `apps/extension/trusted.json`.
+- Нужно поменять экран блокировки: `apps/extension/blocked.html`, `apps/extension/blocked.js`, `apps/extension/blocked.css`.
 - Нужно поменять сборку content script: `scripts/build-content.sh`.
 - Нужно обновить описание тестирования: `docs/testing/*`.
 

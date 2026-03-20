@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# RU: Склеивает модульные исходники content script в итоговый CorgPhish/content.js.
+# RU: Склеивает модульные исходники content script в итоговый apps/extension/content.js.
 # EN: Builds the final content.js from ordered source modules.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC_DIR="$ROOT_DIR/CorgPhish/src/content"
-OUT_FILE="$ROOT_DIR/CorgPhish/content.js"
+SRC_DIR="$ROOT_DIR/apps/extension/src/content"
+OUT_FILE="$ROOT_DIR/apps/extension/content.js"
 TMP_FILE="$(mktemp "${OUT_FILE}.tmp.XXXXXX")"
 
 cleanup() {

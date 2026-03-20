@@ -3,8 +3,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveInspection } from "../../CorgPhish/popup/inspection-core.js";
-import { extractFeatures, heuristicVerdict } from "../../CorgPhish/popup/model-core.js";
+import { resolveInspection } from "../../apps/extension/popup/inspection-core.js";
+import { extractFeatures, heuristicVerdict } from "../../apps/extension/popup/model-core.js";
 
 const runInspection = (overrides = {}) =>
   resolveInspection({

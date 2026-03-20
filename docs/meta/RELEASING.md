@@ -41,13 +41,13 @@ npm test
 
 Проверьте, что:
 
-- версия в `CorgPhish/manifest.json` актуальна;
+- версия в `apps/extension/manifest.json` актуальна;
 - `docs/meta/CHANGELOG.md` обновлён;
 - в `dist/` собрался свежий архив.
 
 ## Как выпустить новую версию
 
-1. Обновите `version` в `CorgPhish/manifest.json`
+1. Обновите `version` в `apps/extension/manifest.json`
 2. Обновите `docs/meta/CHANGELOG.md`
 3. Закоммитьте изменения
 4. Создайте тег:

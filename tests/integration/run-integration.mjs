@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
-import { resolveInspection } from "../../CorgPhish/popup/inspection-core.js";
+import { resolveInspection } from "../../apps/extension/popup/inspection-core.js";
 import { buildIntegrationScenarios } from "./scenarios.mjs";
 
 // Сводим расширенные вердикты к трём пользовательским корзинам: safe / warning / block.

@@ -9,7 +9,7 @@ import {
   FEATURE_COLUMNS,
   heuristicVerdict,
   safeUrl
-} from "../../CorgPhish/popup/model-core.js";
+} from "../../apps/extension/popup/model-core.js";
 
 // Короткие табличные кейсы удобны для покрытия большого числа URL-признаков.
 const riskCases = [

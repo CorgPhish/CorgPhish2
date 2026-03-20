@@ -7,7 +7,7 @@ CorgPhish2/
 ├── .github/
 │   ├── workflows/
 │   └── ISSUE_TEMPLATE/
-├── CorgPhish/
+├── apps/extension/
 │   ├── icons/
 │   ├── models/
 │   ├── popup/
@@ -54,7 +54,7 @@ CorgPhish2/
 - Dependabot
 - шаблоны issue/PR
 
-### `CorgPhish/`
+### `apps/extension/`
 
 Основной код расширения.
 

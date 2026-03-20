@@ -8,7 +8,7 @@
 - `.gitignore` — исключения из git для IDE, виртуальных окружений, логов, локальных сайтов и артефактов сборки.
 - `dist/` — результаты локальной сборки (zip‑архивы). Не редактируется вручную.
 
-## Исходники расширения: `CorgPhish/`
+## Исходники расширения: `apps/extension/`
 - `manifest.json` — манифест MV3: версия, permissions, popup, background, content script и ресурсы модели.
 - `background.js` — сервис‑воркер: кэш trusted списка, уведомления, обработка сообщений, fallback‑ML.
 - `content.js` — собранный контент‑скрипт, который реально подключается браузером.
@@ -64,15 +64,15 @@
 - `scripts/package.sh` — сборка zip‑архива для релиза.
 
 ## Что менять в первую очередь
-- Версия релиза: `CorgPhish/manifest.json`.
-- Список trusted: `CorgPhish/trusted.json`.
-- Тексты UI: `CorgPhish/popup/config.js`.
-- Логика вердикта: `CorgPhish/popup/inspection.js`.
-- Внешний вид попапа: `CorgPhish/popup.html`, `CorgPhish/popup.css`.
-- Блокировки/оверлей: `CorgPhish/content.js`.
+- Версия релиза: `apps/extension/manifest.json`.
+- Список trusted: `apps/extension/trusted.json`.
+- Тексты UI: `apps/extension/popup/config.js`.
+- Логика вердикта: `apps/extension/popup/inspection.js`.
+- Внешний вид попапа: `apps/extension/popup.html`, `apps/extension/popup.css`.
+- Блокировки/оверлей: `apps/extension/content.js`.
 
 ## Релиз (вручную)
-1) Обновить `version` в `CorgPhish/manifest.json`.
+1) Обновить `version` в `apps/extension/manifest.json`.
 2) Обновить `docs/meta/CHANGELOG.md`.
 3) Прогнать `./scripts/verify.sh`.
 4) Поставить тег `vX.Y.Z`.

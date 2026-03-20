@@ -4,7 +4,7 @@ set -euo pipefail
 # RU: Собирает релизный ZIP с актуальным content.js и версией из manifest.json.
 # EN: Packages the extension into a release ZIP.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MANIFEST="$ROOT_DIR/CorgPhish/manifest.json"
+MANIFEST="$ROOT_DIR/apps/extension/manifest.json"
 BUILD_CONTENT="$ROOT_DIR/scripts/build-content.sh"
 
 if [[ ! -f "$MANIFEST" ]]; then
@@ -23,7 +23,7 @@ fi
 VERSION=$(python3 - <<'PY'
 import json
 from pathlib import Path
-manifest = Path("CorgPhish/manifest.json")
+manifest = Path("apps/extension/manifest.json")
 print(json.loads(manifest.read_text()).get("version", "0.0.0"))
 PY
 )
@@ -36,6 +36,6 @@ mkdir -p "$OUT_DIR"
 rm -f "$OUT_FILE"
 
 cd "$ROOT_DIR"
-zip -r "$OUT_FILE" CorgPhish -x "*.DS_Store"
+zip -r "$OUT_FILE" apps/extension -x "*.DS_Store"
 
 echo "Packaged: $OUT_FILE"

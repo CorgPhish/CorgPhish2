@@ -111,7 +111,7 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 ### Установка
 1. Откройте `chrome://extensions`.
 2. Включите *Developer mode*.
-3. Нажмите *Load unpacked* и выберите папку `CorgPhish/`.
+3. Нажмите *Load unpacked* и выберите папку `apps/extension/`.
 4. Перезагрузите нужные вкладки.
 
 ### Использование
@@ -350,7 +350,7 @@ All storage is local:
 ### Installation
 1. Open `chrome://extensions`.
 2. Enable *Developer mode*.
-3. Click *Load unpacked* and select `CorgPhish/`.
+3. Click *Load unpacked* and select `apps/extension/`.
 4. Reload target tabs.
 
 ### Usage

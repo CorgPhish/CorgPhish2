@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security policy / Политика безопасности
-    url: https://github.com/physcorgi/CorgPhish2/blob/main/docs/meta/SECURITY.md
+    url: https://github.com/CorgPhish/CorgPhish2/blob/main/docs/meta/SECURITY.md
     about: Как сообщать о проблемах безопасности
   - name: Releasing guide / Гайд по релизу
-    url: https://github.com/physcorgi/CorgPhish2/blob/main/docs/meta/RELEASING.md
+    url: https://github.com/CorgPhish/CorgPhish2/blob/main/docs/meta/RELEASING.md
     about: Правила подготовки и публикации релизов

@@ -12,7 +12,7 @@ import {
   levenshteinDistance,
   normalizeHost,
   resolveHostname
-} from "../../CorgPhish/popup/utils.js";
+} from "../../apps/extension/popup/utils.js";
 
 // Эти кейсы собраны вокруг граничных строк, которые чаще всего ломают нормализацию.
 const cases = [

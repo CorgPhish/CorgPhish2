@@ -30,7 +30,7 @@
 1. Откройте `chrome://extensions`.
 2. Включите `Developer mode`.
 3. Нажмите `Load unpacked`.
-4. Выберите папку `CorgPhish/`.
+4. Выберите папку `apps/extension/`.
 5. Закрепите расширение в панели браузера.
 
 После установки откройте popup и при необходимости включите:
@@ -79,15 +79,15 @@
 
 ## Структура проекта
 
-- `CorgPhish/` — исходники расширения.
-- `CorgPhish/popup/` — popup, настройки, storage, ML и итоговый verdict.
-- `CorgPhish/src/content/` — модульные исходники контент-скрипта.
-- `CorgPhish/content.js` — итоговый собранный content script.
-- `CorgPhish/background.js` — service worker.
-- `CorgPhish/offscreen.js` — локальный ONNX inference.
-- `CorgPhish/blocked.*` — экран блокировки.
-- `CorgPhish/trusted.json` — встроенный trusted-список.
-- `CorgPhish/models/` — локальная ONNX-модель.
+- `apps/extension/` — исходники расширения.
+- `apps/extension/popup/` — popup, настройки, storage, ML и итоговый verdict.
+- `apps/extension/src/content/` — модульные исходники контент-скрипта.
+- `apps/extension/content.js` — итоговый собранный content script.
+- `apps/extension/background.js` — service worker.
+- `apps/extension/offscreen.js` — локальный ONNX inference.
+- `apps/extension/blocked.*` — экран блокировки.
+- `apps/extension/trusted.json` — встроенный trusted-список.
+- `apps/extension/models/` — локальная ONNX-модель.
 - `tests/` — unit и integration тесты.
 - `scripts/` — сборка, проверка и упаковка.
 - `docs/` — документация, скриншоты, тестовые материалы.
@@ -168,7 +168,7 @@ npm run test:coverage
 
 ## Порядок релиза
 
-1. Обновить версию в `CorgPhish/manifest.json`.
+1. Обновить версию в `apps/extension/manifest.json`.
 2. Обновить `docs/meta/CHANGELOG.md`.
 3. Запустить локально:
 
@@ -192,12 +192,12 @@ git push --tags
 
 ## Где что менять
 
-- trusted-список: `CorgPhish/trusted.json`
-- итоговый verdict: `CorgPhish/popup/inspection.js`, `CorgPhish/popup/inspection-core.js`
-- ML и эвристика: `CorgPhish/popup/model.js`, `CorgPhish/popup/model-core.js`, `CorgPhish/offscreen.js`
-- popup UI: `CorgPhish/popup.html`, `CorgPhish/popup.css`, `CorgPhish/popup/ui.js`
-- блокировка форм и скачиваний: `CorgPhish/src/content/05-blocking-init-and-events.js`
-- экран блокировки: `CorgPhish/blocked.html`, `CorgPhish/blocked.css`, `CorgPhish/blocked.js`
+- trusted-список: `apps/extension/trusted.json`
+- итоговый verdict: `apps/extension/popup/inspection.js`, `apps/extension/popup/inspection-core.js`
+- ML и эвристика: `apps/extension/popup/model.js`, `apps/extension/popup/model-core.js`, `apps/extension/offscreen.js`
+- popup UI: `apps/extension/popup.html`, `apps/extension/popup.css`, `apps/extension/popup/ui.js`
+- блокировка форм и скачиваний: `apps/extension/src/content/05-blocking-init-and-events.js`
+- экран блокировки: `apps/extension/blocked.html`, `apps/extension/blocked.css`, `apps/extension/blocked.js`
 
 ## Дополнительные документы
 
