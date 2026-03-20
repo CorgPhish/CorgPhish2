@@ -8,21 +8,28 @@ CorgPhish2/
 │   ├── workflows/
 │   └── ISSUE_TEMPLATE/
 ├── apps/extension/
-│   ├── icons/
-│   ├── models/
+│   ├── assets/
+│   │   ├── icons/
+│   │   ├── models/
+│   │   └── vendor/ort/
+│   ├── background/
+│   │   ├── download-guard.js
+│   │   └── index.js
+│   ├── blocked/
+│   │   ├── blocked.css
+│   │   ├── blocked.js
+│   │   └── index.html
+│   ├── content/
+│   │   ├── src/
+│   │   ├── index.js
+│   │   └── page-form-guard.js
+│   ├── offscreen/
+│   │   ├── index.html
+│   │   └── offscreen.js
 │   ├── popup/
-│   ├── src/content/
-│   ├── vendor/ort/
-│   ├── background.js
-│   ├── background-download-guard.js
-│   ├── blocked.css
-│   ├── blocked.html
-│   ├── blocked.js
-│   ├── content.js
+│   │   ├── index.html
+│   │   └── popup.css
 │   ├── manifest.json
-│   ├── offscreen.html
-│   ├── offscreen.js
-│   ├── page-form-guard.js
 │   └── trusted.json
 ├── docs/
 │   ├── badges/
@@ -59,15 +66,17 @@ CorgPhish2/
 Основной код расширения.
 
 - `manifest.json` — точка входа расширения
-- `background.js` — service worker
-- `offscreen.*` — изолированный контекст для ML
-- `blocked.*` — экран блокировки
-- `page-form-guard.js` — page-world guard для SPA/JS-форм
-- `content.js` — итоговый собранный content script
-- `src/content/` — модульные исходники content-скрипта
+- `background/index.js` — service worker
+- `background/download-guard.js` — отмена загрузок и сопоставление guarded tab/download
+- `offscreen/` — изолированный контекст для ML
+- `blocked/` — экран блокировки
+- `content/page-form-guard.js` — page-world guard для SPA/JS-форм
+- `content/index.js` — итоговый собранный content script
+- `content/src/` — модульные исходники content-скрипта
 - `popup/` — popup UI, storage, i18n, verdict logic, ML wrapper
-- `models/` — ONNX-модель
-- `vendor/ort/` — ONNX Runtime Web
+- `assets/icons/` — иконки расширения
+- `assets/models/` — ONNX-модель
+- `assets/vendor/ort/` — ONNX Runtime Web
 - `trusted.json` — встроенный trusted-список доменов
 
 ### `docs/`
@@ -84,7 +93,7 @@ CorgPhish2/
 
 ### `scripts/`
 
-- `build-content.sh` — сборка `content.js`
+- `build-content.sh` — сборка `content/index.js`
 - `verify.sh` — проверка сборки и обязательных файлов
 - `package.sh` — упаковка релизного ZIP
 
@@ -99,9 +108,10 @@ CorgPhish2/
 Проект сейчас разделён по ролям:
 
 - UI и настройки — в `popup/`
-- фоновые задачи и orchestration — в `background.js`
-- логика анализа страницы — в `src/content/`
-- итоговый browser bundle — в `content.js`
+- фоновые задачи и orchestration — в `background/`
+- логика анализа страницы — в `content/src/`
+- итоговый browser bundle — в `content/index.js`
+- статические ресурсы и ML runtime — в `assets/`
 - пользовательская документация — в `docs/`
 - автоматическая проверка и релиз — в `.github/workflows/` и `scripts/`
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# RU: Склеивает модульные исходники content script в итоговый apps/extension/content.js.
-# EN: Builds the final content.js from ordered source modules.
+# RU: Склеивает модульные исходники content script в итоговый apps/extension/content/index.js.
+# EN: Builds the final content/index.js bundle from ordered source modules.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC_DIR="$ROOT_DIR/apps/extension/src/content"
-OUT_FILE="$ROOT_DIR/apps/extension/content.js"
+SRC_DIR="$ROOT_DIR/apps/extension/content/src"
+OUT_FILE="$ROOT_DIR/apps/extension/content/index.js"
 TMP_FILE="$(mktemp "${OUT_FILE}.tmp.XXXXXX")"
 
 cleanup() {
@@ -29,7 +29,7 @@ for part in "${parts[@]}"; do
   fi
 done
 
-# Пишем во временный файл и только потом атомарно заменяем content.js,
+# Пишем во временный файл и только потом атомарно заменяем content/index.js,
 # чтобы параллельная сборка или чтение не видели частично записанный файл.
 : > "$TMP_FILE"
 for part in "${parts[@]}"; do

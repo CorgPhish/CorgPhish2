@@ -1,6 +1,6 @@
 // RU: Чистые helper-функции для отмены загрузок из рискованных вкладок.
 // EN: Pure helpers for canceling downloads initiated from risky tabs.
-import { normalizeHost } from "./popup/utils.js";
+import { normalizeHost } from "../popup/utils.js";
 
 export const DOWNLOAD_GUARD_TTL_MS = 5 * 60 * 1000;
 

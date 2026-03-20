@@ -17,12 +17,12 @@
 ### Точки входа
 
 - `manifest.json` — версия расширения, permissions, popup, background, content script и web-accessible ресурсы.
-- `background.js` — service worker: trusted-кэш, уведомления, фоновые сообщения.
-- `content.js` — итоговый собранный content script (загружается на все `http/https` страницы).
-- `popup.html` + `popup.css` — интерфейс popup.
+- `background/index.js` — service worker: trusted-кэш, уведомления, фоновые сообщения.
+- `content/index.js` — итоговый собранный content script (загружается на все `http/https` страницы).
+- `popup/index.html` + `popup/popup.css` — интерфейс popup.
 - `popup/main.js` — главная логика popup (проверка активной вкладки, настройки, история).
-- `blocked.html` + `blocked.js` + `blocked.css` — экран блокировки опасного сайта.
-- `offscreen.html` + `offscreen.js` — offscreen-контекст для ML-инференса.
+- `blocked/index.html` + `blocked/blocked.js` + `blocked/blocked.css` — экран блокировки опасного сайта.
+- `offscreen/index.html` + `offscreen/offscreen.js` — offscreen-контекст для ML-инференса.
 
 ### Внутренние модули popup
 
@@ -35,26 +35,26 @@
 
 ### Модель и runtime
 
-- `models/hybrid_tfidf_num.onnx` — ONNX-модель.
-- `vendor/ort/*` — ONNX Runtime Web (wasm + js).
+- `assets/models/hybrid_tfidf_num.onnx` — ONNX-модель.
+- `assets/vendor/ort/*` — ONNX Runtime Web (wasm + js).
 - `trusted.json` — встроенный trusted-список доменов.
 
 ## 3) Новая модульная структура content-скрипта
 
 Исходники content-скрипта разнесены по файлам:
 
-- `apps/extension/src/content/01-bootstrap-and-constants.js`
-- `apps/extension/src/content/02-domain-and-content-risk.js`
-- `apps/extension/src/content/03-links-storage-redirects-antiscam.js`
-- `apps/extension/src/content/04-sensitive-ui-and-signals.js`
-- `apps/extension/src/content/05-blocking-init-and-events.js`
+- `apps/extension/content/src/01-bootstrap-and-constants.js`
+- `apps/extension/content/src/02-domain-and-content-risk.js`
+- `apps/extension/content/src/03-links-storage-redirects-antiscam.js`
+- `apps/extension/content/src/04-sensitive-ui-and-signals.js`
+- `apps/extension/content/src/05-blocking-init-and-events.js`
 
-Рабочий файл для браузера: `apps/extension/content.js`  
+Рабочий файл для браузера: `apps/extension/content/index.js`  
 Он собирается автоматически из модулей (см. раздел 4).
 
 ## 4) Сборка и проверка
 
-- `scripts/build-content.sh` — собирает `apps/extension/content.js` из `apps/extension/src/content/*`.
+- `scripts/build-content.sh` — собирает `apps/extension/content/index.js` из `apps/extension/content/src/*`.
 - `scripts/verify.sh` — базовая проверка проекта + наличие обязательных файлов.
 - `scripts/package.sh` — упаковка расширения в zip (`dist/`).
 
@@ -81,12 +81,12 @@
 
 ## 6) Быстрые маршруты по задачам
 
-- Нужно поменять логику детекта: `apps/extension/popup/inspection.js`, `apps/extension/popup/model.js`, `apps/extension/content.js`.
-- Нужно поменять блокировку форм/загрузок: `apps/extension/src/content/05-blocking-init-and-events.js`.
-- Нужно поменять pre-click/редиректы/подсветку ссылок: `apps/extension/src/content/03-links-storage-redirects-antiscam.js`.
-- Нужно поменять настройки в UI: `apps/extension/popup.html`, `apps/extension/popup/main.js`, `apps/extension/popup/config.js`.
+- Нужно поменять логику детекта: `apps/extension/popup/inspection.js`, `apps/extension/popup/model.js`, `apps/extension/content/index.js`.
+- Нужно поменять блокировку форм/загрузок: `apps/extension/content/src/05-blocking-init-and-events.js`.
+- Нужно поменять pre-click/редиректы/подсветку ссылок: `apps/extension/content/src/03-links-storage-redirects-antiscam.js`.
+- Нужно поменять настройки в UI: `apps/extension/popup/index.html`, `apps/extension/popup/main.js`, `apps/extension/popup/config.js`.
 - Нужно обновить trusted-список: `apps/extension/trusted.json`.
-- Нужно поменять экран блокировки: `apps/extension/blocked.html`, `apps/extension/blocked.js`, `apps/extension/blocked.css`.
+- Нужно поменять экран блокировки: `apps/extension/blocked/index.html`, `apps/extension/blocked/blocked.js`, `apps/extension/blocked/blocked.css`.
 - Нужно поменять сборку content script: `scripts/build-content.sh`.
 - Нужно обновить описание тестирования: `docs/testing/*`.
 

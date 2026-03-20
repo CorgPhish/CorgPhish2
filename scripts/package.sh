@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# RU: Собирает релизный ZIP с актуальным content.js и версией из manifest.json.
+# RU: Собирает релизный ZIP с актуальным content/index.js и версией из manifest.json.
 # EN: Packages the extension into a release ZIP.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST="$ROOT_DIR/apps/extension/manifest.json"
@@ -17,7 +17,7 @@ if [[ ! -x "$BUILD_CONTENT" ]]; then
   exit 1
 fi
 
-# Перед упаковкой всегда обновляем content.js из модульных исходников.
+# Перед упаковкой всегда обновляем content/index.js из модульных исходников.
 "$BUILD_CONTENT"
 
 VERSION=$(python3 - <<'PY'

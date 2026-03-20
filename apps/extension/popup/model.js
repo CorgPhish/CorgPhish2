@@ -3,8 +3,8 @@
 import { HEURISTIC_THRESHOLD, MODEL_THRESHOLD } from "./config.js";
 import { FEATURE_COLUMNS, extractFeatures, heuristicVerdict } from "./model-core.js";
 
-const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
-const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
+const MODEL_PATH = chrome.runtime.getURL("assets/models/hybrid_tfidf_num.onnx");
+const ORT_BASE = chrome.runtime.getURL("assets/vendor/ort/");
 const DEFAULT_THRESHOLD = MODEL_THRESHOLD;
 const FALLBACK_THRESHOLD = HEURISTIC_THRESHOLD ?? DEFAULT_THRESHOLD;
 
@@ -57,7 +57,7 @@ const loadOrt = () => {
     ortScriptPromise = (async () => {
       // 1) Пробуем динамический import модуля (без eval).
       try {
-        const mod = await import(chrome.runtime.getURL("vendor/ort/ort.module.js"));
+        const mod = await import(chrome.runtime.getURL("assets/vendor/ort/ort.module.js"));
         if (mod?.default || globalThis.ort) {
           return mod.default || globalThis.ort;
         }
@@ -65,7 +65,7 @@ const loadOrt = () => {
         // ignore, попробуем резервный путь
       }
 
-      const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
+      const url = chrome.runtime.getURL("assets/vendor/ort/ort.min.js");
 
       // 2) Пытаемся просто подключить как <script src="chrome-extension://..."> (CSP страницы часто разрешает расширение).
       try {

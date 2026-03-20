@@ -4,16 +4,16 @@ import {
   createGuardedTabEntry,
   matchGuardedDownload,
   pruneGuardedTabEntries
-} from "./background-download-guard.js";
+} from "./download-guard.js";
 import {
   CUSTOM_BLACKLIST_KEY,
   CUSTOM_WHITELIST_KEY,
   HEURISTIC_THRESHOLD,
   MODEL_THRESHOLD
-} from "./popup/config.js";
-import { resolveInspection } from "./popup/inspection-core.js";
-import { extractFeatures, heuristicVerdict } from "./popup/model-core.js";
-import { isLikelyDomain, normalizeHost } from "./popup/utils.js";
+} from "../popup/config.js";
+import { resolveInspection } from "../popup/inspection-core.js";
+import { extractFeatures, heuristicVerdict } from "../popup/model-core.js";
+import { isLikelyDomain, normalizeHost } from "../popup/utils.js";
 
 const TRUSTED_STORAGE_KEY = "builtinTrustedDomains";
 const TEMP_ALLOW_KEY = "tempAllowDomains";
@@ -42,7 +42,7 @@ const buildBlockedPageUrl = ({ domain = "", reason = "phishing", url = "", offic
   if (reason) params.set("reason", reason);
   if (url) params.set("url", url);
   if (officialDomain) params.set("official", officialDomain);
-  return `${chrome.runtime.getURL("blocked.html")}?${params.toString()}`;
+  return `${chrome.runtime.getURL("blocked/index.html")}?${params.toString()}`;
 };
 
 const isTemporarilyAllowed = async (domain = "") => {
@@ -166,7 +166,7 @@ const persistRuntimeSetting = (key, value) =>
 
 const ensureOffscreenDocument = async () => {
   const reasons = ["DOM_SCRAPING"];
-  const offscreenUrl = chrome.runtime.getURL("offscreen.html");
+  const offscreenUrl = chrome.runtime.getURL("offscreen/index.html");
   const existing = await chrome.offscreen.hasDocument?.();
   if (existing) return;
   await chrome.offscreen.createDocument({

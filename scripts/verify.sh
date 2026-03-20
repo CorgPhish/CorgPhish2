@@ -44,16 +44,16 @@ PY
 # Минимальный набор файлов, без которого расширение нельзя публиковать или проверять локально.
 required_files=(
   "apps/extension/trusted.json"
-  "apps/extension/models/hybrid_tfidf_num.onnx"
-  "apps/extension/vendor/ort/ort.min.js"
-  "apps/extension/vendor/ort/ort.module.js"
-  "apps/extension/vendor/ort/ort-wasm.wasm"
-  "apps/extension/vendor/ort/ort-wasm-simd.wasm"
-  "apps/extension/popup.html"
-  "apps/extension/popup.css"
+  "apps/extension/assets/models/hybrid_tfidf_num.onnx"
+  "apps/extension/assets/vendor/ort/ort.min.js"
+  "apps/extension/assets/vendor/ort/ort.module.js"
+  "apps/extension/assets/vendor/ort/ort-wasm.wasm"
+  "apps/extension/assets/vendor/ort/ort-wasm-simd.wasm"
+  "apps/extension/popup/index.html"
+  "apps/extension/popup/popup.css"
   "apps/extension/popup/main.js"
-  "apps/extension/content.js"
-  "apps/extension/background.js"
+  "apps/extension/content/index.js"
+  "apps/extension/background/index.js"
 )
 
 missing=0

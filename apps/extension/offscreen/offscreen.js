@@ -6,10 +6,10 @@ import {
   FEATURE_COLUMNS,
   extractFeatures,
   heuristicVerdict
-} from "./popup/model-core.js";
+} from "../popup/model-core.js";
 
-const MODEL_PATH = chrome.runtime.getURL("models/hybrid_tfidf_num.onnx");
-const ORT_BASE = chrome.runtime.getURL("vendor/ort/");
+const MODEL_PATH = chrome.runtime.getURL("assets/models/hybrid_tfidf_num.onnx");
+const ORT_BASE = chrome.runtime.getURL("assets/vendor/ort/");
 const DEFAULT_THRESHOLD = DEFAULT_MODEL_THRESHOLD;
 const HEURISTIC_THRESHOLD = DEFAULT_HEURISTIC_THRESHOLD;
 
@@ -23,7 +23,7 @@ const loadOrt = () => {
   }
   if (!ortScriptPromise) {
     ortScriptPromise = new Promise((resolve, reject) => {
-      const url = chrome.runtime.getURL("vendor/ort/ort.min.js");
+      const url = chrome.runtime.getURL("assets/vendor/ort/ort.min.js");
       const script = document.createElement("script");
       script.src = url;
       script.async = true;

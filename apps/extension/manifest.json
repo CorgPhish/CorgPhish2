@@ -4,21 +4,21 @@
   "version": "2.5.0",
   "manifest_version": 3,
   "icons": {
-    "16": "icons/icon16.png",
-    "32": "icons/icon32.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup/index.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "32": "icons/icon32.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
     }
   },
   "permissions": ["storage", "tabs", "offscreen", "downloads"],
@@ -26,15 +26,15 @@
     {
       "resources": [
         "trusted.json",
-        "models/hybrid_tfidf_num.onnx",
-        "vendor/ort/ort.min.js",
-        "vendor/ort/ort.module.js",
-        "vendor/ort/ort-wasm-simd.wasm",
-        "vendor/ort/ort-wasm.wasm",
-        "blocked.html",
-        "blocked.css",
-        "blocked.js",
-        "page-form-guard.js",
+        "assets/models/hybrid_tfidf_num.onnx",
+        "assets/vendor/ort/ort.min.js",
+        "assets/vendor/ort/ort.module.js",
+        "assets/vendor/ort/ort-wasm-simd.wasm",
+        "assets/vendor/ort/ort-wasm.wasm",
+        "blocked/index.html",
+        "blocked/blocked.css",
+        "blocked/blocked.js",
+        "content/page-form-guard.js",
         "popup/inspection.js",
         "popup/inspection-core.js",
         "popup/model.js",
@@ -48,13 +48,13 @@
     }
   ],
   "background": {
-    "service_worker": "background.js",
+    "service_worker": "background/index.js",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["https://*/*", "http://*/*"],
-      "js": ["content.js"],
+      "js": ["content/index.js"],
       "run_at": "document_start"
     }
   ]

@@ -1289,7 +1289,7 @@
       if (injectionPromise) {
         return injectionPromise;
       }
-      const scriptUrl = safeRuntimeGetUrl("page-form-guard.js");
+      const scriptUrl = safeRuntimeGetUrl("content/page-form-guard.js");
       if (!scriptUrl) {
         return Promise.resolve(false);
       }
@@ -1559,7 +1559,7 @@
     if (details.officialDomain) {
       params.set("official", details.officialDomain);
     }
-    const blockedPageUrl = safeRuntimeGetUrl("blocked.html");
+    const blockedPageUrl = safeRuntimeGetUrl("blocked/index.html");
     if (!blockedPageUrl) return;
     const targetUrl = `${blockedPageUrl}?${params.toString()}`;
     try {

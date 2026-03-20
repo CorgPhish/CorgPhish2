@@ -79,15 +79,16 @@
 
 ## Структура проекта
 
-- `apps/extension/` — исходники расширения.
-- `apps/extension/popup/` — popup, настройки, storage, ML и итоговый verdict.
-- `apps/extension/src/content/` — модульные исходники контент-скрипта.
-- `apps/extension/content.js` — итоговый собранный content script.
-- `apps/extension/background.js` — service worker.
-- `apps/extension/offscreen.js` — локальный ONNX inference.
-- `apps/extension/blocked.*` — экран блокировки.
+- `apps/extension/` — исходники и ресурсы расширения.
+- `apps/extension/assets/` — иконки, ONNX-модель и ORT runtime.
+- `apps/extension/background/` — service worker и guard загрузок.
+- `apps/extension/content/src/` — модульные исходники контент-скрипта.
+- `apps/extension/content/index.js` — итоговый собранный content script.
+- `apps/extension/content/page-form-guard.js` — page-world guard для SPA и JS-форм.
+- `apps/extension/popup/` — popup UI, настройки, storage, ML и итоговый verdict.
+- `apps/extension/offscreen/` — offscreen-документ для локального ONNX inference.
+- `apps/extension/blocked/` — отдельная страница блокировки.
 - `apps/extension/trusted.json` — встроенный trusted-список.
-- `apps/extension/models/` — локальная ONNX-модель.
 - `tests/` — unit и integration тесты.
 - `scripts/` — сборка, проверка и упаковка.
 - `docs/` — документация, скриншоты, тестовые материалы.
@@ -194,10 +195,10 @@ git push --tags
 
 - trusted-список: `apps/extension/trusted.json`
 - итоговый verdict: `apps/extension/popup/inspection.js`, `apps/extension/popup/inspection-core.js`
-- ML и эвристика: `apps/extension/popup/model.js`, `apps/extension/popup/model-core.js`, `apps/extension/offscreen.js`
-- popup UI: `apps/extension/popup.html`, `apps/extension/popup.css`, `apps/extension/popup/ui.js`
-- блокировка форм и скачиваний: `apps/extension/src/content/05-blocking-init-and-events.js`
-- экран блокировки: `apps/extension/blocked.html`, `apps/extension/blocked.css`, `apps/extension/blocked.js`
+- ML и эвристика: `apps/extension/popup/model.js`, `apps/extension/popup/model-core.js`, `apps/extension/offscreen/offscreen.js`
+- popup UI: `apps/extension/popup/index.html`, `apps/extension/popup/popup.css`, `apps/extension/popup/ui.js`
+- блокировка форм и скачиваний: `apps/extension/content/src/05-blocking-init-and-events.js`
+- экран блокировки: `apps/extension/blocked/index.html`, `apps/extension/blocked/blocked.css`, `apps/extension/blocked/blocked.js`
 
 ## Дополнительные документы
 

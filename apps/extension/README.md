@@ -61,30 +61,30 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 
 ### Технологии
 - **Chrome Extension Manifest V3**.
-- **Service Worker** (`background.js`) для логики расширения и системных уведомлений.
-- **Content Script** (`content.js`) для автоинспекции и блокировки страницы.
-- **Offscreen Document API** (`offscreen.html`, `offscreen.js`) для ML‑инференса, не зависящего от CSP сайта.
+- **Service Worker** (`background/index.js`) для логики расширения и системных уведомлений.
+- **Content Script** (`content/index.js`) для автоинспекции и блокировки страницы.
+- **Offscreen Document API** (`offscreen/index.html`, `offscreen/offscreen.js`) для ML‑инференса, не зависящего от CSP сайта.
 - **onnxruntime‑web (WASM)** — локальный инференс модели.
-- **ONNX модель** (`models/hybrid_tfidf_num.onnx`).
+- **ONNX модель** (`assets/models/hybrid_tfidf_num.onnx`).
 - **ES Modules** в попапе и фоне.
 - **Chrome Storage** (`sync`, `local`, `managed`) для настроек и списков.
 
 ### Архитектура и структура
 - `manifest.json` — MV3 конфигурация, разрешения, web‑resources.
-- `background.js` — сервис‑воркер: кэш trusted.json, offscreen‑инференс, уведомления, закрытие вкладок.
-- `offscreen.html`, `offscreen.js` — sandbox‑среда для ORT, чтобы избежать CSP страницы.
-- `content.js` — автоинспекция, оверлей, блокировка форм/загрузок, временные разрешения, сигналы страницы (бренд/формы).
+- `background/index.js` — сервис‑воркер: кэш trusted.json, offscreen‑инференс, уведомления, закрытие вкладок.
+- `offscreen/index.html`, `offscreen/offscreen.js` — sandbox‑среда для ORT, чтобы избежать CSP страницы.
+- `content/index.js` — автоинспекция, оверлей, блокировка форм/загрузок, временные разрешения, сигналы страницы (бренд/формы).
 - `trusted.json` — встроенный список доверенных доменов.
-- `models/` — ONNX‑модель.
-- `vendor/ort/` — onnxruntime‑web (js/wasm).
+- `assets/models/` — ONNX‑модель.
+- `assets/vendor/ort/` — onnxruntime‑web (js/wasm).
 - `popup/` — UI попапа:
-  - `popup.html`, `popup.css` — разметка и стили.
+  - `popup/index.html`, `popup/popup.css` — разметка и стили.
   - `main.js` — точка входа.
   - `inspection.js` — логика проверки домена.
   - `model.js` — локальный ML‑инференс + фоллбеки.
   - `data.js` — доступ к trusted.json, политике, истории, спискам и настройкам.
   - `ui.js`, `dom.js`, `i18n.js`, `utils.js` — UI, переводы, вспомогательные утилиты.
-- `icons/` — иконки расширения.
+- `assets/icons/` — иконки расширения.
 
 ### Данные и хранение
 Хранение полностью локальное:
@@ -175,40 +175,40 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 - При необходимости очистите кеш: удалите `builtinTrustedDomains` из `chrome.storage.local` (или переустановите расширение).
 
 #### 2) Обновить/заменить ML‑модель
-1. Замените файл в `models/` (рекомендуется сохранить имя `hybrid_tfidf_num.onnx`).
+1. Замените файл в `assets/models/` (рекомендуется сохранить имя `hybrid_tfidf_num.onnx`).
 2. Если имя другое — обновите:
-   - `MODEL_PATH` в `popup/model.js` и `offscreen.js`;
+   - `MODEL_PATH` в `popup/model.js` и `offscreen/offscreen.js`;
    - `manifest.json` в `web_accessible_resources`.
 3. Убедитесь, что входы модели совпадают с `FEATURE_COLUMNS` и `url`.
-4. Если выходы имеют другое имя — адаптируйте выбор тензора в `popup/model.js` и `offscreen.js`.
+4. Если выходы имеют другое имя — адаптируйте выбор тензора в `popup/model.js` и `offscreen/offscreen.js`.
 5. Проверьте работу на тестовых доменах.
 
 #### 3) Смена/добавление признаков
 **ВАЖНО:** признаки продублированы в трёх файлах, они должны быть синхронизированы:
 - `popup/model.js` (FEATURE_COLUMNS + extractFeatures + эвристика)
-- `offscreen.js` (FEATURE_COLUMNS + extractFeatures + эвристика)
-- `background.js` (FEATURE_COLUMNS + extractFeatures + эвристика)
+- `offscreen/offscreen.js` (FEATURE_COLUMNS + extractFeatures + эвристика)
+- `background/index.js` (FEATURE_COLUMNS + extractFeatures + эвристика)
 
 Меняете набор признаков — меняйте сразу все три места и модель.
 
 #### 4) Изменить порог риска
 - `popup/config.js` → `MODEL_THRESHOLD`
-- `offscreen.js` → `DEFAULT_THRESHOLD` (отдельная константа)
+- `offscreen/offscreen.js` → `DEFAULT_THRESHOLD` (отдельная константа)
 
 #### 5) Обновить onnxruntime‑web
-1. Замените файлы в `vendor/ort/`.
+1. Замените файлы в `assets/vendor/ort/`.
 2. Проверьте список файлов в `manifest.json` → `web_accessible_resources`.
 3. Убедитесь, что `ort.env.wasm.wasmPaths` указывает на актуальные wasm файлы.
 
 #### 6) Обновить UI/локализацию
-- Разметка: `popup/popup.html`
+- Разметка: `popup/index.html`
 - Стили: `popup/popup.css`
 - Тексты: `popup/config.js` → `translations`
 
 Важное правило: **ID и классы, которые используются в JS, должны оставаться стабильными.**
 
 #### 7) Изменить оверлей и блокировки
-- Оверлей создаётся в `content.js` и изолирован в Shadow DOM.
+- Оверлей создаётся в `content/index.js` и изолирован в Shadow DOM.
 - Блокировка форм/загрузок — в `blockInteractions()`.
 - Список блокируемых расширений — `BLOCKED_FILE_EXT`.
 
@@ -221,14 +221,14 @@ CorgPhish is an offline Chrome/Chromium extension that scans sites on open, warn
 Чтобы подключить:
 - используйте `currentSettings` из `popup/main.js` для условного вызова `checkActiveTab()`;
 - прокиньте настройки в контент‑скрипт через `chrome.storage` или `chrome.runtime.sendMessage`;
-- отправляйте сообщения типа `riskNotification` в `background.js` для системных уведомлений.
+- отправляйте сообщения типа `riskNotification` в `background/index.js` для системных уведомлений.
 
 #### 9) Добавить ручную проверку домена
-Логика уже есть в `popup/main.js`, но в `popup.html` нет формы.
+Логика уже есть в `popup/main.js`, но в `popup/index.html` нет формы.
 Добавьте блок с ID:
 - `manualForm`, `manualInput`, `manualHint`
 
-Тексты и стили уже подготовлены в `popup/config.js` и `popup.css`.
+Тексты и стили уже подготовлены в `popup/config.js` и `popup/popup.css`.
 
 #### 10) Версионирование и релиз
 - Поднимайте `version` в `manifest.json`.
@@ -306,24 +306,24 @@ The extension automatically analyzes URLs on page open, compares domains with tr
 
 ### Technologies
 - **Chrome Extension Manifest V3**.
-- **Service Worker** (`background.js`) for logic and notifications.
-- **Content Script** (`content.js`) for auto inspection and blocking.
-- **Offscreen Document API** (`offscreen.html`, `offscreen.js`) for ML inference independent of CSP.
+- **Service Worker** (`background/index.js`) for logic and notifications.
+- **Content Script** (`content/index.js`) for auto inspection and blocking.
+- **Offscreen Document API** (`offscreen/index.html`, `offscreen/offscreen.js`) for ML inference independent of CSP.
 - **onnxruntime‑web (WASM)** — local model inference.
-- **ONNX model** (`models/hybrid_tfidf_num.onnx`).
+- **ONNX model** (`assets/models/hybrid_tfidf_num.onnx`).
 - **ES Modules** in popup and background.
 - **Chrome Storage** (`sync`, `local`, `managed`) for settings and lists.
 
 ### Architecture
 - `manifest.json` — MV3 config, permissions, web resources.
-- `background.js` — service worker: trusted cache, offscreen inference, notifications, tab closing.
-- `offscreen.html`, `offscreen.js` — isolated ORT runtime.
-- `content.js` — auto inspection, overlay, blocking, temp allow, page signals (brand/forms).
+- `background/index.js` — service worker: trusted cache, offscreen inference, notifications, tab closing.
+- `offscreen/index.html`, `offscreen/offscreen.js` — isolated ORT runtime.
+- `content/index.js` — auto inspection, overlay, blocking, temp allow, page signals (brand/forms).
 - `trusted.json` — built‑in trusted domains.
-- `models/` — ONNX model.
-- `vendor/ort/` — onnxruntime‑web assets.
+- `assets/models/` — ONNX model.
+- `assets/vendor/ort/` — onnxruntime‑web assets.
 - `popup/` — popup UI code.
-- `icons/` — extension icons.
+- `assets/icons/` — extension icons.
 
 ### Data & storage
 All storage is local:
@@ -389,37 +389,37 @@ Popup → Settings (tabs “Options”, “Lists”):
 - Clear cache by deleting `builtinTrustedDomains` from `chrome.storage.local` if needed.
 
 #### 2) Update/replace ML model
-1. Replace file in `models/` (keep name `hybrid_tfidf_num.onnx` if possible).
+1. Replace file in `assets/models/` (keep name `hybrid_tfidf_num.onnx` if possible).
 2. If renamed, update:
-   - `MODEL_PATH` in `popup/model.js` and `offscreen.js`;
+   - `MODEL_PATH` in `popup/model.js` and `offscreen/offscreen.js`;
    - `manifest.json` web_accessible_resources.
 3. Ensure model inputs match `FEATURE_COLUMNS` and `url`.
-4. Update tensor output name in `popup/model.js` and `offscreen.js` if needed.
+4. Update tensor output name in `popup/model.js` and `offscreen/offscreen.js` if needed.
 
 #### 3) Add/change features
 **IMPORTANT:** features are duplicated in three files and must stay in sync:
 - `popup/model.js`
-- `offscreen.js`
-- `background.js`
+- `offscreen/offscreen.js`
+- `background/index.js`
 
 #### 4) Change risk threshold
 - `popup/config.js` → `MODEL_THRESHOLD`
-- `offscreen.js` → `DEFAULT_THRESHOLD`
+- `offscreen/offscreen.js` → `DEFAULT_THRESHOLD`
 
 #### 5) Update onnxruntime‑web
-1. Replace files in `vendor/ort/`.
+1. Replace files in `assets/vendor/ort/`.
 2. Check `manifest.json` web_accessible_resources list.
 3. Verify `ort.env.wasm.wasmPaths`.
 
 #### 6) Update UI/localization
-- Markup: `popup/popup.html`
+- Markup: `popup/index.html`
 - Styles: `popup/popup.css`
 - Text: `popup/config.js` → `translations`
 
 IDs/classes used in JS must stay stable.
 
 #### 7) Update overlay & blocking
-- Overlay lives in `content.js` (Shadow DOM).
+- Overlay lives in `content/index.js` (Shadow DOM).
 - Blocking logic in `blockInteractions()`.
 - Blocked file extensions: `BLOCKED_FILE_EXT`.
 
@@ -432,14 +432,14 @@ Some toggles exist in UI but are not fully wired yet:
 To wire them:
 - use `currentSettings` in `popup/main.js` to gate `checkActiveTab()`;
 - pass settings to content script via storage or messages;
-- send `riskNotification` to `background.js` for system notifications.
+- send `riskNotification` to `background/index.js` for system notifications.
 
 #### 9) Add manual domain check
-Logic exists in `popup/main.js` but the form is missing in `popup.html`.
+Logic exists in `popup/main.js` but the form is missing in `popup/index.html`.
 Add elements with IDs:
 - `manualForm`, `manualInput`, `manualHint`
 
-Texts/styles are already in `popup/config.js` and `popup.css`.
+Texts/styles are already in `popup/config.js` and `popup/popup.css`.
 
 #### 10) Versioning & release
 - Bump `version` in `manifest.json`.

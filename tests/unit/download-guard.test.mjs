@@ -9,7 +9,7 @@ import {
   matchGuardedDownload,
   pruneGuardedTabEntries,
   resolveDownloadHost
-} from "../../apps/extension/background-download-guard.js";
+} from "../../apps/extension/background/download-guard.js";
 
 test("resolveDownloadHost normalizes regular URLs", () => {
   assert.equal(resolveDownloadHost("https://WWW.BadSite.com/file.exe"), "badsite.com");
