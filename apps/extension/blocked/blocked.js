@@ -76,10 +76,10 @@ const saveTempAllow = (map) =>
   });
 
 // Временное разрешение удобно для ложных срабатываний и ручной перепроверки пользователем.
-const allowTemporarily = async (domain, minutes = 5) => {
+const allowTemporarily = async (domain, seconds = 30) => {
   if (!domain) return;
   const map = await loadTempAllow();
-  map[domain] = Date.now() + minutes * 60 * 1000;
+  map[domain] = Date.now() + seconds * 1000;
   await saveTempAllow(map);
 };
 
@@ -169,7 +169,7 @@ backBtn.addEventListener("click", () => {
 allowBtn.addEventListener("click", async () => {
   if (isBlacklistReason) return;
   if (!domain || !originalUrl) return;
-  await allowTemporarily(domain, 5);
+  await allowTemporarily(domain, 30);
   // Возвращаем пользователя именно на исходный URL, а не просто на домен.
   chrome.tabs.update({ url: originalUrl });
 });
