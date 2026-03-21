@@ -7,6 +7,19 @@ import { createChromeMock } from "../helpers/chrome-mock.mjs";
 
 const chromeMock = createChromeMock();
 globalThis.chrome = chromeMock;
+const localStorageState = new Map();
+globalThis.localStorage = {
+  getItem: (key) => (localStorageState.has(key) ? localStorageState.get(key) : null),
+  setItem: (key, value) => {
+    localStorageState.set(key, String(value));
+  },
+  removeItem: (key) => {
+    localStorageState.delete(key);
+  },
+  clear: () => {
+    localStorageState.clear();
+  }
+};
 
 const dataModule = await import("../../apps/extension/popup/data.js");
 const {
@@ -28,6 +41,7 @@ const resetState = () => {
   chromeMock.state.local = {};
   chromeMock.state.sync = {};
   chromeMock.state.trusted = ["google.com", "bank.ru"];
+  globalThis.localStorage.clear();
   __resetDataCachesForTests();
 };
 
@@ -47,6 +61,14 @@ const tests = [
     assert.equal(chromeMock.state.local.language, "en");
     assert.equal(chromeMock.state.local.strictMode, true);
   }],
+  ["saveSettings mirrors theme and compact mode locally", async () => {
+    resetState();
+    await saveSettings({ theme: "dark", compactMode: true, autoCheckOnOpen: false });
+    const settings = await loadSettings();
+    assert.equal(settings.theme, "dark");
+    assert.equal(settings.compactMode, true);
+    assert.equal(settings.autoCheckOnOpen, false);
+  }],
   ["loadSettings falls back to mirrored local settings", async () => {
     resetState();
     chromeMock.state.local.blockOnUntrusted = true;
@@ -61,6 +83,25 @@ const tests = [
     chromeMock.state.local.blockOnUntrusted = true;
     const settings = await loadSettings();
     assert.equal(settings.blockOnUntrusted, true);
+  }],
+  ["loadSettings rehydrates settings from local mirror", async () => {
+    resetState();
+    globalThis.localStorage.setItem(
+      "corgphish.settings",
+      JSON.stringify({
+        theme: "dark",
+        compactMode: true,
+        autoCheckOnOpen: false,
+        linkHighlightEnabled: false
+      })
+    );
+    const settings = await loadSettings();
+    assert.equal(settings.theme, "dark");
+    assert.equal(settings.compactMode, true);
+    assert.equal(settings.autoCheckOnOpen, false);
+    assert.equal(settings.linkHighlightEnabled, false);
+    assert.equal(chromeMock.state.local.theme, "dark");
+    assert.equal(chromeMock.state.sync.theme, "dark");
   }],
   ["saveWhitelist normalizes entries", async () => {
     resetState();

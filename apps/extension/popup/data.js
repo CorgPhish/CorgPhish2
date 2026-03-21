@@ -11,6 +11,7 @@ import { isLikelyDomain, normalizeHost } from "./utils.js";
 
 let trustedCache = null;
 const BLOCK_TOGGLE_MIRROR_KEY = "corgphish.blockOnUntrusted";
+const SETTINGS_MIRROR_KEY = "corgphish.settings";
 const normalizeDomainList = (domains = []) =>
   domains.map((domain) => normalizeHost(domain)).filter(Boolean);
 const normalizeTrustedList = (domains = []) => normalizeDomainList(domains).filter(isLikelyDomain);
@@ -26,29 +27,50 @@ const pickKnownSettings = (source = {}) =>
       )
       .map((key) => [key, source[key]])
   );
+const readStorage = (key) => {
+  try {
+    return globalThis.localStorage?.getItem(key) ?? null;
+  } catch (error) {
+    return null;
+  }
+};
+const writeStorage = (key, value) => {
+  try {
+    globalThis.localStorage?.setItem(key, value);
+  } catch (error) {
+    return false;
+  }
+  return true;
+};
 
 export const __resetDataCachesForTests = () => {
   trustedCache = null;
 };
 
 const readBlockToggleMirror = () => {
-  try {
-    const raw = window.localStorage.getItem(BLOCK_TOGGLE_MIRROR_KEY);
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-  } catch (error) {
-    // ignore localStorage failures in popup
-  }
+  const raw = readStorage(BLOCK_TOGGLE_MIRROR_KEY);
+  if (raw === "true") return true;
+  if (raw === "false") return false;
   return undefined;
 };
 
-const writeBlockToggleMirror = (value) => {
+const readSettingsMirror = () => {
+  const raw = readStorage(SETTINGS_MIRROR_KEY);
+  if (!raw) return {};
   try {
-    window.localStorage.setItem(BLOCK_TOGGLE_MIRROR_KEY, String(Boolean(value)));
+    const parsed = JSON.parse(raw);
+    return pickKnownSettings(parsed);
   } catch (error) {
-    // ignore localStorage failures in popup
+    return {};
   }
 };
+
+const writeBlockToggleMirror = (value) => {
+  writeStorage(BLOCK_TOGGLE_MIRROR_KEY, String(Boolean(value)));
+};
+
+const writeSettingsMirror = (settings) =>
+  writeStorage(SETTINGS_MIRROR_KEY, JSON.stringify(pickKnownSettings(settings)));
 
 // RU: Загружаем trusted через service worker.
 // EN: Load trusted domains via service worker.
@@ -114,11 +136,13 @@ export const loadSettings = async () => {
       });
     })
   ]);
+  const settingsMirror = readSettingsMirror();
   const mirrorValue = readBlockToggleMirror();
   const merged = {
     ...DEFAULT_SETTINGS,
     ...syncSettings,
     ...localSettings,
+    ...settingsMirror,
     ...(mirrorValue === undefined ? {} : { blockOnUntrusted: mirrorValue })
   };
   console.info("CorgPhish settings debug", {
@@ -128,14 +152,16 @@ export const loadSettings = async () => {
     mirrorBlockOnUntrusted: mirrorValue,
     resolvedBlockOnUntrusted: merged.blockOnUntrusted
   });
-  if (
-    mirrorValue !== undefined &&
-    localSettings.blockOnUntrusted === undefined &&
-    syncSettings.blockOnUntrusted === undefined
-  ) {
-    // Если popup успел сохранить только локальный mirror, восстанавливаем extension storage автоматически.
-    chrome.storage.local.set({ blockOnUntrusted: mirrorValue });
-    chrome.storage.sync.set({ blockOnUntrusted: mirrorValue });
+  const shouldRehydrate =
+    Object.keys(settingsMirror).some((key) => settingsMirror[key] !== localSettings[key]) ||
+    Object.keys(settingsMirror).some((key) => settingsMirror[key] !== syncSettings[key]) ||
+    (mirrorValue !== undefined &&
+      localSettings.blockOnUntrusted === undefined &&
+      syncSettings.blockOnUntrusted === undefined);
+  if (shouldRehydrate) {
+    const patch = pickKnownSettings(merged);
+    chrome.storage.local.set(patch);
+    chrome.storage.sync.set(patch);
   }
   return merged;
 };
@@ -145,6 +171,7 @@ export const loadSettings = async () => {
 export const saveSettings = (settings) =>
   new Promise((resolve) => {
     const normalized = { ...DEFAULT_SETTINGS, ...pickKnownSettings(settings) };
+    writeSettingsMirror(normalized);
     writeBlockToggleMirror(normalized.blockOnUntrusted);
     console.info("CorgPhish settings debug", {
       stage: "saveSettings",
