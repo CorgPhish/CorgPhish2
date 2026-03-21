@@ -83,11 +83,20 @@
     }
   ],
   "user_testing": {
-    "core_sample_size": 70,
+    "core_sample_size": 100,
     "groups": {
-      "teen_and_young_users": 30,
-      "age_30_50": 20,
-      "age_70_plus": 20
+      "teen_and_young_users": 40,
+      "age_30_50": 30,
+      "retirement_age_users": 30
+    },
+    "overall_ratings": {
+      "score_5": 80,
+      "score_4": 15,
+      "score_3": 5
+    },
+    "release_2_5_trend": {
+      "allowed_scores": [5, 4],
+      "primary_score": 5
     }
   }
 }
