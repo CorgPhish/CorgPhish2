@@ -11,6 +11,25 @@
 ## Суммарный объём
 - Всего интеграционных запусков: `348`
 
+## Где лежат сценарии
+- раннер: `tests/integration/run-integration.mjs`
+- генерация сценариев: `tests/integration/scenarios.mjs`
+- матрица окружений: `tests/integration/data/environments.json`
+- безопасные URL: `tests/integration/data/safe-urls.json`
+- фишинговые URL: `tests/integration/data/phishing-urls.json`
+- синтетические случаи: `tests/integration/data/synthetic-cases.json`
+- ручные UI-сценарии: `tests/integration/data/manual-ui-scenarios.json`
+
+## Матрица окружений
+1. Chrome
+2. Яндекс Браузер
+3. Safari
+4. Windows 11
+5. macOS 14
+6. Linux (Ubuntu 22.04)
+7. Стандартный профиль
+8. Профиль с чистым хранилищем
+
 ## Итоги
 1. Успешные прогоны — `340/348` (`97.7%`).
 2. Обнаружение фишинга — `51/55` (`92.7%`).

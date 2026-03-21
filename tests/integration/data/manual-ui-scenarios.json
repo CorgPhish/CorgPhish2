@@ -1,0 +1,8 @@
+[
+  { "id": "UI-001", "label": "Blocked page back action", "hostname": "securelimite.com", "fullUrl": "https://securelimite.com/validacao.html", "verdict": "phishing", "uiAction": "back", "envIds": ["chrome-win-standard", "safari-macos-standard"] },
+  { "id": "UI-002", "label": "Blocked page temporary open", "hostname": "securelimite.com", "fullUrl": "https://securelimite.com/validacao.html", "verdict": "phishing", "uiAction": "temporary_open", "envIds": ["chrome-win-standard", "safari-macos-standard"] },
+  { "id": "UI-003", "label": "Blocked page blacklist action", "hostname": "tellegramm.com", "fullUrl": "https://tellegramm.com/", "verdict": "phishing", "uiAction": "blacklist", "envIds": ["chrome-win-standard", "safari-macos-standard"] },
+  { "id": "UI-004", "label": "Blocked page report action", "hostname": "goggle-account-center.com", "fullUrl": "https://goggle-account-center.com/login", "verdict": "phishing", "uiAction": "report", "envIds": ["chrome-win-standard", "safari-macos-standard"] },
+  { "id": "UI-005", "label": "Guarded form submission", "hostname": "login-review.example", "fullUrl": "https://login-review.example/auth", "verdict": "phishing", "uiAction": "guard_form", "envIds": ["chrome-win-standard", "safari-macos-standard"] },
+  { "id": "UI-006", "label": "Guarded download action", "hostname": "download-review.example", "fullUrl": "https://download-review.example/file", "verdict": "phishing", "uiAction": "guard_download", "envIds": ["chrome-win-standard", "safari-macos-standard"] }
+]

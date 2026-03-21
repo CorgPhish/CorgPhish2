@@ -1,5 +1,17 @@
 {
   "integration_runs_total": 348,
+  "execution_environment": {
+    "browsers": ["Chrome", "Yandex Browser", "Safari"],
+    "operating_systems": ["Windows 11", "macOS 14", "Linux (Ubuntu 22.04)"],
+    "profiles": ["standard", "clean"]
+  },
+  "integration_dataset_files": [
+    "tests/integration/data/environments.json",
+    "tests/integration/data/safe-urls.json",
+    "tests/integration/data/phishing-urls.json",
+    "tests/integration/data/synthetic-cases.json",
+    "tests/integration/data/manual-ui-scenarios.json"
+  ],
   "test_data_sources": {
     "safe_urls": "internal_safe_set",
     "phishing_urls": "internal_phishing_sample",
@@ -8,6 +20,13 @@
   },
   "unit_tests": {
     "total": 96,
+    "files": [
+      "tests/unit/url-normalization.test.mjs",
+      "tests/unit/risk-score-rules.test.mjs",
+      "tests/unit/trusted-blacklist.test.mjs",
+      "tests/unit/ml-fallback.test.mjs",
+      "tests/unit/storage-history.test.mjs"
+    ],
     "groups": {
       "url_parsing_and_domain_normalization": 24,
       "rule_risk_scoring": 28,

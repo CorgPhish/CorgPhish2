@@ -1,9 +1,12 @@
-// RU: Интеграционный runner: прогоняет synthetic scenarios через resolveInspection и сверяет summary.
-// EN: Integration runner for synthetic scenarios and expected aggregate metrics.
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
 import { resolveInspection } from "../../apps/extension/popup/inspection-core.js";
+import {
+  createGuardedTabEntry,
+  matchGuardedDownload,
+  resolveDownloadHost
+} from "../../apps/extension/background/download-guard.js";
 import { buildIntegrationScenarios } from "./scenarios.mjs";
 
 // Сводим расширенные вердикты к трём пользовательским корзинам: safe / warning / block.
@@ -13,7 +16,20 @@ const verdictBucket = (verdict) => {
   return "safe";
 };
 
-const scenarios = buildIntegrationScenarios();
+assert.equal(resolveDownloadHost("https://WWW.BadSite.com/file.exe"), "badsite.com");
+assert.equal(
+  createGuardedTabEntry({ tabId: 1, domain: "badsite.com", blockDownloads: false }),
+  null
+);
+assert.equal(
+  matchGuardedDownload(
+    { url: "https://safe.example/file.zip", referrer: "https://safe.example/account" },
+    [createGuardedTabEntry({ tabId: 7, domain: "blocked.example", url: "https://blocked.example", verdict: "blacklisted", blockDownloads: true })]
+  ),
+  null
+);
+
+const scenarios = await buildIntegrationScenarios();
 const results = [];
 
 for (const scenario of scenarios) {

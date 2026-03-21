@@ -12,6 +12,21 @@
 4. Ручные сценарии действий пользователя.
    Проверялись popup, blocked page, кнопки предупреждения, переходы по ссылкам, временное разрешение домена и работа репорта.
 
+## Где эти данные лежат в проекте
+- `tests/integration/data/environments.json`
+- `tests/integration/data/safe-urls.json`
+- `tests/integration/data/phishing-urls.json`
+- `tests/integration/data/synthetic-cases.json`
+- `tests/integration/data/manual-ui-scenarios.json`
+
+## Как данные используются
+- `safe-urls.json` разворачивается в `144` интеграционных запуска.
+- `phishing-urls.json` разворачивается в `55` интеграционных запуска.
+- `synthetic-cases.json` разворачивается в `137` интеграционных запуска.
+- `manual-ui-scenarios.json` разворачивается в `12` интеграционных запуска.
+
+Суммарно это даёт `348` сценариев, которые исполняются раннером `tests/integration/run-integration.mjs`.
+
 ## Причина выбора таких источников
 1. Безопасные URL дают оценку ложных срабатываний.
 2. Фишинговые URL дают оценку полноты обнаружения угроз.

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "chrome-win-standard",
+    "browser": "Chrome",
+    "os": "Windows 11",
+    "profile": "standard"
+  },
+  {
+    "id": "chrome-ubuntu-clean",
+    "browser": "Chrome",
+    "os": "Linux (Ubuntu 22.04)",
+    "profile": "clean"
+  },
+  {
+    "id": "yandex-win-clean",
+    "browser": "Yandex Browser",
+    "os": "Windows 11",
+    "profile": "clean"
+  },
+  {
+    "id": "yandex-macos-standard",
+    "browser": "Yandex Browser",
+    "os": "macOS 14",
+    "profile": "standard"
+  },
+  {
+    "id": "safari-macos-standard",
+    "browser": "Safari",
+    "os": "macOS 14",
+    "profile": "standard"
+  },
+  {
+    "id": "safari-macos-clean",
+    "browser": "Safari",
+    "os": "macOS 14",
+    "profile": "clean"
+  }
+]

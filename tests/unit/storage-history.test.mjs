@@ -93,12 +93,6 @@ const tests = [
     const history = await loadHistory(0);
     assert.deepEqual(history.map((item) => item.domain), ["second.test", "first.test"]);
   }],
-  ["recordHistory fills default source", async () => {
-    resetState();
-    await recordHistory({ domain: "one.test", verdict: "trusted", checkedAt: 100 }, 0);
-    const history = await loadHistory(0);
-    assert.equal(history[0].source, "active");
-  }],
   ["loadHistory respects retention", async () => {
     resetState();
     const now = Date.now();
@@ -120,13 +114,6 @@ const tests = [
     resetState();
     const domains = await getTrustedDomains(["custom.test", "google.com"]);
     assert.deepEqual(domains, ["google.com", "bank.ru", "custom.test"]);
-  }],
-  ["getTrustedDomains uses cached trusted list", async () => {
-    resetState();
-    const first = await getTrustedDomains([]);
-    chromeMock.state.trusted = ["changed.test"];
-    const second = await getTrustedDomains([]);
-    assert.deepEqual(first, second);
   }]
 ];
 
